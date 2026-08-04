@@ -1,15 +1,19 @@
-import React, { useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
   Check,
   Circle,
+  Copy,
   Download,
   HelpCircle,
-  QrCode,
+  Mail,
   RotateCcw,
+  Send,
+  UserPlus,
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   type EntryAttendanceDecision,
   type GuestEntryQRRecord,
@@ -20,8 +24,12 @@ import {
   type EntryStatus,
   type InviteStatus,
   type MyTicket,
+  type Participant,
   type RegistrationQueueEntry,
+  type TeamPlayerAccessPath,
 } from '@/app/data/tickets';
+import { resolveTeamPlayerAccess, teamPlayerLabel } from '@/app/data/teamAccess.js';
+import { canAddTeamPlayer, createTeamPlayerSlot, unsendTeamPlayerInvite } from '@/app/data/teamPlayers.js';
 import {
   OrderPaymentSummary,
   formatOrderMoney,
@@ -29,7 +37,23 @@ import {
 import { EmptyStateGraphic } from '@/app/components/EmptyStateGraphic';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { PrimaryButton } from '@/app/components/PrimaryButton';
+import { SecondaryButton } from '@/app/components/SecondaryButton';
 import { SegmentedChoice } from '@/app/components/SegmentedChoice';
+import {
+  getOrderEventLineItems,
+  getOrderEventSubtotal,
+  getOrderRegistrationEntries,
+  getTeamOrderSummary,
+} from '@/app/data/orderPricing.js';
+import {
+  buildBulkFormEmailHref,
+  buildBulkFormLinkMessage,
+  buildFormEmailDraft,
+  buildFormEmailHref,
+  buildParticipantFormLink,
+  getBulkEmailCandidates,
+  getShareableFormEntries,
+} from '@/app/data/formLinks.js';
 type OrderFilter = 'all' | 'pending' | 'complete';
 type MerchStatus = 'Processing' | 'Shipped' | 'Delivered';
 type PaymentStatus = 'Paid' | 'Refunded';
@@ -39,10 +63,13 @@ export interface OrderEventEntry {
   ticket: MyTicket;
   entryName: string;
   participantName: string;
+  participantLabel?: string;
   attendeeEmail?: string;
   category: string;
   status: EntryStatus;
   type: 'self' | 'guest' | 'team';
+  participantId?: string;
+  accessPath?: TeamPlayerAccessPath;
   price: number;
   queueEntry?: RegistrationQueueEntry;
   teamAttachedCount?: number;
@@ -51,6 +78,13 @@ export interface OrderEventEntry {
   attendance?: EntryAttendanceDecision;
   guestQR?: GuestEntryQRRecord;
   inviteStatus?: InviteStatus;
+  claimLinkRevoked?: boolean;
+  passportMemberId?: string;
+}
+
+export function isManagedGuestEntry(entry: OrderEventEntry) {
+  return (entry.type === 'guest' && entry.accessPath !== 'passport')
+    || (entry.type === 'team' && (entry.accessPath === 'pending' || entry.accessPath === 'guest_qr'));
 }
 
 export interface MerchItem {
@@ -131,10 +165,14 @@ export function buildOrders({
   registrationQueueEntries,
   entryAttendance = {},
   guestEntryQRs = {},
+  teamPlayerAccess = {},
+  teamPlayerRoster = {},
 }: {
   registrationQueueEntries: RegistrationQueueEntry[];
   entryAttendance?: Record<string, EntryAttendanceDecision | undefined>;
   guestEntryQRs?: Record<string, GuestEntryQRRecord | undefined>;
+  teamPlayerAccess?: Record<string, TeamPlayerAccessPath | undefined>;
+  teamPlayerRoster?: Record<string, Participant[] | undefined>;
 }): OrderRecord[] {
   const queueByTicket = new Map<string, RegistrationQueueEntry[]>();
   registrationQueueEntries.forEach((entry) => {
@@ -161,33 +199,73 @@ export function buildOrders({
 
     tickets.forEach((ticket) => {
       const queueEntries = queueByTicket.get(ticket.id) || [];
+      const participants = ticket.ticketType === 'team'
+        ? teamPlayerRoster[ticket.id] || ticket.participants
+        : ticket.participants;
       const basePrice = getTicketPrice(ticket);
-      const entries: OrderEventEntry[] = ticket.participants.map((participant, participantIndex) => {
-            const matchingQueue = queueEntries.find((entry) => entry.id.endsWith(participant.id));
+      const teamAttachedCount = participants.filter((participant) => {
+        if (ticket.ticketType !== 'team') return false;
+        const key = `${ticket.id}:${participant.id}`;
+        const accessPath = teamPlayerAccess[key] || participant.accessPath || resolveTeamPlayerAccess({
+          formStatus: participant.formStatus,
+          inviteStatus: participant.inviteStatus,
+          email: participant.email || undefined,
+        });
+        return accessPath !== 'pending';
+      }).length;
+      const entries: OrderEventEntry[] = participants.map((participant, participantIndex) => {
+            const entryId = `${ticket.id}-${participant.id || participantIndex}`;
+            const matchingQueue = queueEntries.find((entry) =>
+              entry.participantId === participant.id || entry.id.endsWith(participant.id),
+            );
+            const accessPath = ticket.ticketType === 'team'
+              ? teamPlayerAccess[`${ticket.id}:${participant.id}`]
+                || participant.accessPath
+                || resolveTeamPlayerAccess({
+                  formStatus: participant.formStatus,
+                  inviteStatus: participant.inviteStatus,
+                  email: participant.email || undefined,
+                })
+              : matchingQueue?.accessPath || participant.accessPath;
             const participantStatus: EntryStatus =
-              matchingQueue?.entryStatus ||
+              ticket.ticketType === 'team' && accessPath !== 'pending'
+                ? 'attached'
+                : matchingQueue?.entryStatus ||
               ticket.entryStatus ||
               (participant.formStatus === 'completed' ? 'attached' : 'pending_form');
-            // A team is one purchase with min/max players, but every player resolves
-            // independently through a Passport claim or an app-less Guest QR.
-            const isGuest = (ticket.ticketType === 'multiple' && !participant.isPrimary) || ticket.ticketType === 'team';
-
-            const entryId = `${ticket.id}-${participant.id || participantIndex}`;
+            const isGuest = ticket.ticketType !== 'team' && !participant.isPrimary;
+            const isBuyerManagedGuest = isGuest && accessPath === 'guest_qr';
+            const playerLabel = ticket.ticketType === 'team' ? teamPlayerLabel(participantIndex) : undefined;
+            const canDisplayTeamEmail = participant.inviteStatus === 'invited' || participant.formStatus === 'completed';
+            const participantName = ticket.ticketType === 'team' && accessPath === 'passport'
+              ? participant.passportDisplayName || playerLabel || participant.name || participant.email || `Guest ${participantIndex + 1}`
+              : ticket.ticketType === 'team'
+                ? participant.name || (canDisplayTeamEmail ? participant.email : undefined) || playerLabel || `Guest ${participantIndex + 1}`
+                : participant.name || participant.email || playerLabel || `Guest ${participantIndex + 1}`;
             return {
               id: entryId,
               ticket,
-              entryName: `${ticket.eventTitle} - ${ticket.ticketTypeName} (${participant.name || participant.email || `Guest ${participantIndex + 1}`})`,
-              participantName: participant.name || participant.email || `Guest ${participantIndex + 1}`,
+              entryName: ticket.ticketType === 'team'
+                ? `${ticket.eventTitle} - ${ticket.ticketTypeName} · ${playerLabel}`
+                : `${ticket.eventTitle} - ${ticket.ticketTypeName} (${participantName})`,
+              participantName,
+              participantLabel: playerLabel || participantName,
               attendeeEmail: participant.email || undefined,
               category: ticket.ticketTypeName,
               status: participantStatus,
-              type: isGuest ? 'guest' as const : 'self' as const,
+              type: ticket.ticketType === 'team' ? 'team' as const : (isBuyerManagedGuest || isGuest) ? 'guest' as const : 'self' as const,
+              participantId: participant.id,
+              accessPath,
               price: Math.round(basePrice / Math.max(ticket.quantity, 1)),
               queueEntry: matchingQueue,
-              buyerAttending: ticket.participants.some((p) => p.isPrimary && p.formStatus === 'completed'),
+              buyerAttending: participants.some((p) => p.isPrimary && p.formStatus === 'completed'),
               attendance: entryAttendance[entryId],
               guestQR: guestEntryQRs[entryId],
               inviteStatus: participant.inviteStatus,
+              claimLinkRevoked: participant.claimLinkRevoked,
+              passportMemberId: participant.passportMemberId,
+              teamAttachedCount: ticket.ticketType === 'team' ? teamAttachedCount : undefined,
+              teamTotalCount: ticket.ticketType === 'team' ? participants.length : undefined,
             };
           });
 
@@ -293,7 +371,7 @@ export function buildOrders({
 }
 
 function getOrderSubtotal(order: OrderRecord) {
-  const eventTotal = order.eventEntries.reduce((sum, entry) => sum + entry.price, 0);
+  const eventTotal = getOrderEventSubtotal(order.eventEntries);
   const merchTotal = order.merchItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   return eventTotal + merchTotal;
 }
@@ -306,6 +384,7 @@ function getItemSummary(order: OrderRecord) {
   const eventGroups = new Map<string, { count: number; category: string }>();
   order.eventEntries.forEach((entry) => {
     const key = `${entry.ticket.eventTitle} - ${entry.category}`;
+    if (entry.type === 'team' && eventGroups.has(key)) return;
     const existing = eventGroups.get(key) || { count: 0, category: entry.category };
     existing.count++;
     eventGroups.set(key, existing);
@@ -487,7 +566,8 @@ function TicketStackLayer({
 
 function TicketStackGraphic({ order }: { order: OrderRecord }) {
   const theme = getTicketStackTheme(order);
-  const totalItems = order.eventEntries.length + order.merchItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItems = getOrderEventLineItems(order.eventEntries).length
+    + order.merchItems.reduce((sum, item) => sum + item.quantity, 0);
   const visibleStackCount = Math.min(3, Math.max(1, totalItems));
 
   return (
@@ -565,15 +645,438 @@ function OrderCard({ order, onOpen }: { order: OrderRecord; onOpen: () => void }
   );
 }
 
+function appOrigin() {
+  return typeof window === 'undefined' ? '' : window.location.origin;
+}
+
+function copyText(value: string, successMessage: string) {
+  if (!navigator.clipboard) {
+    toast.error('Copy is unavailable in this browser');
+    return;
+  }
+
+  navigator.clipboard
+    .writeText(value)
+    .then(() => toast.success(successMessage))
+    .catch(() => toast.error('Could not copy link'));
+}
+
+function EmailReviewSheet({
+  entry,
+  open,
+  onClose,
+  onOpenEmail,
+}: {
+  entry: OrderEventEntry;
+  open: boolean;
+  onClose: () => void;
+  onOpenEmail: (recipient: string) => void;
+}) {
+  const [recipient, setRecipient] = useState(entry.attendeeEmail ?? '');
+  const [keyboardInset, setKeyboardInset] = useState(0);
+
+  useEffect(() => {
+    if (open) setRecipient(entry.attendeeEmail ?? '');
+  }, [entry.attendeeEmail, open]);
+
+  useEffect(() => {
+    if (!open) {
+      setKeyboardInset(0);
+      return undefined;
+    }
+
+    const viewport = window.visualViewport;
+    if (!viewport) return undefined;
+
+    const updateKeyboardInset = () => {
+      setKeyboardInset(Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop));
+    };
+
+    updateKeyboardInset();
+    viewport.addEventListener('resize', updateKeyboardInset);
+    viewport.addEventListener('scroll', updateKeyboardInset);
+
+    return () => {
+      viewport.removeEventListener('resize', updateKeyboardInset);
+      viewport.removeEventListener('scroll', updateKeyboardInset);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose, open]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <div
+          className="fixed inset-0 z-[90] flex items-end justify-center p-3 sm:items-center sm:p-5"
+          style={keyboardInset > 0 ? { paddingBottom: `${keyboardInset + 12}px` } : undefined}
+        >
+          <motion.button
+            type="button"
+            aria-label="Close email preview"
+            className="absolute inset-0 bg-[#10211e]/28 backdrop-blur-[2px]"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
+          />
+          <motion.section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="email-review-title"
+            data-testid="email-review-sheet"
+            className="relative max-h-[calc(100svh-1.5rem)] w-full max-w-[520px] overflow-y-auto rounded-[20px] bg-white p-5 shadow-[0_24px_70px_-28px_rgba(16,33,30,0.55)] ring-1 ring-[#d7e5e2]"
+            style={keyboardInset > 0 ? { maxHeight: `calc(100svh - ${keyboardInset + 24}px)` } : undefined}
+            initial={{ opacity: 0, y: 24, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.985 }}
+            transition={{ type: 'spring', bounce: 0, duration: 0.34 }}
+          >
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#d7e5e2] sm:hidden" />
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#e8f7f3] text-[#177564]">
+              <Mail className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 id="email-review-title" className="text-[18px] font-semibold tracking-[-0.3px] text-[#181d27]">
+                Send form link
+              </h2>
+              <p className="mt-1 text-[12px] font-medium text-[#64748b]">
+                Review before your email app opens.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close email preview"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[22px] leading-none text-[#64748b] transition-colors hover:bg-[#f3f8f7] hover:text-[#181d27] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="mt-5 rounded-[14px] border border-[#d7e5e2] bg-[#f8fcfb] p-3.5">
+          <label htmlFor="invite-recipient-email" className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8a9bb1]">
+            Recipient email
+          </label>
+          <input
+            id="invite-recipient-email"
+            type="email"
+            value={recipient}
+            onChange={(event) => setRecipient(event.target.value)}
+            placeholder="name@example.com"
+            className="mt-2 min-h-12 w-full rounded-[11px] border border-[#c9ddd9] bg-white px-3.5 text-[14px] font-semibold text-[#181d27] outline-none transition-shadow placeholder:font-medium placeholder:text-[#8a9bb1] focus:border-[#177564] focus:ring-2 focus:ring-[#177564]/15"
+          />
+          <p className="mt-2 text-[11px] leading-relaxed text-[#64748b]">
+            Your default PlanOut invite will be ready in your email app.
+          </p>
+        </div>
+
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-11 items-center justify-center rounded-[11px] px-4 py-2 text-[12px] font-semibold text-[#64748b] transition-colors hover:bg-[#f3f8f7] hover:text-[#181d27] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenEmail(recipient.trim())}
+            data-testid="email-review-send"
+            disabled={!/^\S+@\S+\.\S+$/.test(recipient.trim())}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[11px] bg-[#177564] px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#0f6b5f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <Send className="h-3.5 w-3.5" />
+            Send invite
+          </button>
+        </div>
+          </motion.section>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function BulkEmailReviewSheet({
+  order,
+  entries,
+  open,
+  onClose,
+  onSend,
+}: {
+  order: OrderRecord;
+  entries: OrderEventEntry[];
+  open: boolean;
+  onClose: () => void;
+  onSend: (entries: OrderEventEntry[]) => void;
+}) {
+  const [emailDrafts, setEmailDrafts] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!open) return;
+    setEmailDrafts(Object.fromEntries(entries.map((entry) => [entry.id, entry.attendeeEmail || ''])));
+  }, [entries, open]);
+
+  const draftEntries = entries.map((entry) => ({
+    ...entry,
+    attendeeEmail: emailDrafts[entry.id]?.trim() || '',
+  }));
+  const allEmailsValid = draftEntries.length > 0
+    && draftEntries.every((entry) => /^\S+@\S+\.\S+$/.test(entry.attendeeEmail || ''));
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[90] flex items-end justify-center p-3 sm:items-center sm:p-5">
+          <motion.button
+            type="button"
+            aria-label="Close bulk email review"
+            className="absolute inset-0 bg-[#10211e]/28 backdrop-blur-[2px]"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
+          />
+          <motion.section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-email-review-title"
+            data-testid="bulk-email-review-sheet"
+            className="relative max-h-[calc(100svh-1.5rem)] w-full max-w-[520px] overflow-y-auto rounded-[20px] bg-white p-5 shadow-[0_24px_70px_-28px_rgba(16,33,30,0.55)] ring-1 ring-[#d7e5e2]"
+            initial={{ opacity: 0, y: 24, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.985 }}
+            transition={{ type: 'spring', bounce: 0, duration: 0.34 }}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#d7e5e2] sm:hidden" />
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#e8f7f3] text-[#177564]">
+                  <Mail className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 id="bulk-email-review-title" className="text-[18px] font-semibold tracking-[-0.3px] text-[#181d27]">
+                    Email pending forms
+                  </h2>
+                  <p className="mt-1 text-[12px] font-medium text-[#64748b]">
+                    Review recipients before your email app opens.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close bulk email review"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[22px] leading-none text-[#64748b] transition-colors hover:bg-[#f3f8f7] hover:text-[#181d27] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-[14px] border border-[#d7e5e2] bg-[#f8fcfb] p-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[12px] font-semibold text-[#315f57]">{entries.length} unsent form{entries.length === 1 ? '' : 's'}</p>
+                <p className="text-[11px] font-medium text-[#6a817b]">{order.name}</p>
+              </div>
+              <div className="mt-3 divide-y divide-[#e1ece9]">
+                {draftEntries.map((entry, index) => {
+                  const label = entry.participantLabel || entry.participantName || `Player ${index + 1}`;
+                  return (
+                    <label key={entry.id} className="block py-3 first:pt-0 last:pb-0">
+                      <span className="text-[11px] font-semibold text-[#315f57]">{label}</span>
+                      <input
+                        type="email"
+                        value={entry.attendeeEmail}
+                        onChange={(event) => setEmailDrafts((current) => ({ ...current, [entry.id]: event.target.value }))}
+                        placeholder="name@example.com"
+                        aria-label={`${label} email`}
+                        className="mt-1.5 min-h-11 w-full rounded-[10px] border border-[#c9ddd9] bg-white px-3 text-[13px] font-semibold text-[#181d27] outline-none transition-shadow placeholder:font-medium placeholder:text-[#8a9bb1] focus:border-[#177564] focus:ring-2 focus:ring-[#177564]/15"
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <p className="mt-3 text-[11px] leading-relaxed text-[#64748b]">
+              Only unsent forms without Passport or Guest QR access are included.
+            </p>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex min-h-11 items-center justify-center rounded-[11px] px-4 py-2 text-[12px] font-semibold text-[#64748b] transition-colors hover:bg-[#f3f8f7] hover:text-[#181d27] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => onSend(draftEntries)}
+                data-testid="bulk-email-review-send"
+                disabled={!allEmailsValid}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[11px] bg-[#177564] px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#0f6b5f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <Send className="h-3.5 w-3.5" />
+                Send invites
+              </button>
+            </div>
+          </motion.section>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function ParticipantFormLinkActions({
+  entry,
+  order,
+  onShare,
+}: {
+  entry: OrderEventEntry;
+  order: OrderRecord;
+  onShare?: () => void;
+}) {
+  const formLink = buildParticipantFormLink(entry, order.id, appOrigin());
+  const [emailReviewOpen, setEmailReviewOpen] = useState(false);
+
+  const openEmail = (recipient: string) => {
+    const draftEntry = { ...entry, attendeeEmail: recipient };
+    onShare?.();
+    window.location.href = buildFormEmailHref(draftEntry, order, appOrigin());
+    setEmailReviewOpen(false);
+  };
+
+  return (
+    <>
+      <div className="flex shrink-0 flex-wrap justify-end gap-2 sm:flex-nowrap">
+        <button
+          type="button"
+          onClick={() => setEmailReviewOpen(true)}
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-[#d7e5e2] bg-white px-3 py-2 text-[12px] font-semibold text-[#315f57] transition-colors hover:bg-[#f3fbf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30"
+          title="Enter an email and review the invite"
+        >
+          <Mail className="h-3.5 w-3.5" />
+          Send link
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onShare?.();
+            copyText(formLink, 'Link copied');
+          }}
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] bg-[#177564] px-3 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-[#0f6b5f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 active:scale-[0.98]"
+        >
+          <Copy className="h-3.5 w-3.5" />
+          Copy link
+        </button>
+      </div>
+      <EmailReviewSheet
+        entry={entry}
+        open={emailReviewOpen}
+        onClose={() => setEmailReviewOpen(false)}
+        onOpenEmail={openEmail}
+      />
+    </>
+  );
+}
+
+function ParticipantFormShareControls({
+  order,
+  entries = order.eventEntries,
+  embedded = false,
+}: {
+  order: OrderRecord;
+  entries?: OrderEventEntry[];
+  embedded?: boolean;
+}) {
+  const [bulkEmailReviewOpen, setBulkEmailReviewOpen] = useState(false);
+  const shareableEntries = getShareableFormEntries(entries);
+  if (shareableEntries.length === 0) return null;
+
+  const bulkEmailCandidates = getBulkEmailCandidates(shareableEntries);
+  const canEmailAll = bulkEmailCandidates.length > 0;
+
+  return (
+    <>
+      <div className={embedded ? 'mt-4 flex flex-col gap-2.5 border-t border-[#d3e6e1] pt-4 sm:flex-row sm:items-center sm:justify-end' : 'rounded-[14px] border border-[#d7e5e2] bg-[#f3fbf9] p-3.5'}>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            disabled={!canEmailAll}
+            title={canEmailAll ? 'Review unsent pending forms before sending' : 'No unsent pending forms to email'}
+            onClick={() => setBulkEmailReviewOpen(true)}
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[#c7ded9] bg-white px-3 py-2 text-[11px] font-semibold text-[#315f57] transition-colors hover:bg-[#f3fbf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <Send className="h-3.5 w-3.5" />
+            Email all
+          </button>
+          <button
+            type="button"
+            onClick={() => copyText(
+              buildBulkFormLinkMessage(order, shareableEntries, appOrigin()),
+              'Links copied',
+            )}
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] bg-[#177564] px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-[#0f6b5f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 active:scale-[0.98]"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Copy all
+          </button>
+        </div>
+        {canEmailAll ? (
+          <p className={embedded ? 'order-first text-[11px] font-medium leading-4 text-[#6a817b] sm:order-none' : 'text-pretty mt-2.5 text-[11px] leading-5 text-[#516b66]'}>
+            Review {bulkEmailCandidates.length} unsent form{bulkEmailCandidates.length === 1 ? '' : 's'} before sending.
+          </p>
+        ) : (
+          <p className={embedded ? 'order-first text-[11px] font-medium leading-4 text-[#6a817b] sm:order-none' : 'text-pretty mt-2.5 text-[11px] leading-5 text-[#516b66]'}>
+            No unsent forms to email.
+          </p>
+        )}
+      </div>
+      <BulkEmailReviewSheet
+        order={order}
+        entries={bulkEmailCandidates}
+        open={bulkEmailReviewOpen}
+        onClose={() => setBulkEmailReviewOpen(false)}
+        onSend={(draftEntries) => {
+          setBulkEmailReviewOpen(false);
+          window.location.href = buildBulkFormEmailHref(order, draftEntries, appOrigin());
+        }}
+      />
+    </>
+  );
+}
+
 export function OrdersPage() {
   const navigate = useNavigate();
-  const { registrationQueueEntries, entryAttendance, guestEntryQRs } = useAppContext();
+  const { registrationQueueEntries, entryAttendance, guestEntryQRs, teamPlayerAccess, teamPlayerRoster } = useAppContext();
   const [activeFilter, setActiveFilter] = useState<OrderFilter>('all');
   const orders = useMemo(() => buildOrders({
     registrationQueueEntries,
     entryAttendance,
     guestEntryQRs,
-  }), [entryAttendance, guestEntryQRs, registrationQueueEntries]);
+    teamPlayerAccess,
+    teamPlayerRoster,
+  }), [entryAttendance, guestEntryQRs, registrationQueueEntries, teamPlayerAccess, teamPlayerRoster]);
 
   const filteredOrders = orders.filter((order) => {
     if (activeFilter === 'pending') return orderHasPending(order);
@@ -588,7 +1091,7 @@ export function OrdersPage() {
           Orders
         </h1>
         <p className="mt-2 max-w-[560px] text-[13px] font-medium leading-relaxed text-[#64748b]">
-          Manage registration items, required forms, Passport access, guest QR, and merch.
+          Forms, access, and delivery in one place.
         </p>
       </div>
 
@@ -615,20 +1118,67 @@ export function OrdersPage() {
   );
 }
 
+type RegistrationStateTone = 'ready' | 'claim' | 'pending' | 'warning' | 'danger';
+
+function RegistrationCardHeader({ title, date }: { title: string; date: string }) {
+  return (
+    <header className="border-b border-[#e6efec] bg-[#fbfdfc] px-4 py-4 sm:px-5">
+      <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug tracking-[-0.2px] text-[#181d27]">
+        {title}
+      </h3>
+      <p className="mt-1 text-[12px] font-semibold text-[#8a9bb1]">{date}</p>
+    </header>
+  );
+}
+
+function RegistrationStatePanel({
+  tone,
+  children,
+}: {
+  tone: RegistrationStateTone;
+  children: React.ReactNode;
+}) {
+  const toneClasses = {
+    ready: 'border-[#bfe5de] bg-[#ecfdf8]',
+    claim: 'border-[#d8ddff] bg-[#f5f7ff]',
+    pending: 'border-[#dfe9e6] bg-[#f8fcfb]',
+    warning: 'border-[#fde68a] bg-[#fffbeb]',
+    danger: 'border-[#fecaca] bg-[#fef2f2]',
+  }[tone];
+
+  return <div className={`mt-3 rounded-[14px] border p-3.5 ${toneClasses}`}>{children}</div>;
+}
+
+function RegistrationActionRow({ children }: { children: React.ReactNode }) {
+  return <div className="mt-3 flex flex-wrap items-center gap-2">{children}</div>;
+}
+
 function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: string }) {
   const navigate = useNavigate();
   const { generateGuestEntryQR, member } = useAppContext();
+  const isGuestAccessEntry = (entry.type === 'guest' && entry.accessPath === 'guest_qr')
+    || (entry.type === 'team' && entry.accessPath === 'guest_qr');
+  const isIndividualPassportEntry = (entry.type === 'guest' || entry.type === 'team') && entry.accessPath === 'passport';
 
-  if (entry.type === 'guest' && entry.guestQR?.claimedAt) {
+  if (isGuestAccessEntry && entry.guestQR?.claimedAt) {
     return (
       <div className="mt-3 rounded-[14px] border border-[#d8ddff] bg-[#f5f7ff] p-3.5">
         <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#4338ca] ring-1 ring-[#d8ddff]">Claimed into Passport</span>
-        <p className="mt-2 text-[12.5px] font-medium leading-relaxed text-[#46518f]">This Guest QR was claimed once and is permanently inactive. The entry now lives on the recipient’s Passport.</p>
       </div>
     );
   }
 
-  if (entry.type === 'guest' && entry.status === 'attached') {
+  if (isIndividualPassportEntry && entry.status === 'attached') {
+    return (
+      <div className="mt-3 rounded-[14px] border border-[#d8ddff] bg-[#f5f7ff] p-3.5">
+        <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#4338ca] ring-1 ring-[#d8ddff]">
+          In Passport
+        </span>
+      </div>
+    );
+  }
+
+  if (isGuestAccessEntry && entry.status === 'attached') {
     const openQr = () => {
       const qr = entry.guestQR?.isActive
         ? entry.guestQR
@@ -651,11 +1201,9 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#177564] ring-1 ring-[#d9ece8]">
-              {entry.guestQR?.isActive ? 'Guest QR sent' : 'Guest QR ready to send'}
+              {entry.guestQR?.isActive ? 'QR sent' : 'Guest QR ready'}
             </span>
-            <p className="mt-2 text-[12.5px] font-medium leading-relaxed text-[#315f57]">
-              The organizer form is complete for this guest. Send an app-less QR for buyer-managed gate entry.
-            </p>
+            <p className="mt-2 text-[12.5px] font-medium leading-relaxed text-[#315f57]">Ready to share · no app required.</p>
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -714,7 +1262,7 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
             compact
             className="text-[12px]"
           >
-            Complete team entries
+                Complete
           </PrimaryButton>
           {entry.status === 'attached' && (
             <button
@@ -737,7 +1285,7 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
     );
   }
 
-  if (entry.type === 'team' && entry.status === 'attached') {
+  if (false && entry.type === 'team' && entry.status === 'attached') {
     const completedCount = entry.teamAttachedCount ?? 0;
     const totalCount = entry.teamTotalCount || 0;
     const passportCount = entry.ticket.participants.filter(
@@ -750,7 +1298,7 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
     return (
       <div className="mt-3 rounded-[15px] border border-[#b7e2d9] bg-[linear-gradient(180deg,#effdf8_0%,#e6faf5_100%)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.88)]">
         <p className="text-[13px] font-semibold text-[#0f6b5f]">
-          Team ready for check-in
+          Player entries ready for check-in
         </p>
         <p className="mt-1.5 text-[12px] font-medium leading-relaxed text-[#315f57]">
           Each player uses their own Passport or buyer-managed Guest QR at the gate. There is no team-wide gate credential.
@@ -845,7 +1393,9 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
     );
   }
 
-  const isInvitedGuest = entry.type === 'guest' && entry.inviteStatus === 'invited';
+  const isInvitedGuest = (entry.type === 'guest' || entry.type === 'team')
+    && entry.inviteStatus === 'invited'
+    && entry.status !== 'attached';
   const isGuestWithoutBuyer = entry.type === 'guest' && !entry.buyerAttending;
   const isUnassignedGuest = entry.type === 'guest' && entry.inviteStatus === 'not_invited';
 
@@ -869,7 +1419,7 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
             Claim link sent
           </span>
           <p className="text-[12.5px] font-medium leading-relaxed text-[#3f4a8a]">
-            {entry.attendeeEmail || 'Recipient'} will complete the organizer form and receive this entry on their Passport.
+            {entry.attendeeEmail || 'Recipient'} will complete the registration form and receive this entry on their Passport.
           </p>
         </div>
 
@@ -935,23 +1485,26 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
   }
 
   const isTeamPlayer = entry.ticket.ticketType === 'team';
+  const participantQuery = entry.participantId
+    ? `&participantId=${encodeURIComponent(entry.participantId)}`
+    : '';
   const actionLabel = isTeamPlayer
-    ? 'Complete team form'
+    ? 'Fill up'
     : (isGuestWithoutBuyer || isUnassignedGuest)
       ? 'Fill form & get QR'
-      : 'Complete forms';
+      : 'Complete';
   const actionTarget = isTeamPlayer
-    ? `/orders/${entry.ticket.id}/form?returnTo=orders`
-    : (isGuestWithoutBuyer || isUnassignedGuest)
+      ? `/orders/${entry.ticket.id}/form?returnTo=orders&participantId=${encodeURIComponent(entry.participantId || '')}`
+      : (isGuestWithoutBuyer || isUnassignedGuest)
       ? `/orders/${orderId}/entry/${entry.id}/guest-qr`
-      : `/orders/${entry.ticket.id}/form?returnTo=orders${entry.queueEntry?.id ? `&entryId=${entry.queueEntry.id}` : ''}`;
+      : `/orders/${entry.ticket.id}/form?returnTo=orders${entry.queueEntry?.id ? `&entryId=${entry.queueEntry.id}` : ''}${participantQuery}`;
 
   return (
     <div className="mt-3 rounded-[14px] border border-[#fde68a] bg-[#fffbeb] p-3">
       <p className="text-[13px] font-semibold text-[#92400e]">
         {entry.type === 'team'
-          ? `Player forms still needed - ${entry.teamAttachedCount || 0} of ${entry.teamTotalCount || 0} complete`
-          : `Forms still needed - ${entryReason(entry.status)}`}
+          ? 'Player entry needed'
+          : `Form needed · ${entryReason(entry.status)}`}
       </p>
       <button
         type="button"
@@ -964,25 +1517,257 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
   );
 }
 
-function RegistrationItem({ entry, orderId }: { entry: OrderEventEntry; orderId: string }) {
+function RegistrationItem({ entry, orderId, order, teamEntries }: { entry: OrderEventEntry; orderId: string; order: OrderRecord; teamEntries: OrderEventEntry[] }) {
+  if (entry.type === 'team') {
+    return <TeamRegistrationItem entry={entry} order={order} teamEntries={teamEntries} />;
+  }
+
+  const isShareable = getShareableFormEntries([entry]).length > 0;
+
   return (
-    <article className="rounded-[18px] border border-[#e6eeec] bg-white p-4">
-      <div className="min-w-0">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug tracking-[-0.2px] text-[#181d27]">
-              {entry.entryName}
-            </h3>
-            <p className="mt-1 text-[12px] font-semibold text-[#8a9bb1]">
-              {entry.ticket.eventDate}
-            </p>
-          </div>
-          <span className={`shrink-0 pt-0.5 text-[13px] font-semibold ${entry.status === 'released' ? 'line-through text-[#b42318]' : 'text-[#181d27]'}`}>
-            {formatMoney(entry.price)}
-          </span>
+    <article className="overflow-hidden rounded-[18px] border border-[#dfe9e6] bg-white">
+      <header className="border-b border-[#e6efec] bg-[#fbfdfc] px-4 py-4 sm:px-5">
+        <div className="min-w-0">
+          <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug tracking-[-0.2px] text-[#181d27]">
+            {entry.entryName}
+          </h3>
+          <p className="mt-1 text-[12px] font-semibold text-[#8a9bb1]">
+            {entry.ticket.eventDate}
+          </p>
         </div>
+      </header>
+      <div className="px-4 pb-4 sm:px-5">
         <PassportBanner entry={entry} orderId={orderId} />
+        {isShareable && (
+          <div className="mt-4 flex flex-col gap-2 border-t border-[#edf2f1] pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[12px] font-semibold text-[#315f57]">Form still needed</p>
+              <p className="mt-0.5 truncate text-[11px] font-medium text-[#64748b]">
+                {entry.attendeeEmail || 'No email added — copy the link for chat'}
+              </p>
+            </div>
+            <ParticipantFormLinkActions entry={entry} order={order} />
+          </div>
+        )}
       </div>
+    </article>
+  );
+}
+
+function TeamRegistrationItem({ entry, order, teamEntries }: { entry: OrderEventEntry; order: OrderRecord; teamEntries: OrderEventEntry[] }) {
+  const navigate = useNavigate();
+  const { member, teamPlayerRoster, setTeamPlayerRoster, setTeamPlayerAccess } = useAppContext();
+  const summary = getTeamOrderSummary(teamEntries);
+  const maxPlayers = entry.ticket.maxParticipants ?? teamEntries.length;
+  const canAddPlayer = canAddTeamPlayer(teamEntries.length, maxPlayers);
+
+  const openPlayerForm = (playerEntry: OrderEventEntry) => {
+    if (!playerEntry.participantId) return;
+    navigate(`/orders/${playerEntry.ticket.id}/form?returnTo=orders&participantId=${encodeURIComponent(playerEntry.participantId)}&playerOnly=1`);
+  };
+
+  const unsendPlayerInvite = (playerEntry: OrderEventEntry) => {
+    const participantId = playerEntry.participantId;
+    if (!participantId) return;
+
+    const ticketId = playerEntry.ticket.id;
+    const roster = teamPlayerRoster[ticketId] || playerEntry.ticket.participants;
+    const nextRoster = roster.map((participant) => (
+      participant.id === participantId
+        ? unsendTeamPlayerInvite(participant)
+        : participant
+    ));
+
+    setTeamPlayerRoster(ticketId, nextRoster);
+    setTeamPlayerAccess(ticketId, participantId, 'pending');
+  };
+
+  const reactivateRevokedPlayerInvite = (playerEntry: OrderEventEntry) => {
+    if (!playerEntry.claimLinkRevoked || !playerEntry.participantId) return;
+    const ticketId = playerEntry.ticket.id;
+    const roster = teamPlayerRoster[ticketId] || playerEntry.ticket.participants;
+    const nextRoster = roster.map((participant) => (
+      participant.id === playerEntry.participantId
+        ? {
+            ...participant,
+            claimLinkRevoked: false,
+            inviteStatus: 'invited' as const,
+            accessPath: 'pending' as const,
+          }
+        : participant
+    ));
+    setTeamPlayerRoster(ticketId, nextRoster);
+    setTeamPlayerAccess(ticketId, playerEntry.participantId, 'pending');
+  };
+
+  const addPlayerSlot = () => {
+    if (!canAddPlayer) return;
+
+    const ticketId = entry.ticket.id;
+    const roster = teamPlayerRoster[ticketId] || entry.ticket.participants;
+    const newPlayer = createTeamPlayerSlot(ticketId, roster);
+    setTeamPlayerRoster(ticketId, [...roster, newPlayer]);
+  };
+
+  if (!summary) return null;
+
+  return (
+    <article className="overflow-hidden rounded-[18px] border border-[#dfe9e6] bg-white">
+      <header className="border-b border-[#d9e8e4] bg-[linear-gradient(180deg,#f7fcfb_0%,#f0f9f6_100%)] px-4 py-4 sm:px-5">
+        <h3 className="text-balance line-clamp-2 text-[15px] font-semibold leading-snug tracking-[-0.2px] text-[#163d37]">
+          {summary.title}
+        </h3>
+        <p className="mt-1 text-[12px] font-semibold text-[#6e8a83]">
+          {entry.ticket.eventDate}
+        </p>
+      </header>
+
+      <section className="px-4 pt-4 sm:px-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-[#e4f4ef] text-[#177564]">
+            <Users className="h-[18px] w-[18px]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold tracking-[-0.2px] text-[#163d37]">Players</p>
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-2">
+              <p className="text-[17px] font-semibold tracking-[-0.3px] text-[#315f57]">{summary.setUpCount} of {summary.totalCount} ready</p>
+              {!canAddPlayer && <span className="text-[11px] font-semibold text-[#7b8b9a]">Full</span>}
+            </div>
+          </div>
+        </div>
+        <p className="mt-4 text-[12.5px] font-medium leading-relaxed text-[#315f57]">
+          Fill for Guest QR, or send a link to their Passport.
+        </p>
+        <div
+          className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#dcebe7]"
+          role="progressbar"
+          aria-label={`${summary.setUpCount} of ${summary.totalCount} player entries set up`}
+          aria-valuemin={0}
+          aria-valuemax={summary.totalCount}
+          aria-valuenow={summary.setUpCount}
+        >
+          <span
+            className="block h-full rounded-full bg-[#177564]"
+            style={{ width: `${summary.totalCount ? (summary.setUpCount / summary.totalCount) * 100 : 0}%` }}
+          />
+        </div>
+        <ParticipantFormShareControls order={order} entries={teamEntries} embedded />
+      </section>
+
+      <div className="mt-4 border-t border-[#e2eee9] px-4 sm:px-5">
+        {teamEntries.map((playerEntry, index) => {
+          const hasGuestQr = playerEntry.accessPath === 'guest_qr' && playerEntry.status === 'attached';
+          const hasPassport = playerEntry.accessPath === 'passport' && playerEntry.status === 'attached';
+          const hasPendingInvite = playerEntry.inviteStatus === 'invited';
+          const isBuyerPlayer = playerEntry.passportMemberId === member.memberId;
+          const playerName = playerEntry.participantLabel || playerEntry.participantName || `Player ${index + 1}`;
+          const playerState = hasGuestQr
+            ? 'Guest QR'
+            : hasPassport
+              ? 'In Passport'
+              : hasPendingInvite
+                ? 'Sent'
+                : playerEntry.status === 'attached'
+                  ? 'Ready'
+                  : 'Form needed';
+          const playerDisplayName = isBuyerPlayer ? 'You' : playerEntry.participantName;
+          const playerDetail = playerDisplayName && playerDisplayName !== playerName
+            ? `${playerDisplayName} · ${playerState}`
+            : playerState;
+
+          return (
+            <div key={playerEntry.id} className="flex flex-col gap-3 border-b border-[#edf2f0] py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="truncate text-[12.5px] font-semibold text-[#181d27]">{playerName}</p>
+                <div className="mt-1 flex min-w-0 items-center gap-1.5">
+                  {hasPassport || hasGuestQr ? (
+                    <Check className="h-3 w-3 shrink-0 text-[#177564]" />
+                  ) : null}
+                  <p className="truncate text-[11px] font-medium text-[#516173]">{playerDetail}</p>
+                </div>
+              </div>
+              {hasGuestQr ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <SecondaryButton
+                    type="button"
+                    compact
+                    onClick={() => openPlayerForm(playerEntry)}
+                    className="text-[11px]"
+                  >
+                    View form
+                  </SecondaryButton>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/orders/${entry.ticket.id}/entry/${playerEntry.id}/guest-qr`)}
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-[10px] bg-[#177564] px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-[#0f6b5f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 active:scale-[0.98]"
+                  >
+                    Guest QR
+                  </button>
+                </div>
+              ) : hasPassport ? (
+                isBuyerPlayer ? (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <SecondaryButton
+                      type="button"
+                      compact
+                      onClick={() => openPlayerForm(playerEntry)}
+                      className="text-[11px]"
+                    >
+                      View form
+                    </SecondaryButton>
+                  </div>
+                ) : null
+              ) : hasPendingInvite ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <span className="self-center rounded-full bg-[#f1f3ff] px-2.5 py-1 text-[10px] font-semibold text-[#4f46e5]">
+                    Sent
+                  </span>
+                  <SecondaryButton
+                    type="button"
+                    compact
+                    onClick={() => unsendPlayerInvite(playerEntry)}
+                    className="text-[11px]"
+                  >
+                    Unsend
+                  </SecondaryButton>
+                  <ParticipantFormLinkActions
+                    entry={playerEntry}
+                    order={order}
+                    onShare={() => reactivateRevokedPlayerInvite(playerEntry)}
+                  />
+                </div>
+              ) : playerEntry.status !== 'attached' ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <SecondaryButton
+                    type="button"
+                    compact
+                    onClick={() => openPlayerForm(playerEntry)}
+                    className="text-[11px]"
+                  >
+                    Fill up
+                  </SecondaryButton>
+                  <ParticipantFormLinkActions
+                    entry={playerEntry}
+                    order={order}
+                    onShare={() => reactivateRevokedPlayerInvite(playerEntry)}
+                  />
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {canAddPlayer && (
+        <button
+          type="button"
+          onClick={addPlayerSlot}
+          className="mx-4 mb-4 mt-2 inline-flex min-h-11 w-[calc(100%-2rem)] items-center justify-center gap-2 rounded-[11px] border border-dashed border-[#b7ded6] bg-[#f8fdfc] px-3 py-2 text-[12px] font-semibold text-[#177564] transition-colors hover:bg-[#ecfdf8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 active:scale-[0.99] sm:mx-5 sm:w-[calc(100%-2.5rem)]"
+        >
+          <UserPlus className="h-4 w-4" />
+          Add player
+        </button>
+      )}
     </article>
   );
 }
@@ -1064,7 +1849,7 @@ function MerchandiseItem({ item }: { item: MerchItem }) {
 
 function PaymentSummary({ order }: { order: OrderRecord }) {
   const lineItems = [
-    ...order.eventEntries.map((entry) => ({ id: entry.id, label: entry.entryName, amount: entry.price })),
+    ...getOrderEventLineItems(order.eventEntries),
     ...order.merchItems.map((item) => ({ id: item.id, label: `${item.quantity}x ${item.name}`, amount: item.price * item.quantity })),
   ];
   const subtotal = getOrderSubtotal(order);
@@ -1076,7 +1861,7 @@ function PaymentSummary({ order }: { order: OrderRecord }) {
       fees={order.fees}
       total={getOrderTotal(order)}
       paymentMeta={`${order.paymentMethod} - ${order.paymentDate}`}
-      title="Payment on this order"
+          title="Payment summary"
       statusLabel={order.paymentStatus}
       statusTone={order.paymentStatus === 'Paid' ? 'ready' : 'danger'}
     />
@@ -1086,12 +1871,14 @@ function PaymentSummary({ order }: { order: OrderRecord }) {
 export function OrderDetailPage() {
   const navigate = useNavigate();
   const { orderId } = useParams<{ orderId: string }>();
-  const { registrationQueueEntries, entryAttendance, guestEntryQRs } = useAppContext();
+  const { registrationQueueEntries, entryAttendance, guestEntryQRs, teamPlayerAccess, teamPlayerRoster } = useAppContext();
   const orders = useMemo(() => buildOrders({
     registrationQueueEntries,
     entryAttendance,
     guestEntryQRs,
-  }), [entryAttendance, guestEntryQRs, registrationQueueEntries]);
+    teamPlayerAccess,
+    teamPlayerRoster,
+  }), [entryAttendance, guestEntryQRs, registrationQueueEntries, teamPlayerAccess, teamPlayerRoster]);
   const order = orders.find((item) =>
     item.id === orderId ||
     item.ref === orderId ||
@@ -1115,39 +1902,44 @@ export function OrderDetailPage() {
     );
   }
 
-  const guestEntries = order.eventEntries.filter((entry) => entry.type === 'guest');
+    const registrationEntries = getOrderRegistrationEntries(order.eventEntries);
+    const hasTeamRegistration = registrationEntries.some((entry) => entry.type === 'team');
 
   return (
-    <div className="relative flex flex-col gap-5 pb-8">
-      <div className="relative flex items-end justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="font-mono text-[12px] font-semibold text-[#64748b]">{order.ref}</p>
-          <h1 className="mt-1 text-[27px] font-semibold leading-none tracking-[-0.8px] text-[#181d27]">
-            Order details
-          </h1>
-          <p className="mt-3 text-[12px] font-semibold text-[#64748b]">
-            Purchased {order.date}
-          </p>
+    <div className="relative flex flex-col gap-5 pb-10">
+      <header className="px-1">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="font-mono text-[11px] font-semibold tracking-[0.02em] text-[#71829a]">{order.ref}</p>
+            <h1 className="text-balance mt-2 text-[28px] font-semibold leading-[1.05] tracking-[-0.65px] text-[#181d27]">
+              Order details
+            </h1>
+          </div>
+          <span className={`mt-1 shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold ${order.paymentStatus === 'Paid' ? 'bg-[#def2ee] text-[#177564]' : 'bg-[#fef2f2] text-[#b42318]'}`}>
+            {order.paymentStatus}
+          </span>
         </div>
-      </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium text-[#64748b]">
+          <span>Purchased {order.date}</span>
+          <span aria-hidden="true" className="text-[#b7c5c1]">·</span>
+          <span>{registrationEntries.length} registration item{registrationEntries.length === 1 ? '' : 's'}</span>
+        </div>
+      </header>
 
       {order.eventEntries.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[17px] font-semibold tracking-[-0.3px] text-[#181d27]">Registration items</h2>
-            {guestEntries.length > 0 && (
-              <button
-                type="button"
-                onClick={() => navigate(`/orders/${order.id}/guest-manager`)}
-                className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#dbe7e4] bg-white px-3.5 text-[12px] font-semibold text-[#177564] shadow-[0_8px_20px_-18px_rgba(15,23,42,0.5)] transition-all active:scale-[0.98]"
-              >
-                <QrCode className="h-3.5 w-3.5" />
-                Manage guest QRs
-              </button>
-            )}
+        <section className="flex flex-col gap-3.5" aria-labelledby="registration-items-heading">
+          <div className="flex items-baseline justify-between gap-3 px-1">
+            <h2 id="registration-items-heading" className="text-balance text-[18px] font-semibold tracking-[-0.3px] text-[#181d27]">Registration items</h2>
           </div>
-          {order.eventEntries.map((entry) => (
-            <RegistrationItem key={entry.id} entry={entry} orderId={order.id} />
+          {!hasTeamRegistration && <ParticipantFormShareControls order={order} />}
+          {registrationEntries.map((entry) => (
+            <RegistrationItem
+              key={entry.id}
+              entry={entry}
+              orderId={order.id}
+              order={order}
+              teamEntries={order.eventEntries.filter((item) => item.type === 'team' && item.ticket.id === entry.ticket.id)}
+            />
           ))}
         </section>
       )}
