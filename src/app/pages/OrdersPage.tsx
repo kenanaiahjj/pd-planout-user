@@ -1162,19 +1162,19 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
 
   if (isGuestAccessEntry && entry.guestQR?.claimedAt) {
     return (
-      <div className="mt-3 rounded-[14px] border border-[#d8ddff] bg-[#f5f7ff] p-3.5">
+      <RegistrationStatePanel tone="claim">
         <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#4338ca] ring-1 ring-[#d8ddff]">Claimed into Passport</span>
-      </div>
+      </RegistrationStatePanel>
     );
   }
 
   if (isIndividualPassportEntry && entry.status === 'attached') {
     return (
-      <div className="mt-3 rounded-[14px] border border-[#d8ddff] bg-[#f5f7ff] p-3.5">
+      <RegistrationStatePanel tone="claim">
         <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#4338ca] ring-1 ring-[#d8ddff]">
           In Passport
         </span>
-      </div>
+      </RegistrationStatePanel>
     );
   }
 
@@ -1197,7 +1197,7 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
     };
 
     return (
-      <div className="mt-3 rounded-[14px] border border-[#d9ece8] bg-[#f3fbf9] p-3.5">
+      <RegistrationStatePanel tone="ready">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#177564] ring-1 ring-[#d9ece8]">
@@ -1206,7 +1206,7 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
             <p className="mt-2 text-[12.5px] font-medium leading-relaxed text-[#315f57]">Ready to share · no app required.</p>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <RegistrationActionRow>
           <PrimaryButton
             type="button"
             onClick={openQr}
@@ -1215,8 +1215,8 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
           >
             {entry.guestQR?.isActive ? 'Manage QR' : 'Generate & send QR'}
           </PrimaryButton>
-        </div>
-      </div>
+        </RegistrationActionRow>
+      </RegistrationStatePanel>
     );
   }
 
@@ -1340,56 +1340,62 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
 
   if (entry.status === 'attached') {
     return (
-      <div className="mt-3 rounded-[14px] border border-[#bfe5de] bg-[#ecfdf8] p-3">
+      <RegistrationStatePanel tone="ready">
         <p className="text-[13px] font-semibold text-[#177564]">
           Ready for gate - staff scans your universal QR.
         </p>
-        <PrimaryButton
-          type="button"
-          onClick={() => navigate('/passport')}
-          compact
-          className="mt-3 text-[12px]"
-        >
-          View Passport
-        </PrimaryButton>
-      </div>
+        <RegistrationActionRow>
+          <PrimaryButton
+            type="button"
+            onClick={() => navigate('/passport')}
+            compact
+            className="text-[12px]"
+          >
+            View Passport
+          </PrimaryButton>
+        </RegistrationActionRow>
+      </RegistrationStatePanel>
     );
   }
 
   if (entry.status === 'resubmit_required') {
     return (
-      <div className="mt-3 rounded-[14px] border border-[#fdba74] bg-[#fff7ed] p-3">
+      <RegistrationStatePanel tone="warning">
         <p className="text-[13px] font-semibold text-[#c2410c]">
           Form update required - review and resubmit
         </p>
-        <button
-          type="button"
-          onClick={() => navigate(`/forms/${entry.id}/diff`)}
-          className="mt-3 rounded-[10px] bg-[#c2410c] px-3 py-2 text-[12px] font-semibold text-white"
-        >
-          Review changes
-        </button>
-      </div>
+        <RegistrationActionRow>
+          <button
+            type="button"
+            onClick={() => navigate(`/forms/${entry.id}/diff`)}
+            className="min-h-11 rounded-[10px] bg-[#c2410c] px-3 py-2 text-[12px] font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c2410c]/30"
+          >
+            Review changes
+          </button>
+        </RegistrationActionRow>
+      </RegistrationStatePanel>
     );
   }
 
   if (entry.status === 'released') {
     return (
-      <div className="mt-3 rounded-[14px] border border-[#fecaca] bg-[#fef2f2] p-3">
+      <RegistrationStatePanel tone="danger">
         <p className="text-[13px] font-semibold text-[#b42318]">
           Spot released — form deadline missed
         </p>
         <p className="mt-1 text-[12px] font-medium leading-relaxed text-[#991b1b]">
           The registration form was not submitted before {entry.ticket.deadline || entry.ticket.eventDate}. Your reserved spot has been returned to inventory. No refund is issued for released spots.
         </p>
-        <button
-          type="button"
-          onClick={() => navigate(`/events/${entry.ticket.eventId}`)}
-          className="mt-3 rounded-[10px] bg-[#b42318] px-3 py-2 text-[12px] font-semibold text-white"
-        >
-          Check if slots available
-        </button>
-      </div>
+        <RegistrationActionRow>
+          <button
+            type="button"
+            onClick={() => navigate(`/events/${entry.ticket.eventId}`)}
+            className="min-h-11 rounded-[10px] bg-[#b42318] px-3 py-2 text-[12px] font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b42318]/30"
+          >
+            Check if slots available
+          </button>
+        </RegistrationActionRow>
+      </RegistrationStatePanel>
     );
   }
 
@@ -1413,7 +1419,7 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
     };
 
     return (
-      <div className="mt-3 rounded-[14px] border border-[#d8ddff] bg-[#f5f7ff] p-3.5">
+      <RegistrationStatePanel tone="claim">
         <div className="flex flex-col gap-1.5">
           <span className="w-fit rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#3f3cc8] ring-1 ring-[#d8ddff]">
             Claim link sent
@@ -1462,7 +1468,7 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
           </div>
         ) : (
           <>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <RegistrationActionRow>
               <button
                 type="button"
                 onClick={() => toast.success('Claim link copied', { description: entry.attendeeEmail })}
@@ -1477,10 +1483,10 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
               >
                 Wrong email? Change
               </button>
-            </div>
+            </RegistrationActionRow>
           </>
         )}
-      </div>
+      </RegistrationStatePanel>
     );
   }
 
@@ -1500,20 +1506,22 @@ function PassportBanner({ entry, orderId }: { entry: OrderEventEntry; orderId: s
       : `/orders/${entry.ticket.id}/form?returnTo=orders${entry.queueEntry?.id ? `&entryId=${entry.queueEntry.id}` : ''}${participantQuery}`;
 
   return (
-    <div className="mt-3 rounded-[14px] border border-[#fde68a] bg-[#fffbeb] p-3">
+    <RegistrationStatePanel tone="warning">
       <p className="text-[13px] font-semibold text-[#92400e]">
         {entry.type === 'team'
           ? 'Player entry needed'
           : `Form needed · ${entryReason(entry.status)}`}
       </p>
-      <button
-        type="button"
-        onClick={() => navigate(actionTarget)}
-        className="mt-3 rounded-[10px] bg-[#b45309] px-3 py-2 text-[12px] font-semibold text-white"
-      >
-        {actionLabel}
-      </button>
-    </div>
+      <RegistrationActionRow>
+        <button
+          type="button"
+          onClick={() => navigate(actionTarget)}
+          className="min-h-11 rounded-[10px] bg-[#b45309] px-3 py-2 text-[12px] font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b45309]/30"
+        >
+          {actionLabel}
+        </button>
+      </RegistrationActionRow>
+    </RegistrationStatePanel>
   );
 }
 
@@ -1526,16 +1534,7 @@ function RegistrationItem({ entry, orderId, order, teamEntries }: { entry: Order
 
   return (
     <article className="overflow-hidden rounded-[18px] border border-[#dfe9e6] bg-white">
-      <header className="border-b border-[#e6efec] bg-[#fbfdfc] px-4 py-4 sm:px-5">
-        <div className="min-w-0">
-          <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug tracking-[-0.2px] text-[#181d27]">
-            {entry.entryName}
-          </h3>
-          <p className="mt-1 text-[12px] font-semibold text-[#8a9bb1]">
-            {entry.ticket.eventDate}
-          </p>
-        </div>
-      </header>
+      <RegistrationCardHeader title={entry.entryName} date={entry.ticket.eventDate} />
       <div className="px-4 pb-4 sm:px-5">
         <PassportBanner entry={entry} orderId={orderId} />
         {isShareable && (
@@ -1613,14 +1612,7 @@ function TeamRegistrationItem({ entry, order, teamEntries }: { entry: OrderEvent
 
   return (
     <article className="overflow-hidden rounded-[18px] border border-[#dfe9e6] bg-white">
-      <header className="border-b border-[#d9e8e4] bg-[linear-gradient(180deg,#f7fcfb_0%,#f0f9f6_100%)] px-4 py-4 sm:px-5">
-        <h3 className="text-balance line-clamp-2 text-[15px] font-semibold leading-snug tracking-[-0.2px] text-[#163d37]">
-          {summary.title}
-        </h3>
-        <p className="mt-1 text-[12px] font-semibold text-[#6e8a83]">
-          {entry.ticket.eventDate}
-        </p>
-      </header>
+      <RegistrationCardHeader title={summary.title} date={entry.ticket.eventDate} />
 
       <section className="px-4 pt-4 sm:px-5">
         <div className="flex items-start gap-3">
