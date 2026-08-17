@@ -44,6 +44,13 @@ Use directions 2 and 4. The route determines the screen, with no mixed scanner/r
 - Scanner detection calls `claimGuestEntryQR(scannedCode)` before navigating. Navigation occurs only after a successful claim.
 - Prototype state switching continues to navigate to an explicit code and state query.
 
+### Repeatable sample scan
+
+- Every activation of **Use sample QR** generates a fresh prototype reference in the `GE-TEMP-4021-<unique>` namespace.
+- The demo fixture recognizes that namespace as an eligible Canlaon Marathon entry, so each sample activation exercises the same claim, persistence, Passport return, and success-toast path as a new QR.
+- Sample claims reuse one stable demo entry slot in Passport. A later sample replaces the earlier sample record instead of accumulating duplicate Canlaon cards.
+- Real Guest QR references retain normal one-time claim protection; the repeatable behavior applies only to the explicit sample action.
+
 ### Visual treatment
 
 - Preserve the dark neutral scanner stage so the QR frame remains the only high-contrast target.
@@ -60,4 +67,5 @@ Use directions 2 and 4. The route determines the screen, with no mixed scanner/r
 - Opening a direct `?code=<ref>` link continues to render one event-review state.
 - Browser back/forward navigation does not combine scanner and resolved content.
 - Existing camera, photo upload, sample QR, claim, Passport return, and prototype preview flows remain functional.
+- **Use sample QR** can be repeated indefinitely and reaches the successful Passport state every time without creating duplicate sample cards.
 - Focused tests, the full test suite, production build, and mobile browser verification pass.
