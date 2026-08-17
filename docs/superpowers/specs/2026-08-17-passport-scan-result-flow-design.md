@@ -11,23 +11,27 @@ The add-entry page stores the scanned reference separately from the route. When 
 ## Considered directions
 
 1. **Restyle the hybrid state.** Lowest implementation effort, but it preserves contradictory information and does not repair browser back/forward behavior.
-2. **Make the route canonical.** Recommended. `?scan=1` always means the focused scanner; `?code=<ref>` always means one resolved event-review state. Retrying clears the old result before navigation.
+2. **Make the route canonical.** `?scan=1` always means the focused scanner; direct `?code=<ref>` links mean one resolved event-review state. Retrying clears the old result before navigation.
 3. **Wrap the flow in a modal sheet.** Visually closer to an iOS sheet, but it adds navigation complexity to a task that already owns the full-screen route.
+4. **Claim immediately after a successful scan.** Approved. The scanner performs the one-time claim, returns to Passport, and confirms the added event with a toast. Direct code links retain the review state for recovery and shared-link entry.
 
 ## Approved design
 
-Use direction 2. The route determines the screen, with no mixed scanner/result composition.
+Use directions 2 and 4. The route determines the screen, with no mixed scanner/result composition, while successful camera/photo scans complete the claim without an extra confirmation screen.
 
 ### Scan state
 
 - `/passport/add-entry?scan=1` opens the existing full-screen, camera-first scanner.
 - Do not show the page eyebrow, explanatory document header, stale event card, or separate retry card behind the scanner.
 - Invalid camera or photo input remains inside the scanner as concise inline feedback, preserving the user's context.
+- A recognized, eligible Guest QR is claimed immediately, persisted to Passport, and followed by replacement navigation to `/passport`.
+- Passport shows an **Entry added to Passport** success toast with the event name.
+- Missing, revoked, or already-claimed codes remain in the scanner and show a specific error toast.
 - Close returns to Passport. Upload and sample-scan recovery paths remain available.
 
 ### Resolved event state
 
-- `/passport/add-entry?code=<ref>` shows the existing compact event-review composition.
+- Direct `/passport/add-entry?code=<ref>` links show the existing compact event-review composition.
 - The event identity and semantic outcome appear once.
 - Available entries show one primary add action. Already-added entries show **View Passport**. Unavailable entries show **Return to Passport**.
 - **Scan another Guest QR** is a quiet secondary action and fully clears the previous result.
@@ -37,6 +41,7 @@ Use direction 2. The route determines the screen, with no mixed scanner/result c
 - Derive the submitted Guest QR reference from the current `code` query parameter.
 - Keep only transient interaction state locally, such as a successful claim result.
 - Synchronize scanner visibility with the route so browser navigation cannot recreate a stale hybrid.
+- Scanner detection calls `claimGuestEntryQR(scannedCode)` before navigating. Navigation occurs only after a successful claim.
 - Prototype state switching continues to navigate to an explicit code and state query.
 
 ### Visual treatment
@@ -50,7 +55,9 @@ Use direction 2. The route determines the screen, with no mixed scanner/result c
 
 - Selecting **Scan another Guest QR** from any resolved state displays only the scanner.
 - The previous event name, attendee, reference, and status are absent from `?scan=1`.
-- Scanning a valid QR navigates with replacement to `?code=<ref>` and renders one event-review state.
+- Scanning a valid, eligible QR adds the record, navigates with replacement to `/passport`, and shows an **Entry added to Passport** toast containing the event name.
+- Scanning a missing, revoked, or already-claimed code stays on the scanner and shows the matching error toast.
+- Opening a direct `?code=<ref>` link continues to render one event-review state.
 - Browser back/forward navigation does not combine scanner and resolved content.
 - Existing camera, photo upload, sample QR, claim, Passport return, and prototype preview flows remain functional.
 - Focused tests, the full test suite, production build, and mobile browser verification pass.
