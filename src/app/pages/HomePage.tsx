@@ -671,7 +671,7 @@ function FormsToFinishSection({
         {entries.slice(0, 2).map((entry, i) => {
           const ticket = findTicket(entry);
           const progress = formProgress(ticket, entry);
-          const actionLabel = entry.type === 'team' ? 'Complete team entries' : entry.entryStatus === 'resubmit_required' ? 'Resubmit' : 'Finish form';
+          const actionLabel = entry.type === 'team' ? 'Complete player details' : entry.entryStatus === 'resubmit_required' ? 'Resubmit' : 'Finish form';
 
           return (
             <button
@@ -733,10 +733,10 @@ function EmptyUserHome({
           </div>
 
           <div className="min-w-0 flex-1 pt-1">
-            <h1 className="max-w-[270px] text-[28px] font-semibold leading-[1.03] tracking-[-0.8px] text-[#181d27]">
+            <h1 className="max-w-none text-[28px] sm:text-[36px] font-semibold leading-[1.03] tracking-[-0.8px] text-[#181d27]">
               {first === 'there' ? 'Welcome to PlanOut' : `Welcome back, ${first}`}
             </h1>
-            <p className="mt-2 max-w-[250px] text-[13px] font-medium leading-snug text-[#64748b]">
+            <p className="mt-2 max-w-none text-[13px] sm:text-[15px] font-medium leading-snug text-[#64748b]">
               Browse events to find your first race, tournament, or challenge.
             </p>
             <div className="mt-5 flex max-w-full flex-wrap items-center gap-2">
@@ -884,10 +884,10 @@ export function HomePage({ onEventSelect, onGoToEvents, userName }: HomePageProp
             </div>
 
             <div className="min-w-0 flex-1 pt-0.5">
-              <h1 className="max-w-[270px] text-[28px] font-semibold leading-[1.03] tracking-[-0.8px] text-[#181d27]">
+              <h1 className="max-w-none text-[28px] sm:text-[34px] font-semibold leading-[1.03] tracking-[-0.8px] text-[#181d27]">
                 Welcome back, {firstName(holderName)}
               </h1>
-              <p className="mt-2 max-w-[250px] text-[13px] font-medium leading-snug text-[#64748b]">
+              <p className="mt-2 max-w-none text-[13px] sm:text-[15px] font-medium leading-snug text-[#64748b]">
                 {hasPending ? 'Complete your forms to keep event-day access ready.' : 'Your event-day access is ready when you need it.'}
               </p>
               <div className="mt-4 flex max-w-full flex-wrap items-center gap-2">
@@ -967,7 +967,7 @@ export function HomePage({ onEventSelect, onGoToEvents, userName }: HomePageProp
             Browse all
           </button>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {RECOMMENDED_EVENTS.slice(0, 2).map((event) => (
             <EventCard
               key={event.id}

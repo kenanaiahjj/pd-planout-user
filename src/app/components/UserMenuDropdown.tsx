@@ -15,7 +15,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { IdCard } from 'lucide-react';
 import menuSvg from '../../imports/svg-p879t0cu32';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { useAppContext } from '@/app/context/AppContext';
@@ -44,8 +43,6 @@ interface UserMenuDropdownProps {
   userAvatarUrl?: string;
   /** Navigate to Profile page. */
   onProfileClick?: () => void;
-  /** Navigate to Passport page. */
-  onPassportClick?: () => void;
   /** Navigate to Inbox page. */
   onInboxClick?: () => void;
   /** Navigate to Settings page. */
@@ -146,7 +143,6 @@ export function UserMenuDropdown({
   userEmail,
   userAvatarUrl,
   onProfileClick,
-  onPassportClick,
   onInboxClick,
   onSettingsClick,
   onSignOut,
@@ -211,11 +207,6 @@ export function UserMenuDropdown({
       ),
     },
     {
-      label: 'Passport',
-      onClick: onPassportClick,
-      icon: <IdCard className="w-[18px] h-[18px] shrink-0" strokeWidth={1.5} />,
-    },
-    {
       label: 'Inbox',
       onClick: onInboxClick,
       icon: (
@@ -241,7 +232,11 @@ export function UserMenuDropdown({
     <div ref={wrapperRef} className="relative">
       {/* Trigger — avatar button */}
       <button
+        type="button"
         onClick={toggle}
+        aria-label="Open profile menu"
+        aria-haspopup="menu"
+        aria-expanded={open}
         className={`w-8 h-8 rounded-full overflow-hidden shrink-0 transition-all duration-200 cursor-pointer ${
           open
             ? 'ring-2 ring-[#177564] ring-offset-2 ring-offset-white'

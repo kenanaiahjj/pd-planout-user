@@ -12,7 +12,7 @@ import { useAppContext } from '@/app/context/AppContext';
 export function EventDetailRoute() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { setCheckoutIntent } = useAppContext();
+  const { setCheckoutIntent, addCartItems } = useAppContext();
 
   const event = MOCK_EVENTS.find((e) => e.id === eventId);
 
@@ -30,7 +30,19 @@ export function EventDetailRoute() {
           navigate(`/organizers/${encodeURIComponent(org.slug)}`);
         }
       }}
-      onGoToCart={() => navigate('/cart')}
+      onGoToCart={(items) => {
+        if (items?.length) {
+          addCartItems({
+            eventId: event.id,
+            eventName: event.title,
+            date: event.date,
+            location: event.location,
+            image: event.image || '',
+            items,
+          });
+        }
+        navigate('/cart');
+      }}
       onGoToCheckout={(eventName, category, price, image, items) => {
         setCheckoutIntent({ eventName, category, price, image, items });
         navigate('/checkout');

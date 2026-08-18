@@ -34,3 +34,35 @@ test('shared form controls expose stable semantic hooks without changing their A
   assert.match(segmentedSource, /data-selected=\{isActive \? '' : undefined\}/);
 });
 
+test('ParticipantFormPage opts into Quiet luxury without changing its structure', () => {
+  assert.match(participantSource, /participant-form-premium flex flex-col gap-3 pb-6/);
+  assert.match(participantSource, /participant-form-event-card/);
+  assert.match(participantSource, /participant-form-card/);
+  assert.match(participantSource, /participant-form-identity/);
+  assert.match(participantSource, /participant-form-ownership/);
+  assert.match(participantSource, /participant-form-owner-choice/);
+  assert.match(participantSource, /participant-form-upload/);
+  assert.match(participantSource, /participant-form-footer/);
+  assert.match(participantSource, /Fill Details Myself/);
+  assert.match(participantSource, /Invite via Email/);
+  assert.match(participantSource, /Save details/);
+  assert.match(participantSource, /Submit Form/);
+});
+
+test('Quiet luxury CSS is scoped and leaves shared defaults untouched', () => {
+  assert.match(stylesSource, /\.participant-form-premium\s*\{/);
+  assert.match(stylesSource, /\.participant-form-premium \.form-text-field__frame/);
+  assert.match(stylesSource, /\.participant-form-premium \.segmented-choice/);
+  assert.match(stylesSource, /\.participant-form-premium \.participant-form-owner-choice/);
+  assert.doesNotMatch(stylesSource, /^\.form-text-field__frame\s*\{/m);
+  assert.doesNotMatch(stylesSource, /^\.segmented-choice\s*\{/m);
+});
+
+test('Checkout scopes Quiet luxury to participant form containers only', () => {
+  assert.match(checkoutSource, /participant-form-premium space-y-3/);
+  assert.match(checkoutSource, /participant-form-premium participant-form-card rounded-\[22px\]/);
+  assert.match(checkoutSource, /participant-form-ownership flex flex-col gap-2/);
+  assert.match(checkoutSource, /participant-form-owner-choice flex min-h-\[70px\]/);
+  assert.match(checkoutSource, /data-selected=\{selected \? '' : undefined\}/);
+  assert.doesNotMatch(checkoutSource, /Checkout dev tools[\s\S]{0,900}participant-form-premium/);
+});

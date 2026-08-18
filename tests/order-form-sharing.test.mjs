@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {
+import * as formLinks from '../src/app/data/formLinks.js';
+const {
   buildBulkFormEmailHref,
   buildBulkFormLinkMessage,
   buildFormEmailDraft,
@@ -9,7 +10,8 @@ import {
   getBulkEmailCandidates,
   getBulkEmailEntries,
   getShareableFormEntries,
-} from '../src/app/data/formLinks.js';
+  groupBulkEmailEntriesByEvent,
+} = formLinks;
 
 const { claimFormEntry } = await import('../src/app/data/formLinks.js');
 
@@ -37,6 +39,10 @@ const participantFormSource = fs.readFileSync(
   new URL('../src/app/pages/ParticipantFormPage.tsx', import.meta.url),
   'utf8',
 );
+const iosKeyboardSource = fs.readFileSync(
+  new URL('../src/app/components/IOSKeyboard.tsx', import.meta.url),
+  'utf8',
+);
 
 test('Orders exposes individual form email and copy actions', () => {
   assert.match(ordersSource, /Send link/);
@@ -54,30 +60,108 @@ test('order details unify bulk form sharing with registration items', () => {
 });
 
 test('team player setup owns its bulk form sharing controls', () => {
-  assert.match(ordersSource, /ParticipantFormShareControls order=\{order\} entries=\{teamEntries\} embedded/);
+  assert.match(ordersSource, /<ParticipantFormShareControls[\s\S]*order=\{order\}[\s\S]*entries=\{teamEntries\}[\s\S]*onShareEntries=\{sharePlayerInvites\}/);
   assert.match(ordersSource, /!hasTeamRegistration/);
 });
 
 test('team order copy is concise without removing the ownership cue', () => {
-  assert.match(ordersSource, />\s*Email all\s*</);
+  assert.match(ordersSource, />\s*Send all\s*</);
   assert.match(ordersSource, />\s*Copy all\s*</);
   assert.match(ordersSource, /Fill for Guest QR, or send a link to their Passport\./);
-  assert.match(ordersSource, /Review \{bulkEmailCandidates\.length\} unsent form/);
+  assert.match(ordersSource, /bulkEmailCandidates\.length\} unsent form/);
   assert.doesNotMatch(ordersSource, />\s*Share forms\s*</);
   assert.doesNotMatch(ordersSource, /Send all by email or copy all participant form links for a chat/);
 });
 
 test('individual and team registration items share the same visual primitives', () => {
+  assert.match(ordersSource, /function RegistrationItemShell/);
   assert.match(ordersSource, /function RegistrationCardHeader/);
   assert.match(ordersSource, /function RegistrationStatePanel/);
   assert.match(ordersSource, /function RegistrationActionRow/);
-  assert.match(ordersSource, /<RegistrationCardHeader[\s\S]*summary\.title/);
-  assert.match(ordersSource, /<RegistrationCardHeader[\s\S]*entry\.entryName/);
+  assert.match(ordersSource, /<RegistrationItemShell[\s\S]*summary\.title/);
+  assert.match(ordersSource, /<RegistrationItemShell[\s\S]*entry\.entryName/);
   assert.match(ordersSource, /<RegistrationStatePanel[\s\S]*Ready for gate/);
   assert.match(ordersSource, /<RegistrationStatePanel[\s\S]*Claim link sent/);
   assert.match(ordersSource, /<RegistrationStatePanel[\s\S]*Guest QR ready/);
   assert.match(ordersSource, /<RegistrationActionRow/);
+  assert.match(ordersSource, /<PrimaryButton[\s\S]*entry\/\$\{playerEntry\.id\}\/guest-qr[\s\S]*>\s*View QR\s*<\/PrimaryButton>/);
+  assert.doesNotMatch(ordersSource, />\s*Guest QR\s*<\/PrimaryButton>/);
+  assert.doesNotMatch(ordersSource, /<RegistrationStatePanel tone="warning">\s*<p className="text-\[12\.5px\] font-semibold text-\[#92400e\]">Form needed<\/p>/);
+  assert.match(ordersSource, /function RegistrationActionRow[\s\S]*flex flex-wrap items-center justify-end gap-2/);
+  assert.doesNotMatch(ordersSource, /border-t border-\[#f1e4bd\] pt-3/);
+  assert.match(ordersSource, /bg-\[#fff7d6\].*text-\[#8a5b08\]/);
+  assert.match(ordersSource, /order=\{order\}\s*compact\s*onShare=/);
   assert.doesNotMatch(ordersSource, /bg-\[linear-gradient\(180deg,#f7fcfb/);
+});
+
+test('ready registration status is concise without losing QR access', () => {
+  const passportBannerSource = ordersSource.slice(
+    ordersSource.indexOf('function PassportBanner'),
+    ordersSource.indexOf('function RegistrationItem({'),
+  );
+
+  assert.match(passportBannerSource, />\s*Ready for gate\s*</);
+  assert.match(passportBannerSource, />\s*PlanOut Passport\s*</);
+  assert.doesNotMatch(passportBannerSource, />\s*Universal QR\s*</);
+  assert.doesNotMatch(passportBannerSource, /Ready for gate - staff scans your universal QR\./);
+  assert.match(passportBannerSource, /<PrimaryButton[\s\S]*>\s*View QR\s*<\/PrimaryButton>/);
+});
+
+test('orders use the shared registration section without a redundant heading', () => {
+  assert.doesNotMatch(ordersSource, /const showRegistrationItemsHeading/);
+  assert.doesNotMatch(ordersSource, /function RegistrationItemsHeader\(/);
+  assert.match(ordersSource, /aria-label="Registration items"/);
+});
+
+test('unclaimed claim links share one buyer recovery surface across entry types', () => {
+  assert.match(ordersSource, /function ClaimLinkStatePanel/);
+  assert.match(ordersSource, /<ClaimLinkStatePanel[\s\S]*entry=\{entry\}/);
+  assert.match(ordersSource, /<ClaimLinkStatePanel[\s\S]*entry=\{playerEntry\}/);
+  assert.match(ordersSource, /rescindRegistrationInvite/);
+  assert.match(ordersSource, />\s*Revoke\s*</);
+  const claimLinkPanelSource = ordersSource.slice(
+    ordersSource.indexOf('function ClaimLinkStatePanel'),
+    ordersSource.indexOf('function PassportBanner'),
+  );
+  assert.doesNotMatch(claimLinkPanelSource, />\s*Fill up\s*</);
+  assert.doesNotMatch(claimLinkPanelSource, /indigo|violet|#f5f7ff|#d8ddff/i);
+  assert.doesNotMatch(claimLinkPanelSource, /entry\.attendeeEmail/);
+  assert.match(ordersSource, /hasPendingInvite\s*\n?\s*\?\s*\(playerEntry\.attendeeEmail/);
+  assert.match(ordersSource, /const canSharePendingForm = entry\.status !== 'attached'/);
+  assert.match(ordersSource, /entry\.type === 'self'\s*\n\s*\|\| getShareableFormEntries\(\[entry\]\)\.length > 0/);
+  assert.equal(typeof formLinks.rescindFormInvite, 'function');
+  if (typeof formLinks.rescindFormInvite === 'function') {
+    const reset = formLinks.rescindFormInvite({
+      id: 'tkt-011-p2',
+      inviteStatus: 'invited',
+      inviteEmail: 'daniel@example.com',
+      accessPath: 'pending',
+      entryStatus: 'pending_form',
+    });
+
+    assert.equal(reset.inviteStatus, 'not_invited');
+    assert.equal(reset.inviteEmail, null);
+    assert.equal(reset.claimLinkRevoked, true);
+    assert.equal(reset.accessPath, 'pending');
+  }
+});
+
+test('buyer recovery reopens the standard form in buyer-filled mode', () => {
+  assert.match(ordersSource, /buyerFill=1/);
+  assert.match(participantFormRouteSource, /buyerFill/);
+  assert.match(participantFormRouteSource, /claimLinkRevoked: true/);
+});
+
+test('submitted Guest QR forms open in review mode', () => {
+  assert.match(ordersSource, /const isBuyerFillRequired = entry\.type === 'guest'/);
+  assert.match(ordersSource, /entry\.status !== 'attached'/);
+  assert.match(ordersSource, /entry\.accessPath !== 'guest_qr'/);
+  assert.match(ordersSource, /isBuyerFillRequired \? '&buyerFill=1'/);
+  assert.match(participantFormRouteSource, /const canBuyerFill = Boolean\(/);
+  assert.match(participantFormRouteSource, /formStatus !== 'completed'/);
+  assert.match(participantFormRouteSource, /accessPath !== 'guest_qr'/);
+  assert.match(participantFormSource, /isSentOrDone/);
+  assert.match(participantFormSource, /Completed Information/);
 });
 
 test('individual sharing actions use compact labels', () => {
@@ -91,14 +175,24 @@ test('individual sharing actions use compact labels', () => {
   assert.doesNotMatch(individualActionsSource, />\s*Copy form link\s*</);
 });
 
-test('individual email sharing opens a review step before the email handoff', () => {
+test('pending self entries expose direct sharing actions from their own row', () => {
+  const registrationItemSource = ordersSource.slice(
+    ordersSource.indexOf('function RegistrationItem({'),
+    ordersSource.indexOf('function TeamRegistrationItem'),
+  );
+  assert.match(registrationItemSource, /entry\.type === 'self'/);
+  assert.match(registrationItemSource, /shareActions=\{isShareable \? \([\s\S]*<ParticipantFormLinkActions/);
+});
+
+test('individual email sharing stays in-app after the invite review', () => {
   assert.match(ordersSource, /EmailReviewSheet/);
   assert.match(ordersSource, /data-testid="email-review-sheet"/);
   assert.match(ordersSource, />\s*Send form link\s*</);
   assert.match(ordersSource, />\s*Send invite\s*</);
   assert.doesNotMatch(ordersSource, />\s*Continue to email\s*</);
   assert.match(ordersSource, /setEmailReviewOpen\(true\)/);
-  assert.match(ordersSource, /buildFormEmailHref\(draftEntry, order, appOrigin\(\)\)/);
+  assert.doesNotMatch(ordersSource, /window\.location\.href\s*=\s*buildFormEmailHref/);
+  assert.match(ordersSource, /toast\.success\('Invite sent'/);
 });
 
 test('email review keeps the invite template implicit and asks only for the recipient email', () => {
@@ -109,9 +203,36 @@ test('email review keeps the invite template implicit and asks only for the reci
 
   assert.match(reviewSource, /type="email"/);
   assert.match(reviewSource, /Recipient email/);
-  assert.match(reviewSource, /onOpenEmail\(recipient\.trim\(\)\)/);
+  assert.match(reviewSource, /onSendInvite\(recipient\.trim\(\)\)/);
   assert.doesNotMatch(reviewSource, />\s*Message\s*</);
   assert.doesNotMatch(reviewSource, /draft\.body/);
+});
+
+test('bulk invite review stays in-app instead of using a mailto handoff', () => {
+  assert.doesNotMatch(ordersSource, /window\.location\.href\s*=\s*buildBulkFormEmailHref/);
+  assert.match(ordersSource, /toast\.success\('Invites sent'/);
+  assert.match(ordersSource, /onShareEntries\?\.\(draftEntries\)/);
+});
+
+test('individual Orders invites persist through the shared registration state', () => {
+  assert.match(ordersSource, /sendRegistrationInvite/);
+  assert.match(ordersSource, /onShare=\{\(recipient\) => sendRegistrationInvite/);
+  assert.match(ordersSource, /!hasTeamRegistration[\s\S]*onShareEntries=\{/);
+  assert.match(ordersSource, /\^\(\?:Participant\|Guest\) \\d\+/);
+});
+
+test('the simulated keyboard Done key dismisses single-line inputs', () => {
+  assert.match(
+    iosKeyboardSource,
+    /key === 'return'[\s\S]*el\.tagName === 'TEXTAREA'[\s\S]*else \{[\s\S]*el\.blur\(\)/,
+  );
+});
+
+test('participant forms persist completion and invite changes before returning to Orders', () => {
+  assert.match(participantFormRouteSource, /updateRegistrationParticipant/);
+  assert.match(participantFormRouteSource, /onParticipantChange=/);
+  assert.match(participantFormRouteSource, /onParticipantInvite=/);
+  assert.match(participantFormRouteSource, /onParticipantInviteRevoke=/);
 });
 
 test('email review does not auto-open the keyboard and stays above it on mobile', () => {
@@ -155,6 +276,14 @@ test('only pending participant entries receive shareable form links', () => {
   );
 });
 
+test('pending self entries also receive bulk form links', () => {
+  const shareable = getShareableFormEntries([
+    { id: 'tkt-003-p1', type: 'self', status: 'pending_form', attendeeEmail: 'jessica@example.com' },
+  ]);
+
+  assert.deepEqual(shareable.map((entry) => entry.id), ['tkt-003-p1']);
+});
+
 test('bulk copy formats each participant link on its own labeled block', () => {
   const message = buildBulkFormLinkMessage(order, getShareableFormEntries(entries), 'https://planout.test');
 
@@ -194,11 +323,53 @@ test('bulk email review includes unsent pending forms even when an address is mi
   );
 });
 
+test('bulk email entries group by event while preserving event and recipient order', () => {
+  assert.equal(typeof groupBulkEmailEntriesByEvent, 'function');
+
+  const grouped = groupBulkEmailEntriesByEvent([
+    { id: 'a-1', ticket: { id: 'event-a', eventTitle: 'Emerald Pickleball Cup' } },
+    { id: 'b-1', ticket: { id: 'event-b', eventTitle: '' } },
+    { id: 'a-2', ticket: { id: 'event-a', eventTitle: 'Emerald Pickleball Cup' } },
+  ]);
+
+  assert.deepEqual(grouped.map((group) => ({
+    id: group.id,
+    title: group.title,
+    entryIds: group.entries.map((entry) => entry.id),
+  })), [
+    { id: 'event-a', title: 'Emerald Pickleball Cup', entryIds: ['a-1', 'a-2'] },
+    { id: 'event-b', title: 'Event', entryIds: ['b-1'] },
+  ]);
+});
+
 test('bulk email uses a review sheet before handing off to the email app', () => {
   assert.match(ordersSource, /BulkEmailReviewSheet/);
-  assert.match(ordersSource, /Send invites/);
+  assert.match(ordersSource, /entries\.length === 1 \? 'Send invite' : `Send \$\{entries\.length\} invites`/);
   assert.match(ordersSource, /getBulkEmailCandidates/);
   assert.doesNotMatch(ordersSource, /disabled=!canEmailAll/);
+});
+
+test('bulk email review uses a compact event-first recipient hierarchy', () => {
+  const reviewSource = ordersSource.slice(
+    ordersSource.indexOf('function BulkEmailReviewSheet'),
+    ordersSource.indexOf('function ParticipantFormLinkActions'),
+  );
+
+  assert.match(reviewSource, /const eventGroups = groupBulkEmailEntriesByEvent\(draftEntries\)/);
+  assert.doesNotMatch(reviewSource, /data-testid="bulk-email-event-summary"/);
+  assert.match(reviewSource, /data-testid="bulk-email-event-groups"/);
+  assert.match(reviewSource, /data-testid="bulk-email-event-groups"[\s\S]*className="mt-4 grid gap-2\.5"/);
+  assert.match(reviewSource, /data-testid="bulk-email-eligibility-note"/);
+  assert.match(reviewSource, /data-testid="bulk-email-actions"/);
+  assert.match(reviewSource, /\{group\.title\}/);
+  assert.match(reviewSource, /\{group\.entries\.length\} recipient/);
+  assert.match(reviewSource, /group\.entries\.map/);
+  assert.doesNotMatch(reviewSource, /order\.name|order: OrderRecord|<Check/);
+  assert.match(reviewSource, /<X className="h-4 w-4"/);
+  assert.doesNotMatch(reviewSource, />\s*×\s*</);
+  assert.match(reviewSource, /rounded-\[12px\] border border-\[#dce7e4\] bg-\[#f7f9f8\]/);
+  assert.match(reviewSource, /onSend\(draftEntries\)/);
+  assert.match(reviewSource, /disabled=\{!allEmailsValid\}/);
 });
 
 test('email review drafts expose the recipient, subject, body, and link', () => {

@@ -9,7 +9,7 @@
  * the current route path, replacing the old `activePage` state machine.
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { AnimatePresence } from 'motion/react';
 
@@ -24,7 +24,11 @@ import { DrawerPanel } from '@/app/components/DrawerPanel';
 import { CartPage } from '@/app/components/CartPage';
 import { NotificationsPage } from '@/app/pages/NotificationsPage';
 import { AnimatedOutlet } from '@/app/components/AnimatedOutlet';
-import { FloatCard } from '@/app/components/FloatCard';
+import { FloatCard, shouldHideFloatCardOnRoute } from '@/app/components/FloatCard';
+import { MessengerWidget } from '@/app/components/MessengerWidget';
+
+// Enabled for the current Meta Messenger prototype flow.
+const MESSENGER_WIDGET_ENABLED = true;
 
 // Data
 import { MOCK_EVENTS } from '@/app/data/events';
@@ -46,7 +50,7 @@ function getActivePage(pathname: string): string {
   if (pathname.startsWith('/cart')) return 'cart';
   if (pathname.startsWith('/checkout')) return 'checkout';
   if (pathname.startsWith('/orders')) return 'orders';
-  if (pathname.startsWith('/passport')) return 'profile';
+  if (pathname.startsWith('/passport')) return 'passport';
   if (pathname.startsWith('/profile')) return 'profile';
   if (pathname.startsWith('/notifications')) return 'notifications';
   if (pathname.startsWith('/settings')) return 'settings';
@@ -70,6 +74,7 @@ function shouldHideBottomNav(pathname: string, checkoutConfirmed: boolean): bool
   if (pathname.startsWith('/events/')) return true;
   if (pathname === '/cart') return true;
   if (pathname === '/checkout') return !checkoutConfirmed; // Show nav on confirmation step
+  if (pathname === '/passport/add-entry') return true;
   if (pathname.match(/^\/orders\/.+\/form$/)) return true;
   if (pathname.match(/^\/orders\/[^/]+\/entry\/[^/]+\/(guest-qr|temporary-guest-qr)$/)) return true;
   if (pathname.match(/^\/orders\/[^/]+\/guest-manager$/)) return true;
@@ -97,6 +102,7 @@ export function RootLayout() {
     activeDrawer,
     setActiveDrawer,
     setCheckoutIntent,
+    addCartItems,
     isDesktop,
     cartCount,
     notificationCount,
@@ -111,8 +117,20 @@ export function RootLayout() {
   const pathname = location.pathname;
   const activePage = getActivePage(pathname);
   const activeTab = getActiveTab(pathname);
-  const useFullScreenOverlay = pathname === '/passport';
+  const isGuestQrPage = /^\/orders\/[^/]+\/entry\/[^/]+\/(guest-qr|temporary-guest-qr)$/.test(pathname);
+  const isPassportRoute = pathname.startsWith('/passport');
+  const isParticipantForm = /^\/orders\/[^/]+\/form$/.test(pathname);
+  const isGuestQrScanner = pathname === '/passport/add-entry';
+  const useFullScreenOverlay = isGuestQrScanner;
   const hideBottomNav = !isAuthenticated || shouldHideBottomNav(pathname, checkoutConfirmed);
+  const showPendingFormCard =
+    isAuthenticated &&
+    !useFullScreenOverlay &&
+    passportPendingCount > 0 &&
+    !pathname.startsWith('/cart') &&
+    !pathname.startsWith('/settings') &&
+    !pathname.startsWith('/checkout') &&
+    !shouldHideFloatCardOnRoute(pathname);
 
   const isTabRoot = pathname === '/' || pathname === '/events' || pathname === '/orders' || pathname === '/settings';
   const showBack = !isTabRoot;
@@ -151,6 +169,13 @@ export function RootLayout() {
       document.head.appendChild(tag);
     }
   }, []);
+
+  // Route-level buttons can navigate without going through the layout helpers.
+  // Reset the document before the new screen paints so a long previous page
+  // cannot leave the next screen underneath the fixed header.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname, location.search]);
 
   // -----------------------------------------------------------------------
   // Navigation helpers
@@ -200,7 +225,7 @@ export function RootLayout() {
   return (
     <div
       className="min-h-dvh font-sans selection:bg-[#def2ee] selection:text-[#177564] transition-colors duration-500"
-      style={currentEvent ? getBrandSurfaceStyle(currentEvent) : { backgroundColor: '#f8fafc' }}
+      style={currentEvent ? getBrandSurfaceStyle(currentEvent) : { backgroundColor: isGuestQrPage ? '#ffffff' : isPassportRoute ? '#ffffff' : '#f8fafc' }}
     >
       {/* Global scrollbar styles */}
       <style>{`
@@ -215,7 +240,7 @@ export function RootLayout() {
       `}</style>
 
       {/* ---- Header ---- */}
-      {!useFullScreenOverlay && (
+      {(!useFullScreenOverlay || isDesktop()) && (
         <Header
           onCartClick={() => {
             if (isDesktop()) {
@@ -265,13 +290,13 @@ export function RootLayout() {
 
       <main
         className={
-          useFullScreenOverlay
+          useFullScreenOverlay && !isDesktop()
             ? 'min-h-dvh overflow-x-hidden'
             : [
                 // On desktop, event pages go full-bleed (no max-w, no px)
                 currentEvent
-                  ? 'max-w-[960px] mx-auto px-4 sm:px-8 lg:max-w-none lg:px-0'
-                  : 'max-w-[960px] mx-auto px-4 sm:px-8',
+                  ? 'max-w-[1280px] mx-auto px-4 sm:px-8 lg:max-w-none lg:px-0'
+                  : 'max-w-[1280px] mx-auto px-4 sm:px-8 lg:px-10',
                 hasTopBanner ? 'pt-0' : 'pt-20 sm:pt-28',
                 'overflow-x-hidden',
                 hideBottomNav ? 'pb-8 sm:pb-12' : 'pb-28 sm:pb-20',
@@ -296,7 +321,11 @@ export function RootLayout() {
         />
       )}
 
-      {isAuthenticated && !pathname.startsWith('/cart') && !pathname.startsWith('/settings') && !pathname.startsWith('/checkout') && (
+      {MESSENGER_WIDGET_ENABLED && isAuthenticated && !useFullScreenOverlay && (
+        !isGuestQrPage && !isParticipantForm ? <MessengerWidget hasPendingFormCard={showPendingFormCard} /> : null
+      )}
+
+      {showPendingFormCard && (
         <FloatCard
           pendingCount={passportPendingCount}
           nearestDeadline={nearestPassportDeadline}
@@ -330,7 +359,18 @@ export function RootLayout() {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }
             }}
-            onGoToCart={() => {
+            onGoToCart={(items) => {
+              const event = peekEvent;
+              if (items?.length && event) {
+                addCartItems({
+                  eventId: event.id,
+                  eventName: event.title,
+                  date: event.date,
+                  location: event.location,
+                  image: event.image || '',
+                  items,
+                });
+              }
               setPeekEvent(null);
               if (isDesktop()) {
                 setActiveDrawer('cart');
@@ -360,13 +400,15 @@ export function RootLayout() {
             <CartPage
               isDrawer
               onClose={() => setActiveDrawer(null)}
-              onCheckout={() => {
+              onCheckout={(items, totalAmount) => {
+                const firstItem = items[0];
                 setActiveDrawer(null);
                 setCheckoutIntent({
-                  eventName: 'City Half Marathon 2025',
-                  category: '10K Category',
-                  price: 1500,
-                  image: 'https://images.unsplash.com/photo-1759674915081-b38844dbb613?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYXJhdGhvbiUyMHJ1bm5lciUyMHJhY2UlMjBiaWIlMjBudW1iZXJ8ZW58MXx8fHwxNzcwODc3MjY0fDA&ixlib=rb-4.1.0&q=80&w=1080',
+                  eventName: firstItem?.eventName || 'Selected tickets',
+                  category: items.length === 1 ? firstItem.category : `${items.length} ticket types`,
+                  price: totalAmount,
+                  items,
+                  image: firstItem?.image || '',
                 });
                 navigate('/checkout');
                 window.scrollTo({ top: 0, behavior: 'smooth' });

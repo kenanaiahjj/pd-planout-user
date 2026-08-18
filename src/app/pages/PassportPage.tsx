@@ -15,6 +15,7 @@ import {
   Download,
   Lock,
   CalendarDays,
+  QrCode,
   RefreshCw,
   Send,
   UserX,
@@ -31,9 +32,12 @@ import {
   type MyTicket,
   type Participant,
   type RegistrationQueueEntry,
+  type TeamPlayerAccessPath,
 } from '@/app/data/tickets';
+import { resolveTeamPlayerAccess, teamPlayerLabel } from '@/app/data/teamAccess.js';
 
 import imgAvatar from '@/assets/abde7b942aa982263d4cf69ea8ef217b427c3047.png';
+import imgEventFallback from '@/assets/9dd246725291ca31eadbba57f65fc35c16ef8f44.png';
 
 interface PassportPageProps {
   onBack: () => void;
@@ -49,6 +53,44 @@ function isUpcomingEntry(entry: RegistrationQueueEntry) {
 
 function findTicket(entry: RegistrationQueueEntry) {
   return MY_TICKETS.find((ticket) => ticket.id === entry.ticketId);
+}
+
+function buildTeamPassportEntries(
+  teamPlayerAccess: Record<string, TeamPlayerAccessPath | undefined> = {},
+  teamPlayerRoster: Record<string, Participant[] | undefined> = {},
+): RegistrationQueueEntry[] {
+  return MY_TICKETS.flatMap((ticket) => {
+    if (ticket.ticketType !== 'team') return [];
+
+    const participants = teamPlayerRoster[ticket.id] || ticket.participants;
+    return participants.flatMap((participant, index) => {
+      const accessPath = teamPlayerAccess[`${ticket.id}:${participant.id}`]
+        || participant.accessPath
+        || resolveTeamPlayerAccess({
+          formStatus: participant.formStatus,
+          inviteStatus: participant.inviteStatus,
+          email: participant.email || undefined,
+        });
+
+      const hasExplicitClaim = teamPlayerAccess[`${ticket.id}:${participant.id}`] === 'passport';
+      if (accessPath !== 'passport' || (participant.formStatus !== 'completed' && !hasExplicitClaim)) return [];
+
+      return [{
+        id: `${ticket.id}-${participant.id || index}-passport`,
+        ticketId: ticket.id,
+        orderRef: ticket.confirmationRef,
+        eventName: ticket.eventTitle,
+        personName: participant.passportDisplayName || teamPlayerLabel(index),
+        category: ticket.ticketTypeName,
+        type: 'self' as const,
+        participantId: participant.id,
+        accessPath,
+        entryStatus: 'attached' as const,
+        deadline: ticket.deadline,
+        formRoute: `/orders/${ticket.id}/form?participantId=${encodeURIComponent(participant.id)}`,
+      }];
+    });
+  });
 }
 
 function parseDeadline(deadline?: string): Date | null {
@@ -100,22 +142,13 @@ function participantStatus(participant: Participant) {
 }
 
 export function ParticipantRoster({ ticket }: { ticket: MyTicket }) {
-  const roster = [
-    ...(ticket.coachName
-      ? [{
-          id: `${ticket.id}-lead`,
-          name: ticket.coachName,
-          status: 'attached',
-          role: 'Lead',
-        }]
-      : []),
-    ...ticket.participants.map((participant) => ({
+  const playerEntries = ticket.participants.map((participant, index) => ({
       id: participant.id,
-      name: participant.name || participant.email || 'Unassigned member',
+      name: ticket.ticketType === 'team'
+        ? teamPlayerLabel(index)
+        : participant.name || participant.email || 'Unassigned member',
       status: participantStatus(participant),
-      role: participant.isPrimary ? 'Lead' : '',
-    })),
-  ];
+    }));
 
   return (
     <div className="mt-4 rounded-[14px] border border-neutral-100 bg-neutral-50/40 p-3.5">
@@ -124,13 +157,10 @@ export function ParticipantRoster({ ticket }: { ticket: MyTicket }) {
         Player entries
       </div>
       <div className="flex flex-col gap-2.5">
-        {roster.slice(0, 6).map((member) => (
+        {playerEntries.slice(0, 6).map((member) => (
           <div key={member.id} className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-[13px] font-medium text-neutral-800">{member.name}</p>
-              {member.role && (
-                <p className="mt-0.5 text-[10px] font-medium text-neutral-400">{member.role}</p>
-              )}
             </div>
             <span
               className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize border ${
@@ -169,7 +199,7 @@ export function LockedEventRow({
     <article className="rounded-[18px] border border-neutral-100 bg-white p-4.5">
       <div className="flex items-start gap-3">
         <div className="h-14 w-14 shrink-0 rounded-[12px] overflow-hidden bg-neutral-100">
-          <ImageWithFallback src={ticket?.image || ''} alt={entry.eventName} className="h-full w-full object-cover" />
+          <ImageWithFallback src={ticket?.image || imgEventFallback} alt={entry.eventName} className="h-full w-full object-cover" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
@@ -208,7 +238,7 @@ export function LockedEventRow({
                   compact
                   className="text-[12px]"
                 >
-                  Complete team form
+                  Complete player details
                   <ChevronRight className="h-3.5 w-3.5" />
                 </PrimaryButton>
               </div>
@@ -260,7 +290,7 @@ export function AttachedEventRow({ entry, ticket }: { entry: RegistrationQueueEn
     <article className="rounded-[18px] border border-neutral-100 bg-white p-4.5">
       <div className="flex items-start gap-3">
         <div className="h-14 w-14 shrink-0 rounded-[12px] overflow-hidden bg-neutral-100">
-          <ImageWithFallback src={ticket?.image || ''} alt={entry.eventName} className="h-full w-full object-cover" />
+          <ImageWithFallback src={ticket?.image || imgEventFallback} alt={entry.eventName} className="h-full w-full object-cover" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
@@ -290,7 +320,7 @@ export function ResubmitEventRow({ entry, ticket, onReview }: { entry: Registrat
     <article className="rounded-[18px] border border-neutral-100 bg-white p-4.5">
       <div className="flex items-start gap-3">
         <div className="h-14 w-14 shrink-0 rounded-[12px] overflow-hidden bg-neutral-100">
-          <ImageWithFallback src={ticket?.image || ''} alt={entry.eventName} className="h-full w-full object-cover" />
+          <ImageWithFallback src={ticket?.image || imgEventFallback} alt={entry.eventName} className="h-full w-full object-cover" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
@@ -325,7 +355,7 @@ export function ReleasedEventRow({ entry, ticket, onBrowse }: { entry: Registrat
     <article className="rounded-[18px] border border-neutral-100 bg-white p-4.5 opacity-70">
       <div className="flex items-start gap-3">
         <div className="h-14 w-14 shrink-0 rounded-[12px] overflow-hidden bg-neutral-100">
-          <ImageWithFallback src={ticket?.image || ''} alt={entry.eventName} className="h-full w-full object-cover" />
+          <ImageWithFallback src={ticket?.image || imgEventFallback} alt={entry.eventName} className="h-full w-full object-cover" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
@@ -360,7 +390,7 @@ export function PastEventRow({ entry, ticket }: { entry: RegistrationQueueEntry;
     <article className="rounded-[18px] border border-neutral-100 bg-white p-4.5">
       <div className="flex items-start gap-3">
         <div className="h-14 w-14 shrink-0 rounded-[12px] overflow-hidden bg-neutral-100">
-          <ImageWithFallback src={ticket?.image || ''} alt={entry.eventName} className="h-full w-full object-cover" />
+          <ImageWithFallback src={ticket?.image || imgEventFallback} alt={entry.eventName} className="h-full w-full object-cover" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
@@ -447,13 +477,13 @@ function formTaskDetails(entry: RegistrationQueueEntry, ticket?: MyTicket) {
     const remaining = Math.max(0, total - complete);
 
     return {
-      eyebrow: 'Team entry',
+      eyebrow: 'Team purchase',
       title: entry.eventName,
-      description: `${remaining} player form${remaining === 1 ? '' : 's'} still need an individual access path.`,
+      description: `${remaining} player entr${remaining === 1 ? 'y still needs' : 'ies still need'} to be set up.`,
       metaText: `${complete}/${total} complete`,
       deadlineText: deadline,
       isUrgent,
-      primaryLabel: 'Complete team form',
+      primaryLabel: 'Complete player details',
       secondaryLabel: undefined,
       icon: Users,
     };
@@ -607,12 +637,16 @@ function isUpdateEntry(entry: RegistrationQueueEntry) {
 
 export function PassportEventsPage() {
   const navigate = useNavigate();
-  const { registrationQueueEntries } = useAppContext();
+  const { registrationQueueEntries, teamPlayerAccess, teamPlayerRoster } = useAppContext();
+  const passportEntries = [
+    ...registrationQueueEntries,
+    ...buildTeamPassportEntries(teamPlayerAccess, teamPlayerRoster),
+  ];
 
-  const upcomingEntries = registrationQueueEntries.filter(isUpcomingEntry);
+  const upcomingEntries = passportEntries.filter(isUpcomingEntry);
   const readyEntries = uniqueByTicket(upcomingEntries.filter(isReadyAccessEntry));
   const updateEntries = uniqueByTicket(upcomingEntries.filter(isUpdateEntry));
-  const pastEntries = uniqueByTicket(registrationQueueEntries.filter(isCompletedOrPastEntry));
+  const pastEntries = uniqueByTicket(passportEntries.filter(isCompletedOrPastEntry));
   const hasPassportEntries = readyEntries.length > 0 || updateEntries.length > 0 || pastEntries.length > 0;
 
   const renderUpdateCard = (entry: RegistrationQueueEntry) => {
@@ -692,11 +726,24 @@ export function PassportEventsPage() {
 
 export function PassportPage({ onBack: _onBack }: PassportPageProps) {
   const navigate = useNavigate();
-  const { userProfile, member, qrPayload, registrationQueueEntries, guestEntryQRs, rotatePassportQr } = useAppContext();
+  const {
+    userProfile,
+    member,
+    qrPayload,
+    registrationQueueEntries,
+    guestEntryQRs,
+    rotatePassportQr,
+    teamPlayerAccess,
+    teamPlayerRoster,
+  } = useAppContext();
 
   const holderName = userProfile.name || member.displayName || 'PlanOut Member';
   const holderImage = userProfile.avatarUrl || member.avatarUrl || imgAvatar;
-  const upcomingEntries = registrationQueueEntries.filter(isUpcomingEntry);
+  const passportEntries = [
+    ...registrationQueueEntries,
+    ...buildTeamPassportEntries(teamPlayerAccess, teamPlayerRoster),
+  ];
+  const upcomingEntries = passportEntries.filter(isUpcomingEntry);
   const attachedEntries = upcomingEntries.filter(isReadyAccessEntry);
   const attachedCount = attachedEntries.length;
   const formActionCount = 0;
@@ -723,93 +770,120 @@ export function PassportPage({ onBack: _onBack }: PassportPageProps) {
   }, [rotatePassportQr]);
 
   return (
-    <div className="min-h-dvh overflow-hidden bg-[#eef7f5] px-3 pb-[calc(118px+env(safe-area-inset-bottom))] pt-[calc(32px+env(safe-area-inset-top))]">
+    <div className="min-h-dvh overflow-x-hidden bg-white px-3 pb-[calc(118px+env(safe-area-inset-bottom))] pt-[calc(32px+env(safe-area-inset-top))]">
       {/* Redundant Close button removed as users safely navigate away using the bottom navbar */}
 
-      <main className="mx-auto flex w-full max-w-[520px] flex-col gap-6 py-4">
-        <div className="text-center">
-          <h1 className="text-[26px] font-semibold tracking-[-0.6px] text-[#0f172b]">
+      <main className="mx-auto flex w-full max-w-[520px] lg:max-w-[1080px] flex-col gap-6 py-4">
+        <div className="text-center lg:text-left">
+          <h1 className="text-[26px] sm:text-[32px] font-semibold tracking-[-0.6px] text-[#0f172b]">
             {holderName.split(' ')[0]}'s Passport
           </h1>
+          <p className="mt-1 text-[13px] text-[#52716c] hidden lg:block">
+            Universal event-day check-in credential and Passport entry records.
+          </p>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.15, y: 400 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{
-            type: 'spring',
-            stiffness: 220,
-            damping: 24,
-            mass: 1
-          }}
-          style={{ transformOrigin: 'bottom center', width: '100%' }}
-          className="flex w-full justify-center"
-        >
-          <PlanOutPassportCard
-            name={holderName}
-            image={holderImage}
-            passportCode={member.passportCode}
-            qrPayload={qrPayload}
-            qrSubtitle={attachedCount > 0 ? 'Scan to view events' : 'Scan after your first event is ready'}
-            identityVisual="gradient"
-            footerActions={[
-              { 
-                label: 'Events', 
-                icon: CalendarDays, 
-                onClick: () => navigate('/passport/events'), 
-                className: 'bg-[#ff6ed8] text-[#552045] rotate-[-5deg]',
-                badgeCount: formActionCount
-              },
-              { label: 'Save', icon: Download, onClick: downloadQr, className: 'bg-[#66dced] text-[#174753] rotate-[-1deg]' },
-              { label: 'Reset QR', icon: RefreshCw, onClick: regenerateQr, className: 'bg-[#ffe36e] text-[#4f4214] rotate-[5deg]' },
-            ].map(({ label, icon: Icon, onClick, className, badgeCount }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onClick();
-                }}
-                className={`relative flex h-10 min-w-0 flex-1 items-center justify-center gap-1 rounded-t-[15px] rounded-b-[7px] px-2 pt-1 text-[11.5px] font-semibold shadow-[0_8px_14px_-10px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.65)] transition-transform active:scale-[0.96] ${className}`}
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
-                <span className="truncate">{label}</span>
-                {badgeCount && badgeCount > 0 ? (
-                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8.5px] font-black leading-none text-white shadow-[0_2px_6px_rgba(239,68,68,0.4)] ring-1.5 ring-white z-10">
-                    <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75" />
-                    <span className="relative z-10">{badgeCount}</span>
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          />
-        </motion.div>
-
-        <section className="rounded-[18px] border border-white/90 bg-white/82 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[15px] font-semibold tracking-[-0.2px] text-[#181d27]">Added from Guest QR</p>
-              <p className="mt-1 text-[12px] font-medium text-[#64748b]">Bring a past or app-less entry into this Passport once.</p>
-            </div>
-            <button type="button" onClick={() => navigate('/passport/add-entry')} className="rounded-full border border-[#b7ded6] bg-[#f8fbfa] px-3 py-2 text-[11px] font-semibold text-[#177564] active:scale-[0.98]">Add code</button>
-          </div>
-          {claimedGuestEntries.length > 0 ? (
-            <div className="mt-4 divide-y divide-[#eef2f1] border-t border-[#eef2f1]">
-              {claimedGuestEntries.map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-[#181d27]">{entry.eventName}</p>
-                    <p className="mt-0.5 truncate text-[11px] font-medium text-[#64748b]">{entry.category} · {entry.usedAt ? 'Checked in before claim' : 'Added from Guest QR'}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-[#def2ee] px-2 py-1 text-[10px] font-semibold text-[#177564]">Added</span>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[460px_minmax(0,1fr)] gap-8 items-start">
+          {/* Left Column: Passport Card & QR */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.15, y: 400 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{
+              type: 'spring',
+              stiffness: 220,
+              damping: 24,
+              mass: 1
+            }}
+            style={{ transformOrigin: 'bottom center', width: '100%' }}
+            className="flex w-full justify-center"
+          >
+            <PlanOutPassportCard
+              name={holderName}
+              image={holderImage}
+              passportCode={member.passportCode}
+              qrPayload={qrPayload}
+              qrSubtitle={attachedCount > 0 ? 'Scan to view events' : 'Scan after your first event is ready'}
+              identityVisual="gradient"
+              footerActions={[
+                {
+                  label: 'Events',
+                  icon: CalendarDays,
+                  onClick: () => navigate('/passport/events'),
+                  className: 'bg-[#ff6ed8] text-[#552045] rotate-[-5deg]',
+                  badgeCount: formActionCount
+                },
+                { label: 'Save', icon: Download, onClick: downloadQr, className: 'bg-[#66dced] text-[#174753] rotate-[-1deg]' },
+                { label: 'Reset QR', icon: RefreshCw, onClick: regenerateQr, className: 'bg-[#ffe36e] text-[#4f4214] rotate-[5deg]' },
+              ].map(({ label, icon: Icon, onClick, className, badgeCount }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onClick();
+                  }}
+                  className={`relative flex h-10 min-w-0 flex-1 items-center justify-center gap-1 rounded-t-[15px] rounded-b-[7px] px-2 pt-1 text-[11.5px] font-semibold shadow-[0_8px_14px_-10px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.65)] transition-transform active:scale-[0.96] ${className}`}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+                  <span className="truncate">{label}</span>
+                  {badgeCount && badgeCount > 0 ? (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[8.5px] font-black leading-none text-white shadow-[0_2px_6px_rgba(239,68,68,0.4)] ring-1.5 ring-white z-10">
+                      <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75" />
+                      <span className="relative z-10">{badgeCount}</span>
+                    </span>
+                  ) : null}
+                </button>
               ))}
-            </div>
-          ) : (
-            <p className="mt-4 border-t border-[#eef2f1] pt-3 text-[12px] font-medium leading-relaxed text-[#64748b]">Scan a Guest QR or enter its code to add an eligible entry. Claimed QRs cannot be used again.</p>
-          )}
-        </section>
+            />
+          </motion.div>
 
+          {/* Right Column: Actions & Passport History */}
+          <section
+            data-testid="passport-add-event-card"
+            className="rounded-[18px] border border-[#e3ebe8] bg-white p-4 shadow-[0_4px_8px_-6px_rgba(15,23,42,0.24)] sm:p-5"
+          >
+            <div className="flex items-center gap-3 px-1">
+              <div className="min-w-0">
+                <p className="text-balance text-[16px] font-semibold text-[#181d27]">Add a past event</p>
+                <p className="mt-0.5 text-pretty text-[12px] leading-relaxed text-[#66746f]">Save an event you attended to your Passport.</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/passport/add-entry?scan=1')}
+              className="group mt-4 flex min-h-12 w-full items-center justify-between gap-4 rounded-[12px] bg-[linear-gradient(90deg,#3cd4b9_0%,#177564_100%)] px-3.5 py-2.5 text-left text-white shadow-[0_4px_8px_-6px_rgba(23,117,100,0.7)] ring-1 ring-inset ring-white/20 transition-[filter,transform] duration-150 ease-out hover:brightness-105 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/40 focus-visible:ring-offset-2"
+            >
+              <span className="min-w-0">
+                <span className="block text-[14px] font-semibold">Scan event QR</span>
+                <span className="mt-0.5 block text-[11.5px] font-medium text-white/65">Camera or saved QR photo</span>
+              </span>
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-white/15 ring-1 ring-inset ring-white/20" aria-hidden="true">
+                <QrCode className="size-4 text-white/90" strokeWidth={2} />
+              </span>
+            </button>
+
+            {claimedGuestEntries.length > 0 && (
+              <div className="mt-4 border-t border-[#e6eeeb] pt-4">
+                <div className="flex items-center justify-between gap-3 px-1">
+                  <p className="text-[13px] font-semibold text-[#284541]">Recently added</p>
+                  <span className="text-[11px] font-semibold text-[#6a8580]">{claimedGuestEntries.length} {claimedGuestEntries.length === 1 ? 'event' : 'events'}</span>
+                </div>
+                <div className="mt-3 flex flex-col gap-2">
+                  {claimedGuestEntries.map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between gap-3 rounded-[12px] border border-[#e6eeeb] bg-[#f8fbfa] px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-[13.5px] font-semibold text-[#181d27]">{entry.eventName}</p>
+                        <p className="mt-0.5 truncate text-[11.5px] font-medium text-[#66746f]">{entry.category} · {entry.usedAt ? 'Checked in before claim' : 'Added from Guest QR'}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-[#e5f3ef] px-2.5 py-1 text-[11px] font-semibold text-[#177564]">Added</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
       </main>
     </div>
   );

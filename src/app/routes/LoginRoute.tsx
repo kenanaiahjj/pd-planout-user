@@ -4,13 +4,16 @@
  * Offers a "Continue as Guest" option that creates a preview session for QA.
  */
 import React from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { LoginPage } from '@/app/pages/LoginPage';
 import { useAppContext } from '@/app/context/AppContext';
 
 export function LoginRoute() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setUserProfile, setOnboardingStep, returnTo, setReturnTo } = useAppContext();
+  const stateReturnTo = (location.state as { returnTo?: string } | null)?.returnTo;
+  const destination = stateReturnTo || returnTo || '/';
 
   return (
     <div className="min-h-screen bg-[#f8fafc] font-sans selection:bg-[#def2ee] selection:text-[#177564]">
@@ -24,8 +27,6 @@ export function LoginRoute() {
             phone: method === 'phone' ? value : prev.phone,
           }));
           setOnboardingStep('done');
-          // Navigate to the saved return path or home
-          const destination = returnTo || '/';
           setReturnTo(null);
           navigate(destination);
         }}
@@ -36,8 +37,6 @@ export function LoginRoute() {
             loginMethod: prev.loginMethod || 'email',
           }));
           setOnboardingStep('done');
-          // Go back to where they came from, or home
-          const destination = returnTo || '/';
           setReturnTo(null);
           navigate(destination);
         }}

@@ -24,6 +24,12 @@ import {
 } from 'lucide-react';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { type EventData } from '@/app/data/events';
+import {
+  formatEventDateOnly,
+  formatEventDateRange,
+  formatEventDay,
+  getEventTime,
+} from '@/app/data/eventDate';
 import { getBrandCSSVarsStyle, getBrandSurfaceStyle, getEventBrand } from '@/app/data/eventBrand';
 import { type CheckoutIntentItem } from '@/app/context/AppContext';
 import { PrimaryButton } from './PrimaryButton';
@@ -33,7 +39,7 @@ interface EventDetailsPageProps {
   event: EventData;
   onBack: () => void;
   onOrganizerClick?: (organizerSlug: string) => void;
-  onGoToCart?: () => void;
+  onGoToCart?: (items?: CheckoutIntentItem[]) => void;
   onGoToCheckout?: (eventName: string, category: string, price: number, image: string, items?: CheckoutIntentItem[]) => void;
 }
 
@@ -72,16 +78,19 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
 
   const brand = getEventBrand(event);
   const isPast = event.isPast === true;
-  const eventDate = event.date.split(' at ')[0];
-  const eventTime = event.date.split(' at ')[1] || 'Time TBD';
-  const endEventDate = event.endDate?.split(' at ')[0];
-  const endEventTime = event.endDate?.split(' at ')[1];
+  const eventDateLabel = formatEventDateOnly(event.date);
+  const endEventDateLabel = event.endDate ? formatEventDateOnly(event.endDate) : undefined;
+  const eventTime = getEventTime(event.date);
+  const endEventTime = event.endDate ? getEventTime(event.endDate) : undefined;
+  const eventDateRangeLabel = event.endDate
+    ? formatEventDateRange(event.date, event.endDate)
+    : eventDateLabel;
   const eventVenue = event.location.split(',')[0];
   const eventCity = event.location.split(',')[1]?.trim() || '';
   const attendanceLabel = isPast ? '124 attended' : '124 attending';
   const ticketPriceLabel = isPast ? 'Registration closed' : getCheapestTicketPriceLabel();
-  const salesCloseLabel = isPast ? `Closed after ${eventDate}` : 'Sales end June 15';
-  const registrationEndedLabel = `Registration ended after ${eventDate}`;
+  const salesCloseLabel = isPast ? `Closed after ${eventDateLabel}` : 'Sales end June 15';
+  const registrationEndedLabel = `Registration ended after ${eventDateLabel}`;
   const sessionSummary = event.eventDates?.length
     ? `${event.eventDates.length} sessions`
     : event.endDate ? 'Multi-day' : '1 session';
@@ -262,11 +271,11 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
                 {event.dailySchedule ? (
                   <div className="space-y-1.5">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-[14px] font-medium text-[var(--event-page-fg)]">{eventDate} – {endEventDate}</span>
+                      <span className="text-[14px] font-medium text-[var(--event-page-fg)]">{eventDateRangeLabel}</span>
                     </div>
                     {event.dailySchedule.map((day, i) => (
                       <div key={i} className="flex items-baseline gap-2">
-                        <span className="text-[13px] font-medium text-[var(--event-page-muted)] w-28 shrink-0">{day.date.replace(/, \d{4}$/, '')}</span>
+                        <span className="text-[13px] font-medium text-[var(--event-page-muted)] w-28 shrink-0">{formatEventDay(day.date)}</span>
                         <span className="font-mono text-[12px] text-[var(--event-page-subtle)]">{day.startTime} – {day.endTime}</span>
                       </div>
                     ))}
@@ -276,19 +285,19 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
                     <span className="text-[14px] font-medium text-[var(--event-page-fg)]">{event.eventDates.length} sessions</span>
                     {event.eventDates.map((d, i) => (
                       <div key={i} className="flex items-baseline gap-2">
-                        <span className="text-[13px] text-[var(--event-page-muted)]">{d.split(' at ')[0]}</span>
-                        <span className="font-mono text-[12px] text-[var(--event-page-subtle)]">{d.split(' at ')[1]}</span>
+                        <span className="text-[13px] text-[var(--event-page-muted)]">{formatEventDay(d)}</span>
+                        <span className="font-mono text-[12px] text-[var(--event-page-subtle)]">{getEventTime(d)}</span>
                       </div>
                     ))}
                   </div>
-                ) : endEventDate ? (
+                ) : endEventDateLabel ? (
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[14px] font-medium text-[var(--event-page-fg)]">{eventDate} – {endEventDate}</span>
+                    <span className="text-[14px] font-medium text-[var(--event-page-fg)]">{eventDateRangeLabel}</span>
                     <span className="font-mono text-[13px] text-[var(--event-page-subtle)]">{eventTime}{endEventTime ? ` – ${endEventTime}` : ''}</span>
                   </div>
                 ) : (
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[14px] font-medium text-[var(--event-page-fg)]">{eventDate}</span>
+                    <span className="text-[14px] font-medium text-[var(--event-page-fg)]">{eventDateLabel}</span>
                     <span className="font-mono text-[13px] text-[var(--event-page-subtle)]">{eventTime}</span>
                   </div>
                 )}
@@ -525,7 +534,7 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
           <div className="flex items-center justify-between gap-4 max-w-[960px] mx-auto">
             <div>
               <p className="text-[16px] font-bold text-[var(--event-surface-fg)] tracking-tight">{ticketPriceLabel}</p>
-              <p className="text-[11.5px] text-[var(--event-surface-muted)]">{eventDate} · {eventTime}</p>
+              <p className="text-[11.5px] text-[var(--event-surface-muted)]">{eventDateLabel} · {eventTime}</p>
             </div>
             <PrimaryButton brandGradient={brand.buttonGradient} className="py-3 px-7 rounded-[12px] font-semibold text-[14px]" onClick={() => setShowTicketsModal(true)}>
               Get Tickets
@@ -571,7 +580,17 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
         <GetTicketsModal
           isOpen={showTicketsModal}
           onClose={() => setShowTicketsModal(false)}
-          onAddToCart={() => { setShowTicketsModal(false); onGoToCart?.(); }}
+          onAddToCart={(items) => {
+            setShowTicketsModal(false);
+            onGoToCart?.(items.map((item) => ({
+              ticketId: item.ticketId,
+              qty: item.qty,
+              category: item.category,
+              price: item.price,
+              eventName: event.title,
+              image: event.image || '',
+            })));
+          }}
           onCheckout={(items, total) => {
             setShowTicketsModal(false);
             const checkoutItems = items.map((item) => ({
@@ -579,6 +598,8 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
               qty: item.qty,
               category: item.category,
               price: item.price,
+              eventName: event.title,
+              image: event.image || '',
             }));
             const category = items.length === 1
               ? items[0].category

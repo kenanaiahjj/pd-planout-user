@@ -7,10 +7,12 @@
  *  1. Single  — 1 ticket, 1 user. Buyer fills form or sends to someone else.
  *  2. Multiple — 1 buyer, many owned tickets. Each ticket resolves from the
  *                assigned member passport at scan time.
- *  3. Team — 1 ticket covers many participants. Coach manages roster but is NOT a
- *            participant. Coach submits once all participant forms are done/sent.
- *            Staff scans the lead passport and can check in one or all members.
+ *  3. Team — 1 purchase contains multiple player entries. Each player resolves
+ *            independently to the player's Passport through a claim link, or to
+ *            an app-less Guest QR when the buyer completes the details.
  */
+
+import { EVENT_BRANDS, type EventBrandTheme } from '@/app/data/events';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,6 +28,8 @@ export type EntryStatus =
   | 'resubmit_required';
 export type TicketType = 'single' | 'multiple' | 'team';
 export type InviteStatus = 'not_invited' | 'invited' | 'accepted' | 'declined';
+export type TeamPlayerAccessPath = 'pending' | 'guest_qr' | 'passport';
+export type PrototypeIdentitySource = 'passport' | 'form';
 export type EventScheduleType = 'single_day' | 'consecutive_days' | 'non_consecutive_days';
 export type TicketAccessScope = 'single_session' | 'selected_sessions' | 'all_sessions';
 
@@ -76,10 +80,16 @@ export interface RegistrationQueueEntry {
   personName: string;
   category: string;
   type: RegistrationQueueEntryType;
+  /** Team entries resolve this independently for each participant. */
+  participantId?: string;
+  accessPath?: TeamPlayerAccessPath;
   entryStatus: EntryStatus;
   deadline?: string;
   formRoute: string;
-  inviteEmail?: string;
+  inviteEmail?: string | null;
+  inviteStatus?: InviteStatus;
+  claimLinkRevoked?: boolean;
+  participantIsPrimary?: boolean;
   guestCompletedCount?: number;
   guestTotalCount?: number;
   guestEmails?: string[];
@@ -102,6 +112,23 @@ export interface Participant {
   isPrimary?: boolean;
   /** Email the form was sent to (if sent via email) */
   sentToEmail?: string | null;
+  /** Invalidates a previously issued claim link after the buyer takes the form back. */
+  claimLinkRevoked?: boolean;
+  /** Explicit access outcome; never inferred from an email address alone. */
+  accessPath?: TeamPlayerAccessPath;
+  /** Shared-form ownership is recorded only after the recipient submits. */
+  claimedAt?: string;
+  claimedByMemberId?: string;
+  claimedByDisplayName?: string;
+  /** Passport owner recorded when the recipient claims this team entry. */
+  passportMemberId?: string;
+  /** Display name from the owning Passport account, not from the organizer form. */
+  passportDisplayName?: string;
+  /** Prototype-only normalized name until the organizer form schema is available. */
+  prototypeIdentity?: {
+    displayName: string;
+    source: PrototypeIdentitySource;
+  };
 }
 
 export interface TicketSession {
@@ -122,6 +149,8 @@ export interface MyTicket {
   eventLocation: string;
   organizer: string;
   image: string;
+  /** Explicit organizer/event palette shared with Event Details. */
+  brand?: EventBrandTheme;
   labels: string[];
   ticketType: TicketType;
   ticketTypeName: string;
@@ -147,9 +176,9 @@ export interface MyTicket {
   maxParticipants?: number;
   /** Deadline for form completion */
   deadline?: string;
-  /** Team tickets: coach name (the person managing the roster — not a participant) */
+  /** Legacy mock metadata retained for older order fixtures; not an access credential. */
   coachName?: string;
-  /** Team tickets: coach email */
+  /** Legacy mock metadata retained for older order fixtures; not an access credential. */
   coachEmail?: string;
 }
 
@@ -166,6 +195,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'June 5, 2026 at 9:00 AM',
     eventLocation: 'Araw Sports Club Dumaguete, Valencia, Negros Oriental',
     organizer: 'Pickleball Global Academy (PGA)',
+    brand: EVENT_BRANDS.court,
     image:
       'https://images.unsplash.com/photo-1599447421416-3414500d18a5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrdXQlMjBjb3VydHxlbnwxfHx8fDE3NzAxODc2MTF8MA&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Pickleball', 'Team'],
@@ -234,6 +264,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'July 4, 2026 at 5:00 AM',
     eventLocation: 'Quezon Park, Dumaguete City, Negros Oriental',
     organizer: 'NORSPORTS',
+    brand: EVENT_BRANDS.stride,
     image:
       'https://images.unsplash.com/photo-1714962747379-93714999d5cc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYXJhdGhvbiUyMHJ1bm5lcnMlMjBjcm93ZHxlbnwxfHx8fDE3NzAxODc2MTB8MA&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Running', 'Ultramarathon'],
@@ -269,6 +300,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'July 10, 2026 at 7:00 PM',
     eventLocation: 'Lamberto Macias Sports Complex, Dumaguete City',
     organizer: 'VisMin Super League',
+    brand: EVENT_BRANDS.arena,
     image:
       'https://images.unsplash.com/photo-1559369064-c4d65141e408?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwZ2FtZSUyMGluZG9vciUyMGFyZW5hfGVufDF8fHx8MTc3MDE4NzYxMXww&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Basketball', 'Tournament'],
@@ -332,6 +364,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'August 14, 2026 at 6:30 PM',
     eventLocation: 'Rizal Boulevard, Dumaguete City',
     organizer: 'Dumaguete Runners Club',
+    brand: EVENT_BRANDS.stride,
     image:
       'https://images.unsplash.com/photo-1502904550040-7534597429ae?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyb2FkJTIwcnVubmVycyUyMG5pZ2h0fGVufDF8fHx8MTc3MDE4NzYxMHww&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Running', 'Night Run'],
@@ -368,6 +401,7 @@ export const MY_TICKETS: MyTicket[] = [
         email: 'mia.t@email.com',
         formStatus: 'completed',
         inviteStatus: 'not_invited',
+        accessPath: 'guest_qr',
       },
     ],
     confirmationRef: 'DNR-2026-008512',
@@ -382,6 +416,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'August 14, 2026 at 6:30 PM',
     eventLocation: 'Rizal Boulevard, Dumaguete City',
     organizer: 'Dumaguete Runners Club',
+    brand: EVENT_BRANDS.stride,
     image:
       'https://images.unsplash.com/photo-1502904550040-7534597429ae?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyb2FkJTIwcnVubmVycyUyMG5pZ2h0fGVufDF8fHx8MTc3MDE4NzYxMHww&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Running', 'Night Run'],
@@ -424,7 +459,7 @@ export const MY_TICKETS: MyTicket[] = [
     purchaseDate: 'Feb 04, 2026',
   },
 
-  // ── 6. TEAM TICKET ─ Dumaguete Futsal Cup Season 4 (Roster forms needed) ──
+  // ── 6. TEAM TICKET ─ Dumaguete Futsal Cup Season 4 (Player forms needed) ──
   {
     id: 'tkt-013',
     eventId: '13',
@@ -432,6 +467,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'August 22, 2026 at 4:00 PM',
     eventLocation: 'Foundation University Gym, Dumaguete City',
     organizer: 'Dumaguete Futsal Association',
+    brand: EVENT_BRANDS.football,
     image:
       'https://images.unsplash.com/photo-1518604666860-9ed391f76460?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
     labels: ['Futsal', 'Team'],
@@ -457,10 +493,13 @@ export const MY_TICKETS: MyTicket[] = [
         email: 'jessica@email.com',
         formStatus: 'completed',
         inviteStatus: 'accepted',
+        passportMemberId: 'member-jessica-williams',
+        passportDisplayName: 'Jessica Williams',
       },
       {
         id: 'p2',
         name: 'Mia Torres',
+        prototypeIdentity: { displayName: 'Mia Torres', source: 'passport' },
         email: 'mia.t@email.com',
         formStatus: 'completed',
         inviteStatus: 'accepted',
@@ -468,6 +507,7 @@ export const MY_TICKETS: MyTicket[] = [
       {
         id: 'p3',
         name: 'Paolo Reyes',
+        prototypeIdentity: { displayName: 'Paolo Reyes', source: 'passport' },
         email: 'paolo.reyes@email.com',
         formStatus: 'completed',
         inviteStatus: 'accepted',
@@ -475,6 +515,7 @@ export const MY_TICKETS: MyTicket[] = [
       {
         id: 'p4',
         name: 'Carlo Lim',
+        prototypeIdentity: { displayName: 'Carlo Lim', source: 'passport' },
         email: 'carlo.lim@email.com',
         formStatus: 'completed',
         inviteStatus: 'accepted',
@@ -514,7 +555,7 @@ export const MY_TICKETS: MyTicket[] = [
     purchaseDate: 'Feb 13, 2026',
   },
 
-  // ── 7. TEAM TICKET ─ Grand Slam Tennis Open (Team ready for check-in) ──
+  // ── 7. TEAM TICKET ─ Grand Slam Tennis Open (Player access ready) ──────
   {
     id: 'tkt-014',
     eventId: '14',
@@ -522,6 +563,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'August 29, 2026 at 8:00 AM',
     eventLocation: 'Green Court Club, Taguig, Metro Manila',
     organizer: 'Green Court Athletic Club',
+    brand: EVENT_BRANDS.court,
     image:
       'https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
     labels: ['Tennis', 'Team'],
@@ -547,6 +589,8 @@ export const MY_TICKETS: MyTicket[] = [
         email: 'jessica@email.com',
         formStatus: 'completed',
         inviteStatus: 'accepted',
+        passportMemberId: 'member-jessica-williams',
+        passportDisplayName: 'Jessica Williams',
       },
       {
         id: 'p2',
@@ -554,6 +598,9 @@ export const MY_TICKETS: MyTicket[] = [
         email: 'emily.p@email.com',
         formStatus: 'completed',
         inviteStatus: 'accepted',
+        accessPath: 'passport',
+        passportMemberId: 'member-emily-park',
+        passportDisplayName: 'Emily Park',
       },
       {
         id: 'p3',
@@ -561,6 +608,8 @@ export const MY_TICKETS: MyTicket[] = [
         email: 'mia.t@email.com',
         formStatus: 'completed',
         inviteStatus: 'accepted',
+        passportMemberId: 'member-mia-torres',
+        passportDisplayName: 'Mia Torres',
       },
       {
         id: 'p4',
@@ -568,6 +617,8 @@ export const MY_TICKETS: MyTicket[] = [
         email: 'noah.cruz@email.com',
         formStatus: 'completed',
         inviteStatus: 'accepted',
+        passportMemberId: 'member-noah-cruz',
+        passportDisplayName: 'Noah Cruz',
       },
       {
         id: 'p5',
@@ -575,6 +626,7 @@ export const MY_TICKETS: MyTicket[] = [
         email: null,
         formStatus: 'completed',
         inviteStatus: 'not_invited',
+        accessPath: 'guest_qr',
       },
       {
         id: 'p6',
@@ -582,6 +634,7 @@ export const MY_TICKETS: MyTicket[] = [
         email: null,
         formStatus: 'completed',
         inviteStatus: 'not_invited',
+        accessPath: 'guest_qr',
       },
     ],
     confirmationRef: 'GST-2026-004785',
@@ -596,6 +649,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'September 12, 2026 at 6:00 AM',
     eventLocation: 'South Road Properties, Cebu City',
     organizer: 'Cebu Endurance Club',
+    brand: EVENT_BRANDS.beach,
     image:
       'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
     labels: ['Running', 'Team'],
@@ -665,6 +719,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'June 11, 2026 at 5:00 PM',
     eventLocation: 'FRNDS 2.0 Pickleball, Sibulan, Negros Oriental',
     organizer: 'Emerald Stakes Corporation',
+    brand: EVENT_BRANDS.court,
     image:
       'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZW5uaXMlMjBwbGF5ZXIlMjBhY3Rpb24lMjBjb3VydHxlbnwxfHx8fDE3NzAxNTE2MzJ8MA&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Pickleball', 'Tournament'],
@@ -705,6 +760,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'June 5, 2026 at 9:00 PM',
     eventLocation: 'Liptong Woodland, Bacong, Negros Oriental',
     organizer: 'Liptong Woodland',
+    brand: EVENT_BRANDS.heritage,
     image:
       'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmb3Jlc3QlMjBjYW1waW5nfGVufDF8fHx8MTc3MDk1NzM0N3ww&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Community', 'Team'],
@@ -760,6 +816,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'July 22, 2026 at 6:00 AM',
     eventLocation: 'Apo Island, Dauin, Negros Oriental',
     organizer: 'Swim Philippines',
+    brand: EVENT_BRANDS.aquatic,
     image:
       'https://images.unsplash.com/photo-1707401252805-9019f342604b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdW5zZXQlMjB5b2dhJTIwcmV0cmVhdCUyMGJlYWNofGVufDF8fHx8MTc3MDk1NzM0N3ww&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Swimming', 'Aquatics'],
@@ -795,6 +852,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'June 27, 2026 at 5:00 AM',
     eventLocation: 'Canlaon City Sports Complex, Negros Oriental',
     organizer: 'Intl. Athletics Org',
+    brand: EVENT_BRANDS.heritage,
     image:
       'https://images.unsplash.com/photo-1714962747379-93714999d5cc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYXJhdGhvbiUyMHJ1bm5lcnMlMjBjcm93ZHxlbnwxfHx8fDE3NzAxODc2MTB8MA&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Running', 'Marathon'],
@@ -823,6 +881,7 @@ export const MY_TICKETS: MyTicket[] = [
         email: 'emily.p@email.com',
         formStatus: 'completed',
         inviteStatus: 'accepted',
+        accessPath: 'guest_qr',
       },
     ],
     confirmationRef: 'CFR-2026-008823',
@@ -837,6 +896,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'June 18, 2026 at 8:00 AM',
     eventLocation: 'Balili Bike Park, Sibulan, Negros Oriental',
     organizer: 'NORSPORTS / UCI',
+    brand: EVENT_BRANDS.velo,
     image:
       'https://images.unsplash.com/photo-1586280246643-9e2f01e3c14e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjeWNsaW5nJTIwcmFjZSUyMHJvYWQlMjBiaWtlc3xlbnwxfHx8fDE3NzAwOTE2MjV8MA&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Mountain Biking', 'Elite'],
@@ -875,6 +935,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'May 14, 2025 at 5:30 AM',
     eventLocation: 'Mount Talinis Trail, Valencia, Negros Oriental',
     organizer: 'NORSPORTS',
+    brand: EVENT_BRANDS.stride,
     image:
       'https://images.unsplash.com/photo-1566147592116-5e51b670137a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0cmFpbCUyMHJ1bm5pbmclMjBtb3VudGFpbiUyMHJhY2V8ZW58MXx8fHwxNzcwODg2NjMxfDA&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Trail Running', '50K'],
@@ -911,6 +972,7 @@ export const MY_TICKETS: MyTicket[] = [
     eventDate: 'January 18, 2025 at 7:00 AM',
     eventLocation: 'Balili Park trails, Sibulan, Negros Oriental',
     organizer: 'Sibulan Cycling Club',
+    brand: EVENT_BRANDS.velo,
     image:
       'https://images.unsplash.com/photo-1720749407269-b92e86cffb68?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjeWNsaW5nJTIwcmFjZSUyMG91dGRvb3IlMjByb2FkfGVufDF8fHx8MTc3MDg4NjYzMnww&ixlib=rb-4.1.0&q=80&w=1080',
     labels: ['Cycling', 'Enduro'],
@@ -1053,15 +1115,15 @@ export function createRegistrationQueueEntries(tickets: MyTicket[] = MY_TICKETS)
           ticketId: ticket.id,
           orderRef: ticket.confirmationRef,
           eventName: ticket.eventTitle,
-          personName: ticket.coachName || ticket.participants[0]?.name || 'Team lead',
+          personName: ticket.eventTitle,
           category: ticket.ticketTypeName,
           type: 'team' as const,
           entryStatus: ticket.entryStatus || 'pending_form',
           deadline: ticket.deadline,
           formRoute: `/orders/${ticket.id}/form`,
-          inviteEmail: ticket.coachEmail,
+          inviteEmail: undefined,
           teamAttachedCount: attachedCount,
-          teamTotalCount: ticket.maxParticipants || ticket.quantity,
+          teamTotalCount: ticket.participants.length,
         }];
       }
 
@@ -1086,7 +1148,11 @@ export function createRegistrationQueueEntries(tickets: MyTicket[] = MY_TICKETS)
           entryStatus: ticketWideStatus ? ticket.entryStatus! : isPendingParticipant ? (ticket.entryStatus || 'pending_form') : 'attached',
           deadline: ticket.deadline,
           formRoute: `/orders/${ticket.id}/form`,
-          inviteEmail: participant.sentToEmail || participant.email || undefined,
+          participantId: participant.id,
+          inviteEmail: participant.sentToEmail || participant.email || null,
+          inviteStatus: participant.inviteStatus,
+          claimLinkRevoked: participant.claimLinkRevoked,
+          participantIsPrimary: participant.isPrimary,
         };
       });
     });
@@ -1109,7 +1175,7 @@ export function createRegistrationQueueEntries(tickets: MyTicket[] = MY_TICKETS)
       guestCompletedCount: 0,
       guestTotalCount: 2,
     },
-    // ── Team entry: futsal roster still needs forms ─────────────────────
+    // ── Standalone fixture: player forms still need to be set up ─────────
     {
       id: 'team-futsal-league',
       ticketId: 'team-futsal-league',

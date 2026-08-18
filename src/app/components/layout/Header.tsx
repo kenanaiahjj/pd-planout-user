@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { Bell, ShoppingCart, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { Bell, IdCard, ShoppingCart, ShoppingBag, ArrowLeft } from 'lucide-react';
 
 import imgLogo from '@/assets/5a332411061613331a1ffc8c7aa2ccf247ff8699.png';
 import imgAvatar from '@/assets/ce45a896d958cf406bb83c3c0a93e2f03fcb0bef.png';
@@ -130,9 +130,9 @@ export function Header({
     <header className="fixed top-0 left-0 right-0 z-40 w-full bg-transparent">
       <div className="bg-transparent border-none shadow-none backdrop-blur-none">
         {/* ---------------------------------------------------------------- */}
-        {/* MOBILE header (< lg) — compact logo + icons                     */}
+        {/* MOBILE header (< md) — compact logo + icons                     */}
         {/* ---------------------------------------------------------------- */}
-        <div className="lg:hidden max-w-[960px] mx-auto px-4 sm:px-8 py-3.5 grid grid-cols-[auto_1fr_auto] items-center gap-3">
+        <div className="md:hidden max-w-[1280px] mx-auto px-4 sm:px-8 py-3.5 grid grid-cols-[auto_1fr_auto] items-center gap-3">
           {/* Left — Logo or Back Button Column */}
           <div className="flex justify-start">
             {onBackClick ? (
@@ -327,9 +327,9 @@ export function Header({
         </div>
 
         {/* ---------------------------------------------------------------- */}
-        {/* DESKTOP header (lg+) — full nav bar                              */}
+        {/* DESKTOP header (md+) — full nav bar                              */}
         {/* ---------------------------------------------------------------- */}
-        <div className="hidden lg:grid lg:grid-cols-[1fr_auto_1fr] items-center h-[80px] px-8 max-w-[1280px] mx-auto py-3.5 gap-4">
+        <div className="hidden md:grid md:grid-cols-[1fr_auto_1fr] items-center h-[80px] px-6 lg:px-8 max-w-[1280px] mx-auto py-3.5 gap-4">
           {/* Left Column — Logo or Back Button */}
           <div className="flex justify-start items-center">
             {onBackClick ? (
@@ -454,6 +454,7 @@ export function Header({
                   <span>Orders</span>
                 </button>
               )}
+
             </nav>
           </div>
 
@@ -510,12 +511,29 @@ export function Header({
                   )}
                 </button>
 
+                {/* Passport — primary account destination beside the avatar */}
+                <button
+                  onClick={onPassportClick}
+                  aria-label="Open Passport"
+                  className={`relative flex h-10 items-center justify-center gap-2 rounded-full px-2.5 text-[13px] font-semibold tracking-[-0.15px] leading-none transition-all active:scale-95 cursor-pointer lg:px-3 ${
+                    isDarkHeader
+                      ? activePage === 'passport'
+                        ? 'bg-white/16 text-white shadow-sm'
+                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                      : activePage === 'passport'
+                        ? 'bg-[#eef7f5] text-[#177564] shadow-[0_2px_6px_rgba(15,23,42,0.04)]'
+                        : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-800'
+                  }`}
+                >
+                  <IdCard className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                  <span className="hidden lg:inline">Passport</span>
+                </button>
+
                 {/* User avatar */}
                 <div className="pl-0.5 pr-0.5">
                   <UserMenuDropdown
                      avatarSrc={imgAvatar}
                      onProfileClick={onProfileClick}
-                     onPassportClick={onPassportClick}
                      onInboxClick={onInboxClick}
                      onSettingsClick={onSettingsClick}
                      onSignOut={onSignOut}

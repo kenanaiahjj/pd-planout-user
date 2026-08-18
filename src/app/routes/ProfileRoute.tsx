@@ -13,7 +13,6 @@ export function ProfileRoute() {
   return (
     <AuthGuard>
       <ProfilePage
-        onBack={() => navigate('/settings')}
         onEventSelect={(eventId) => navigate(`/events/${eventId}`)}
       />
     </AuthGuard>

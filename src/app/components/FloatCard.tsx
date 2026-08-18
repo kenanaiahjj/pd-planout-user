@@ -22,8 +22,11 @@ function getDaysLeft(deadline?: Date): number | null {
   return Math.ceil(diff / (24 * 60 * 60 * 1000));
 }
 
-function shouldHideOnRoute(pathname: string): boolean {
-  if (pathname.startsWith('/passport/')) return true;
+export function shouldHideFloatCardOnRoute(pathname: string): boolean {
+  // Event discovery and detail pages need the full viewport for browsing and purchase actions.
+  if (pathname === '/events' || pathname.startsWith('/events/')) return true;
+  if (pathname === '/orders') return true;
+  if (pathname === '/passport' || pathname.startsWith('/passport/')) return true;
   if (pathname === '/registration-queue') return true;
   if (pathname === '/participant-form' || pathname.startsWith('/participant-form/')) return true;
   if (/^\/orders\/[^/]+$/.test(pathname)) return true;
@@ -37,7 +40,7 @@ export function FloatCard({ pendingCount, nearestDeadline, onPress, accentColor,
   const location = useLocation();
   const { pathname } = location;
 
-  if (pendingCount <= 0 || shouldHideOnRoute(pathname)) return null;
+  if (pendingCount <= 0 || shouldHideFloatCardOnRoute(pathname)) return null;
 
   const daysLeft = getDaysLeft(nearestDeadline);
   const showDeadline = daysLeft != null && daysLeft <= 7;
@@ -62,7 +65,7 @@ export function FloatCard({ pendingCount, nearestDeadline, onPress, accentColor,
     <button
       type="button"
       onClick={onPress}
-      className={`fixed left-4 right-4 z-40 mx-auto max-w-[440px] ${bottomOffset} overflow-hidden rounded-[22px] px-5 py-4 text-left text-white transition-transform active:scale-[0.985]`}
+      className={`fixed left-4 right-4 md:left-auto md:right-8 z-40 mx-auto md:mx-0 max-w-[440px] md:w-[380px] ${bottomOffset} md:bottom-8 overflow-hidden rounded-[22px] px-5 py-4 text-left text-white transition-transform active:scale-[0.985] cursor-pointer`}
       style={{ background: gradientBg, border: `1px solid ${borderColor}`, boxShadow }}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(255,255,255,0.18),transparent_34%)]" />

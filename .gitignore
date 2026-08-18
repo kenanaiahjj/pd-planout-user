@@ -34,3 +34,6 @@ dist-ssr/
 .codex/
 .impeccable/
 scratch/
+
+# Local agent brainstorm state (contains session tokens)
+.superpowers/

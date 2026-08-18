@@ -4,9 +4,8 @@
  * item selection checkboxes, voucher code entry (SAVE100, SPORT50, RUN200),
  * and an order summary sidebar.
  *
- * Cart state is currently local to this component (mock data). A planned
- * next step is to lift cart state into App.tsx (or a context) so the header
- * badge count and "Get Tickets" button on event details can interact with it.
+ * Cart state is shared through AppContext so event ticket selections survive
+ * navigation and the header badge stays aligned with the rendered cart.
  *
  * Mobile layout includes a glassmorphism sticky bottom action bar.
  */
@@ -30,81 +29,13 @@ import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { EmptyStateGraphic } from '@/app/components/EmptyStateGraphic';
 import { PrimaryButton } from './PrimaryButton';
 import { ConfirmDialog } from './ConfirmDialog';
-import { useAppContext } from '@/app/context/AppContext';
+import {
+  useAppContext,
+  type CartItem,
+  type CheckoutIntentItem,
+} from '@/app/context/AppContext';
 import { useNavigate } from 'react-router';
 import { toast } from "sonner";
-
-// --- Types ---
-interface CartItem {
-  id: string;
-  name: string;
-  tier?: string;
-  wave?: string;
-  price: number;
-  quantity: number;
-  image: string;
-  countdownEnd?: Date; // registration deadline countdown
-  holdingEnd?: Date;   // reservation hold timer — expires = item may be lost
-}
-
-interface CartEvent {
-  id: string;
-  eventName: string;
-  date: string;
-  location: string;
-  items: CartItem[];
-}
-
-// --- Mock Data ---
-const INITIAL_CART: CartEvent[] = [
-  {
-    id: 'evt-1',
-    eventName: 'NegOr50•50 Series 2: NUTRI-RUN 65',
-    date: 'Jul 4, 2026',
-    location: 'Quezon Park, Dumaguete City, Negros Oriental',
-    items: [
-      {
-        id: 'item-1',
-        name: '65K Ultramarathon Entry (Solo)',
-        tier: 'Regular Registration',
-        wave: 'Wave 1',
-        price: 1500.0,
-        quantity: 1,
-        image:
-          'https://images.unsplash.com/photo-1759674915081-b38844dbb613?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYXJhdGhvbiUyMHJ1bm5lcnMlMjBjcm93ZHxlbnwxfHx8fDE3NzAxODc2MTB8MA&ixlib=rb-4.1.0&q=80&w=1080',
-        countdownEnd: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      },
-      {
-        id: 'item-2',
-        name: 'NORSPORTS Event Tee 2026',
-        price: 499.0,
-        quantity: 1,
-        image:
-          'https://images.unsplash.com/photo-1759503407492-e45b8dd0d5e3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzcG9ydHMlMjBldmVudCUyMHRzaGlydCUyMG1lcmNoYW5kaXNlfGVufDF8fHx8MTc3MDg3NzI2NHww&ixlib=rb-4.1.0&q=80&w=1080',
-        holdingEnd: new Date(Date.now() + 4000), // 4 seconds — fires quickly for demo
-      },
-    ],
-  },
-  {
-    id: 'evt-2',
-    eventName: 'Pickleball Coaching Certification Series',
-    date: 'Jun 5, 2026',
-    location: 'Araw Sports Club Dumaguete, Valencia, Negros Oriental',
-    items: [
-      {
-        id: 'item-3',
-        name: 'Coaching Certification Course Ticket',
-        tier: 'Standard Pass',
-        price: 1250.0,
-        quantity: 1,
-        image:
-          'https://images.unsplash.com/photo-1687216769793-833dcfe4e3af?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwZ2FtZSUyMHRpY2tldHMlMjBhcmVuYXxlbnwxfHx8fDE3NzA4NzcyNjV8MA&ixlib=rb-4.1.0&q=80&w=1080',
-        countdownEnd: new Date(Date.now() + 3 * 60 * 60 * 1000),
-        holdingEnd: new Date(Date.now() + 8 * 60 * 1000), // 8 min hold
-      },
-    ],
-  },
-];
 
 const VOUCHER_MAP: Record<string, number> = {
   SAVE100: 100,
@@ -282,17 +213,16 @@ function HoldExpiredModal({
 // --- Component ---
 interface CartPageProps {
   onClose: () => void;
-  onCheckout?: () => void;
+  onCheckout?: (items: CheckoutIntentItem[], totalAmount: number) => void;
   /** When true, suppresses the built-in slide animation (used inside DrawerPanel). */
   isDrawer?: boolean;
 }
 
 export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
-  const { isAuthenticated, setReturnTo } = useAppContext();
+  const { isAuthenticated, setReturnTo, cart, setCart } = useAppContext();
   const navigate = useNavigate();
-  const [cart, setCart] = useState<CartEvent[]>(INITIAL_CART);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(
-    () => new Set(INITIAL_CART.flatMap((e) => e.items.map((i) => i.id)))
+    () => new Set(cart.flatMap((e) => e.items.map((i) => i.id)))
   );
   const [voucherCode, setVoucherCode] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState<{
@@ -425,6 +355,18 @@ export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
   const selectedCartItems = cart.flatMap((e) =>
     e.items.filter((i) => selectedItems.has(i.id))
   );
+  const selectedCheckoutItems: CheckoutIntentItem[] = cart.flatMap((event) =>
+    event.items
+      .filter((item) => selectedItems.has(item.id))
+      .map((item) => ({
+        ticketId: item.id,
+        qty: item.quantity,
+        category: item.name,
+        price: item.price,
+        eventName: event.eventName,
+        image: item.image,
+      }))
+  );
   const subtotal = selectedCartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
@@ -508,7 +450,9 @@ export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
           Your Cart
         </h2>
         <button
+          type="button"
           onClick={onClose}
+          aria-label="Close cart"
           className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-100 bg-white text-[#64748b]"
         >
           <X className="w-4 h-4" />
@@ -540,8 +484,10 @@ export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
       {totalItems > 0 && (
         <div className="flex items-center justify-between">
           <button
+            type="button"
             onClick={toggleSelectAll}
-            className="flex items-center gap-2.5 group"
+            aria-pressed={allSelected}
+            className="flex min-h-11 items-center gap-2.5 group"
           >
             <div
               className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
@@ -636,8 +582,11 @@ export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
                     <div className="px-4 sm:px-5 py-4 flex gap-3 sm:gap-4">
                       {/* Selection Radio */}
                       <button
+                        type="button"
                         onClick={() => toggleItem(item.id)}
-                        className="mt-1 shrink-0"
+                        aria-label={`${selectedItems.has(item.id) ? 'Deselect' : 'Select'} ${item.name}`}
+                        aria-pressed={selectedItems.has(item.id)}
+                        className="mt-[-4px] flex h-11 w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 focus-visible:ring-offset-2"
                       >
                         <div
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
@@ -732,9 +681,11 @@ export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
                           />
                           <div className="flex items-center gap-1 rounded-[10px] border border-neutral-100 bg-white p-1">
                             <button
+                              type="button"
                               onClick={() => updateQuantity(evt.id, item.id, -1)}
                               disabled={item.quantity <= 1}
-                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] text-[#177564] disabled:text-[#cbd5e1] disabled:cursor-not-allowed active:scale-95"
+                              aria-label={`Decrease ${item.name} quantity`}
+                              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[7px] text-[#177564] disabled:text-[#cbd5e1] disabled:cursor-not-allowed active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30"
                             >
                               <Minus className="w-3 h-3" />
                             </button>
@@ -742,8 +693,10 @@ export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
                               {item.quantity}
                             </span>
                             <button
+                              type="button"
                               onClick={() => updateQuantity(evt.id, item.id, 1)}
-                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] text-[#177564] active:scale-95"
+                              aria-label={`Increase ${item.name} quantity`}
+                              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[7px] text-[#177564] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
@@ -781,7 +734,9 @@ export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={removeVoucher}
+                aria-label="Remove applied voucher"
                 className="w-6 h-6 rounded-full flex items-center justify-center text-[#64748b] hover:text-[#181d27] hover:bg-[#def2ee] transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
@@ -873,7 +828,8 @@ export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
       {cart.length > 0 && (
         <div className="hidden lg:block">
           <PrimaryButton
-            onClick={onCheckout}
+            onClick={() => onCheckout?.(selectedCheckoutItems, totalAmount)}
+            disabled={selectedCheckoutItems.length === 0}
             fullWidth
             className="py-3.5"
           >
@@ -893,7 +849,8 @@ export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
               </span>
             </div>
             <PrimaryButton
-              onClick={onCheckout}
+              onClick={() => onCheckout?.(selectedCheckoutItems, totalAmount)}
+              disabled={selectedCheckoutItems.length === 0}
               fullWidth
               className="py-3.5 text-[17px] font-semibold"
             >

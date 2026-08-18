@@ -554,6 +554,9 @@ export function IOSKeyboard() {
           el.dispatchEvent(
             new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
           );
+          el.blur();
+          activeElRef.current = null;
+          setIsVisible(false);
           return;
         }
       } else if (key === 'space') {

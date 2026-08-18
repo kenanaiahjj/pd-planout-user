@@ -6,16 +6,26 @@
  * desktop peek panel / drawer state, checkout intent, and constants.
  */
 
-import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { type EventData } from '@/app/data/events';
 import {
+  MY_TICKETS,
   createRegistrationQueueEntries,
   getActionRequiredCount,
   getOrderFormActionEntries,
   retiredRegistrationEntryIds,
   type GuestEntryQR,
+  type Participant,
   type RegistrationQueueEntry,
+  type TeamPlayerAccessPath,
 } from '@/app/data/tickets';
+import { claimFormEntry, rescindFormInvite } from '@/app/data/formLinks.js';
+import {
+  applyParticipantToRegistrationQueue,
+  shareRegistrationInviteInQueue,
+} from '@/app/data/participantFormState.js';
+import { attachTeamPlayerToPassport, normalizeTeamPlayerState } from '@/app/data/teamAccess.js';
+import { INITIAL_CART, createCartEventFromAddition, mergeCartEvents } from '@/app/data/cart.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,6 +57,8 @@ export interface CheckoutIntentItem {
   qty: number;
   category: string;
   price: number;
+  eventName?: string;
+  image?: string;
 }
 
 export interface CheckoutIntent {
@@ -55,6 +67,35 @@ export interface CheckoutIntent {
   price: number;
   image: string;
   items?: CheckoutIntentItem[];
+}
+
+export interface CartItem {
+  id: string;
+  name: string;
+  tier?: string;
+  wave?: string;
+  price: number;
+  quantity: number;
+  image: string;
+  countdownEnd?: Date;
+  holdingEnd?: Date;
+}
+
+export interface CartEvent {
+  id: string;
+  eventName: string;
+  date: string;
+  location: string;
+  items: CartItem[];
+}
+
+export interface CartAddition {
+  eventId: string;
+  eventName: string;
+  date: string;
+  location: string;
+  image: string;
+  items: CheckoutIntentItem[];
 }
 
 export interface PendingOrgApplication {
@@ -80,9 +121,58 @@ export interface GuestEntryQRRecord extends Omit<GuestEntryQR, 'revokedAt' | 'ex
   claimedByMemberId?: string;
 }
 
+export type TeamPlayerAccess = Record<string, TeamPlayerAccessPath | undefined>;
+export type TeamPlayerRoster = Record<string, Participant[] | undefined>;
+
+export type RegistrationEntryClaimResult =
+  | { ok: true }
+  | { ok: false; reason: 'already_claimed' | 'invite_revoked'; ownerName: string };
+
 export type GuestEntryClaimResult =
   | { ok: true; qr: GuestEntryQRRecord }
   | { ok: false; reason: 'not_found' | 'revoked' | 'already_claimed' };
+
+/**
+ * Stable case data used by the public Guest QR previews. Keeping these
+ * records in the shared context means a preview link can continue through
+ * the same claim path as a QR generated from Orders.
+ */
+export function getDemoGuestEntryQR(ref: string): GuestEntryQRRecord | undefined {
+  const normalizedRef = ref.trim().toUpperCase();
+  const base: GuestEntryQRRecord = {
+    id: `demo-${normalizedRef}`,
+    orderId: 'CFR-2026-008823',
+    entryId: 'tkt-010-p2',
+    attendeeName: 'Emily Park',
+    eventName: 'Canlaon Marathon 2026',
+    eventDate: 'June 27, 2026 at 5:00 AM',
+    category: '42K Full Marathon',
+    gate: 'Main Gate',
+    ref: normalizedRef,
+    isActive: true,
+    expiresAt: '2026-06-27T23:59:59.000Z',
+    buyerName: 'Jessica Sanchez',
+    recipientUrl: `/guest-entry/${normalizedRef}`,
+  };
+
+  if (normalizedRef === 'GE-TEMP-4021' || normalizedRef.startsWith('GE-TEMP-4021-')) {
+    return { ...base, attendeeName: 'Arthur Sanchez', onBehalfSignedBy: 'Jessica Sanchez' };
+  }
+  if (normalizedRef === 'GE-CANLAON-42K') {
+    return { ...base, onBehalfSignedBy: 'Jessica Sanchez' };
+  }
+  if (normalizedRef === 'GE-USED-4218') {
+    return {
+      ...base,
+      usedAt: '2026-06-27T04:18:00.000Z',
+      scanGate: 'Main Gate',
+    };
+  }
+  if (normalizedRef === 'GE-REVOKED-4218') {
+    return { ...base, isActive: false };
+  }
+  return undefined;
+}
 
 interface AppContextValue {
   // User profile
@@ -116,6 +206,11 @@ interface AppContextValue {
   checkoutIntent: CheckoutIntent | null;
   setCheckoutIntent: React.Dispatch<React.SetStateAction<CheckoutIntent | null>>;
 
+  // Cart state and event-ticket handoff
+  cart: CartEvent[];
+  setCart: React.Dispatch<React.SetStateAction<CartEvent[]>>;
+  addCartItems: (addition: CartAddition) => void;
+
   // Checkout confirmed (confirmation step reached — controls bottom nav visibility)
   checkoutConfirmed: boolean;
   setCheckoutConfirmed: React.Dispatch<React.SetStateAction<boolean>>;
@@ -128,10 +223,24 @@ interface AppContextValue {
   registrationQueueEntries: RegistrationQueueEntry[];
   activeRegistrationOrderRef: string | null;
   seedRegistrationQueue: (entries: RegistrationQueueEntry[], orderRef: string) => void;
-  completeRegistrationEntry: (entryId: string) => void;
+  completeRegistrationEntry: (entryId: string, accessPath?: TeamPlayerAccessPath) => void;
+  claimRegistrationEntry: (input: {
+    entryId: string;
+    ticketId?: string;
+    participantId?: string;
+  }) => RegistrationEntryClaimResult;
+  rescindRegistrationInvite: (entryId: string) => void;
+  sendRegistrationInvite: (entryId: string, recipient?: string, fallbackEntry?: RegistrationQueueEntry) => void;
+  updateRegistrationParticipant: (entryId: string, participant: Participant, fallbackEntry?: RegistrationQueueEntry) => void;
+  setRegistrationEntryAccessPath: (entryId: string, accessPath: TeamPlayerAccessPath) => void;
   updateRegistrationEntryStatus: (entryId: string, status: RegistrationQueueEntry['entryStatus']) => void;
   entryAttendance: Record<string, EntryAttendanceDecision | undefined>;
   guestEntryQRs: Record<string, GuestEntryQRRecord | undefined>;
+  teamPlayerAccess: TeamPlayerAccess;
+  setTeamPlayerAccess: (ticketId: string, participantId: string, accessPath: TeamPlayerAccessPath) => void;
+  canAttachTeamPlayerToPassport: (ticketId: string, participantId: string) => boolean;
+  teamPlayerRoster: TeamPlayerRoster;
+  setTeamPlayerRoster: (ticketId: string, participants: Participant[]) => void;
   setEntryAttendance: (entryId: string, decision: EntryAttendanceDecision) => void;
   generateGuestEntryQR: (input: {
     orderId: string;
@@ -143,6 +252,7 @@ interface AppContextValue {
     gate?: string;
     buyerName: string;
     onBehalfSignedBy?: string;
+    forceNew?: boolean;
   }) => GuestEntryQRRecord;
   revokeGuestEntryQR: (entryId: string) => void;
   markGuestEntryQRUsed: (entryId: string, scanGate?: string) => void;
@@ -171,14 +281,24 @@ const REGISTRATION_QUEUE_STORAGE_KEY = 'planout.registration.queue.v1';
 const ACTIVE_REGISTRATION_ORDER_KEY = 'planout.registration.activeOrder.v1';
 const ENTRY_ATTENDANCE_STORAGE_KEY = 'planout.entry.attendance.v1';
 const GUEST_ENTRY_QR_STORAGE_KEY = 'planout.guest.entry.qrs.v1';
+const TEAM_PLAYER_ACCESS_STORAGE_KEY = 'planout.team.player.access.v1';
+const TEAM_PLAYER_ROSTER_STORAGE_KEY = 'planout.team.player.roster.v1';
 const USER_PROFILE_STORAGE_KEY = 'planout.user.profile.v1';
+
+function isPlaceholderDisplayName(value: unknown) {
+  if (typeof value !== 'string') return true;
+  const normalized = value.trim().toLowerCase();
+  return !normalized || normalized === 'user' || /preview/i.test(normalized);
+}
 
 function readUserProfile(): UserProfile {
   const defaultProfile = { name: '', email: '', phone: '', loginMethod: 'email' };
   if (typeof window === 'undefined') return defaultProfile;
   try {
     const raw = window.localStorage.getItem(USER_PROFILE_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : defaultProfile;
+    if (!raw) return defaultProfile;
+    const parsed = JSON.parse(raw) as Partial<UserProfile>;
+    return { ...defaultProfile, ...parsed };
   } catch {
     return defaultProfile;
   }
@@ -225,8 +345,8 @@ function readCachedMember(): Member {
     if (!raw) return createDefaultMember();
 
     const cached = JSON.parse(raw) as Partial<Member>;
-    if (cached.displayName && /preview/i.test(cached.displayName)) {
-      cached.displayName = 'User';
+    if (isPlaceholderDisplayName(cached.displayName)) {
+      cached.displayName = createDefaultMember().displayName;
     }
     const memberId = cached.memberId || MOCK_MEMBER_ID;
     const qrVersion = cached.qrVersion || 1;
@@ -298,6 +418,40 @@ function cacheRecord<T>(key: string, value: Record<string, T | undefined>) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
+function readNormalizedTeamPlayerState(memberId: string) {
+  const rawAccess = readRecord<TeamPlayerAccessPath>({
+    key: TEAM_PLAYER_ACCESS_STORAGE_KEY,
+    fallback: {},
+  });
+  const rawRoster = readRecord<Participant[]>({
+    key: TEAM_PLAYER_ROSTER_STORAGE_KEY,
+    fallback: {},
+  });
+  const nextAccess = { ...rawAccess };
+  const nextRoster = { ...rawRoster };
+  const ticketIds = new Set([
+    ...MY_TICKETS.filter((ticket) => ticket.ticketType === 'team').map((ticket) => ticket.id),
+    ...Object.keys(rawRoster),
+  ]);
+
+  ticketIds.forEach((ticketId) => {
+    const ticket = MY_TICKETS.find((candidate) => candidate.id === ticketId);
+    const participants = rawRoster[ticketId] || ticket?.participants;
+    if (!participants) return;
+
+    const normalized = normalizeTeamPlayerState({
+      ticketId,
+      participants,
+      access: nextAccess,
+      memberId,
+    });
+    Object.assign(nextAccess, normalized.access);
+    if (rawRoster[ticketId]) nextRoster[ticketId] = normalized.participants;
+  });
+
+  return { access: nextAccess, roster: nextRoster };
+}
+
 function createGuestEntryRef(entryId: string) {
   const input = `${entryId}|${Date.now()}|guest-entry`;
   let hash = 0x811c9dc5;
@@ -329,6 +483,9 @@ const DEFAULT_CONTEXT: AppContextValue = {
   setActiveDrawer: noop as any,
   checkoutIntent: null,
   setCheckoutIntent: noop as any,
+  cart: [],
+  setCart: noop as any,
+  addCartItems: noop as any,
   checkoutConfirmed: false,
   setCheckoutConfirmed: noop as any,
   pendingOrgApplication: null,
@@ -337,9 +494,19 @@ const DEFAULT_CONTEXT: AppContextValue = {
   activeRegistrationOrderRef: null,
   seedRegistrationQueue: noop as any,
   completeRegistrationEntry: noop as any,
+  claimRegistrationEntry: noop as any,
+  rescindRegistrationInvite: noop as any,
+  sendRegistrationInvite: noop as any,
+  updateRegistrationParticipant: noop as any,
+  setRegistrationEntryAccessPath: noop as any,
   updateRegistrationEntryStatus: noop as any,
   entryAttendance: {},
   guestEntryQRs: {},
+  teamPlayerAccess: {},
+  setTeamPlayerAccess: noop as any,
+  canAttachTeamPlayerToPassport: () => true,
+  teamPlayerRoster: {},
+  setTeamPlayerRoster: noop as any,
   setEntryAttendance: noop as any,
   generateGuestEntryQR: noop as any,
   revokeGuestEntryQR: noop as any,
@@ -372,8 +539,6 @@ export function useAppContext(): AppContextValue {
 // Provider
 // ---------------------------------------------------------------------------
 
-/** Mock constants — will be replaced by real state later. */
-const MOCK_CART_COUNT = 3;
 const MOCK_NOTIFICATION_COUNT = 4;
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -403,6 +568,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Checkout intent
   const [checkoutIntent, setCheckoutIntent] = useState<CheckoutIntent | null>(null);
 
+  // Cart state is shared so an event ticket selection survives navigation and
+  // the desktop cart drawer can render the same lines as the full cart route.
+  const [cart, setCart] = useState<CartEvent[]>(() => INITIAL_CART as CartEvent[]);
+  const addCartItems = useCallback((addition: CartAddition) => {
+    const cartEvent = createCartEventFromAddition(addition) as CartEvent;
+    setCart((prev) => mergeCartEvents(prev, cartEvent) as CartEvent[]);
+  }, []);
+
   // Checkout confirmed
   const [checkoutConfirmed, setCheckoutConfirmed] = useState<boolean>(false);
 
@@ -424,6 +597,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [guestEntryQRs, setGuestEntryQRs] = useState<Record<string, GuestEntryQRRecord | undefined>>(() =>
     readRecord<GuestEntryQRRecord>({ key: GUEST_ENTRY_QR_STORAGE_KEY, fallback: {} }),
   );
+  const [teamPlayerAccess, setTeamPlayerAccessState] = useState<TeamPlayerAccess>(() =>
+    readNormalizedTeamPlayerState(passportMember.memberId).access,
+  );
+  const [teamPlayerRoster, setTeamPlayerRosterState] = useState<TeamPlayerRoster>(() =>
+    readNormalizedTeamPlayerState(passportMember.memberId).roster,
+  );
+  const registrationQueueEntriesRef = useRef(registrationQueueEntries);
+  const teamPlayerAccessRef = useRef(teamPlayerAccess);
+  const teamPlayerRosterRef = useRef(teamPlayerRoster);
   const guestEntryQRsRef = useRef(guestEntryQRs);
 
   // Desktop media query check
@@ -435,13 +617,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const isAuthenticated = userProfile.name.length > 0 || onboardingStep !== 'done';
   const member: Member = {
     ...passportMember,
-    displayName: userProfile.name || passportMember.displayName,
+    displayName: isPlaceholderDisplayName(userProfile.name)
+      ? passportMember.displayName
+      : userProfile.name,
     avatarUrl: userProfile.avatarUrl || passportMember.avatarUrl,
   };
+
+  // Persist the corrected state as soon as the provider mounts. This repairs
+  // duplicate Passport ownership left by older prototype interactions without
+  // requiring the user to clear browser storage.
+  useEffect(() => {
+    cacheRecord(TEAM_PLAYER_ACCESS_STORAGE_KEY, teamPlayerAccess);
+    cacheRecord(TEAM_PLAYER_ROSTER_STORAGE_KEY, teamPlayerRoster);
+  }, [teamPlayerAccess, teamPlayerRoster]);
 
   const seedRegistrationQueue = useCallback((entries: RegistrationQueueEntry[], orderRef: string) => {
     setRegistrationQueueEntries((prev) => {
       const next = [...prev.filter((entry) => entry.orderRef !== orderRef), ...entries];
+      registrationQueueEntriesRef.current = next;
       cacheRegistrationQueueEntries(next);
       return next;
     });
@@ -449,17 +642,153 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     cacheActiveRegistrationOrderRef(orderRef);
   }, []);
 
-  const completeRegistrationEntry = useCallback((entryId: string) => {
+  const completeRegistrationEntry = useCallback((entryId: string, accessPath?: TeamPlayerAccessPath) => {
     setRegistrationQueueEntries((prev) => {
       const next = prev.map((entry) =>
         entry.id === entryId
           ? {
               ...entry,
               entryStatus: 'attached' as const,
+              ...(accessPath ? { accessPath } : {}),
               teamAttachedCount: entry.teamTotalCount || entry.teamAttachedCount,
             }
           : entry,
       );
+      registrationQueueEntriesRef.current = next;
+      cacheRegistrationQueueEntries(next);
+      return next;
+    });
+  }, []);
+
+  const claimRegistrationEntry = useCallback(({
+    entryId,
+    ticketId,
+    participantId,
+  }: {
+    entryId: string;
+    ticketId?: string;
+    participantId?: string;
+  }): RegistrationEntryClaimResult => {
+    // Re-read persisted state at submission time so two tabs/devices sharing
+    // the same mock store still model first-submit-wins instead of each tab
+    // claiming its own stale in-memory copy.
+    const persistedEntries = readRegistrationQueueEntries();
+    const currentEntries = persistedEntries.some((entry) => entry.id === entryId)
+      ? persistedEntries
+      : registrationQueueEntriesRef.current;
+    const persistedTeamPlayerAccess = readRecord<TeamPlayerAccessPath>({
+      key: TEAM_PLAYER_ACCESS_STORAGE_KEY,
+      fallback: teamPlayerAccessRef.current,
+    });
+    const persistedTeamPlayerRoster = readRecord<Participant[]>({
+      key: TEAM_PLAYER_ROSTER_STORAGE_KEY,
+      fallback: teamPlayerRosterRef.current,
+    });
+    const queueEntry = currentEntries.find((entry) => entry.id === entryId);
+    const teamKey = ticketId && participantId ? `${ticketId}:${participantId}` : undefined;
+    const currentParticipants = ticketId
+      ? persistedTeamPlayerRoster[ticketId]
+        || MY_TICKETS.find((ticket) => ticket.id === ticketId)?.participants
+      : undefined;
+    const participant = currentParticipants?.find((item) => item.id === participantId);
+    const participantForClaim = participant
+      ? { ...participant, accessPath: teamKey ? persistedTeamPlayerAccess[teamKey] || participant.accessPath : participant.accessPath }
+      : undefined;
+    if (queueEntry?.claimLinkRevoked || participant?.claimLinkRevoked) {
+      return { ok: false, reason: 'invite_revoked', ownerName: 'the buyer' };
+    }
+    const claimSource = queueEntry || participantForClaim || { id: entryId, entryStatus: 'pending_form' };
+    const claimedAt = new Date().toISOString();
+    const claimant = {
+      memberId: member.memberId,
+      displayName: member.displayName,
+      claimedAt,
+    };
+
+    for (const source of [queueEntry, participantForClaim].filter(Boolean)) {
+      const result = claimFormEntry(source!, claimant);
+      if (!result.ok) return result;
+    }
+
+    const claimedSource = claimFormEntry(claimSource, claimant);
+    if (!claimedSource.ok) return claimedSource;
+
+    if (queueEntry) {
+      const nextQueueEntry = {
+        ...claimedSource.entry,
+        ...(queueEntry.type === 'team' && queueEntry.teamTotalCount
+          ? { teamAttachedCount: Math.min(queueEntry.teamTotalCount, (queueEntry.teamAttachedCount || 0) + 1) }
+          : {}),
+      } as RegistrationQueueEntry;
+      const nextEntries = currentEntries.map((entry) => entry.id === entryId ? nextQueueEntry : entry);
+      registrationQueueEntriesRef.current = nextEntries;
+      setRegistrationQueueEntries(nextEntries);
+      cacheRegistrationQueueEntries(nextEntries);
+    }
+
+    if (ticketId && participantId) {
+      if (teamKey) {
+        const nextAccess = { ...persistedTeamPlayerAccess, [teamKey]: 'passport' as const };
+        teamPlayerAccessRef.current = nextAccess;
+        setTeamPlayerAccessState(nextAccess);
+        cacheRecord(TEAM_PLAYER_ACCESS_STORAGE_KEY, nextAccess);
+      }
+
+      if (participant) {
+        const nextParticipants = (currentParticipants || []).map((item) => {
+          if (item.id !== participantId) return item;
+          return {
+            ...attachTeamPlayerToPassport(item, member),
+            claimedAt,
+            claimedByMemberId: member.memberId,
+            claimedByDisplayName: member.displayName,
+          };
+        });
+        const nextRoster = { ...persistedTeamPlayerRoster, [ticketId]: nextParticipants };
+        teamPlayerRosterRef.current = nextRoster;
+        setTeamPlayerRosterState(nextRoster);
+        cacheRecord(TEAM_PLAYER_ROSTER_STORAGE_KEY, nextRoster);
+      }
+    }
+
+    return { ok: true };
+  }, [member]);
+
+  const rescindRegistrationInvite = useCallback((entryId: string) => {
+    setRegistrationQueueEntries((prev) => {
+      const next = prev.map((entry) => (
+        entry.id === entryId ? rescindFormInvite(entry) : entry
+      ));
+      registrationQueueEntriesRef.current = next;
+      cacheRegistrationQueueEntries(next);
+      return next;
+    });
+  }, []);
+
+  const sendRegistrationInvite = useCallback((entryId: string, recipient?: string, fallbackEntry?: RegistrationQueueEntry) => {
+    setRegistrationQueueEntries((prev) => {
+      const next = shareRegistrationInviteInQueue(prev, entryId, recipient, fallbackEntry);
+      registrationQueueEntriesRef.current = next;
+      cacheRegistrationQueueEntries(next);
+      return next;
+    });
+  }, []);
+
+  const updateRegistrationParticipant = useCallback((entryId: string, participant: Participant, fallbackEntry?: RegistrationQueueEntry) => {
+    setRegistrationQueueEntries((prev) => {
+      const next = applyParticipantToRegistrationQueue(prev, entryId, participant, fallbackEntry);
+      registrationQueueEntriesRef.current = next;
+      cacheRegistrationQueueEntries(next);
+      return next;
+    });
+  }, []);
+
+  const setRegistrationEntryAccessPath = useCallback((entryId: string, accessPath: TeamPlayerAccessPath) => {
+    setRegistrationQueueEntries((prev) => {
+      const next = prev.map((entry) => (
+        entry.id === entryId ? { ...entry, accessPath } : entry
+      ));
+      registrationQueueEntriesRef.current = next;
       cacheRegistrationQueueEntries(next);
       return next;
     });
@@ -475,6 +804,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
           : entry,
       );
+      registrationQueueEntriesRef.current = next;
       cacheRegistrationQueueEntries(next);
       return next;
     });
@@ -498,9 +828,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     gate?: string;
     buyerName: string;
     onBehalfSignedBy?: string;
+    forceNew?: boolean;
   }) => {
     const existing = guestEntryQRs[input.entryId];
-    if (existing && (existing.isActive || existing.claimedAt)) {
+    if (existing && !input.forceNew && (existing.isActive || existing.claimedAt)) {
       return existing;
     }
 
@@ -568,11 +899,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const findGuestEntryQRByRef = useCallback((ref: string) => {
-    return Object.values(guestEntryQRs).find((qr) => qr?.ref === ref);
+    const normalizedRef = ref.trim().toUpperCase();
+    return Object.values(guestEntryQRs).find((qr) => qr?.ref.toUpperCase() === normalizedRef)
+      || getDemoGuestEntryQR(normalizedRef);
   }, [guestEntryQRs]);
 
   const claimGuestEntryQR = useCallback((ref: string): GuestEntryClaimResult => {
-    const current = Object.values(guestEntryQRsRef.current).find((qr) => qr?.ref.toUpperCase() === ref.trim().toUpperCase());
+    const normalizedRef = ref.trim().toUpperCase();
+    const current = Object.values(guestEntryQRsRef.current).find((qr) => qr?.ref.toUpperCase() === normalizedRef)
+      || getDemoGuestEntryQR(normalizedRef);
     if (!current) return { ok: false, reason: 'not_found' };
     if (current.claimedAt) return { ok: false, reason: 'already_claimed' };
     if (!current.isActive) return { ok: false, reason: 'revoked' };
@@ -589,6 +924,80 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setGuestEntryQRs(updated);
     return { ok: true, qr: claimed };
   }, [member.memberId]);
+
+  const canAttachTeamPlayerToPassport = useCallback((ticketId: string, participantId: string) => {
+    const participants = teamPlayerRosterRef.current[ticketId]
+      || MY_TICKETS.find((ticket) => ticket.id === ticketId)?.participants
+      || [];
+
+    return !participants.some((participant) => {
+      if (participant.id === participantId) return false;
+      const key = `${ticketId}:${participant.id}`;
+      const effectiveAccess = teamPlayerAccessRef.current[key] || participant.accessPath;
+      return effectiveAccess === 'passport' && participant.passportMemberId === member.memberId;
+    });
+  }, [member.memberId]);
+
+  const setTeamPlayerAccess = useCallback((ticketId: string, participantId: string, requestedAccessPath: TeamPlayerAccessPath) => {
+    const accessPath = requestedAccessPath === 'passport' && !canAttachTeamPlayerToPassport(ticketId, participantId)
+      ? 'guest_qr'
+      : requestedAccessPath;
+    const key = `${ticketId}:${participantId}`;
+    setTeamPlayerAccessState((prev) => {
+      const next = { ...prev, [key]: accessPath };
+      teamPlayerAccessRef.current = next;
+      cacheRecord(TEAM_PLAYER_ACCESS_STORAGE_KEY, next);
+      return next;
+    });
+    setTeamPlayerRosterState((prev) => {
+      const currentParticipants = prev[ticketId]
+        || (accessPath === 'passport' ? MY_TICKETS.find((ticket) => ticket.id === ticketId)?.participants : undefined);
+      if (!currentParticipants) return prev;
+
+      const nextParticipants = currentParticipants.map((participant) => {
+        if (participant.id !== participantId) return participant;
+        if (accessPath === 'passport') {
+          return attachTeamPlayerToPassport(participant, member);
+        }
+        const {
+          passportMemberId: _passportMemberId,
+          passportDisplayName: _passportDisplayName,
+          ...withoutPassportOwner
+        } = participant;
+        return {
+          ...withoutPassportOwner,
+          accessPath,
+        };
+      });
+      const next = { ...prev, [ticketId]: nextParticipants };
+      teamPlayerRosterRef.current = next;
+      cacheRecord(TEAM_PLAYER_ROSTER_STORAGE_KEY, next);
+      return next;
+    });
+  }, [canAttachTeamPlayerToPassport, member]);
+
+  const setTeamPlayerRoster = useCallback((ticketId: string, participants: Participant[]) => {
+    setTeamPlayerRosterState((prev) => {
+      const next = { ...prev, [ticketId]: participants };
+      teamPlayerRosterRef.current = next;
+      cacheRecord(TEAM_PLAYER_ROSTER_STORAGE_KEY, next);
+      return next;
+    });
+    setRegistrationQueueEntries((prev) => {
+      const attachedCount = participants.filter((participant) => participant.formStatus === 'completed').length;
+      const next = prev.map((entry) => entry.ticketId === ticketId && entry.type === 'team'
+        ? {
+            ...entry,
+            teamAttachedCount: attachedCount,
+            teamTotalCount: participants.length,
+          }
+        : entry,
+      );
+      registrationQueueEntriesRef.current = next;
+      cacheRegistrationQueueEntries(next);
+      return next;
+    });
+  }, []);
 
   const passportPendingSummary = useMemo(() => {
     const pendingEntries = getOrderFormActionEntries(registrationQueueEntries);
@@ -636,6 +1045,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setActiveDrawer,
         checkoutIntent,
         setCheckoutIntent,
+        cart,
+        setCart,
+        addCartItems,
         checkoutConfirmed,
         setCheckoutConfirmed,
         pendingOrgApplication,
@@ -644,9 +1056,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activeRegistrationOrderRef,
         seedRegistrationQueue,
         completeRegistrationEntry,
+        claimRegistrationEntry,
+        rescindRegistrationInvite,
+        sendRegistrationInvite,
+        updateRegistrationParticipant,
+        setRegistrationEntryAccessPath,
         updateRegistrationEntryStatus,
         entryAttendance,
         guestEntryQRs,
+        teamPlayerAccess,
+        setTeamPlayerAccess,
+        canAttachTeamPlayerToPassport,
+        teamPlayerRoster,
+        setTeamPlayerRoster,
         setEntryAttendance,
         generateGuestEntryQR,
         revokeGuestEntryQR,
@@ -654,7 +1076,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         findGuestEntryQRByRef,
         claimGuestEntryQR,
         isDesktop,
-        cartCount: MOCK_CART_COUNT,
+        cartCount: cart.reduce(
+          (total, event) => total + event.items.reduce((eventTotal, item) => eventTotal + item.quantity, 0),
+          0,
+        ),
         notificationCount: MOCK_NOTIFICATION_COUNT,
         ticketActionCount: getActionRequiredCount(),
         passportPendingCount: passportPendingSummary.pendingCount,

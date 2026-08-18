@@ -139,6 +139,8 @@ export function MobileFilters({
       {/* ---- Trigger button ---- */}
       <Drawer.Trigger asChild>
         <motion.button
+          type="button"
+          aria-label="Open event filters"
           whileTap={{ scale: 0.95 }}
           onMouseEnter={() => setIsTriggerHovered(true)}
           onMouseLeave={() => setIsTriggerHovered(false)}
@@ -192,6 +194,8 @@ export function MobileFilters({
               </Drawer.Description>
               <Drawer.Close asChild>
                 <motion.button 
+                  type="button"
+                  aria-label="Close event filters"
                   whileTap={{ scale: 0.95 }}
                   className="w-7 h-7 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400 hover:bg-neutral-200 hover:text-neutral-600 transition-colors cursor-pointer border border-neutral-200/20"
                 >

@@ -119,6 +119,22 @@ function SocialButton({
   );
 }
 
+function BrandLockup() {
+  return (
+    <div
+      className="flex items-center justify-center gap-3 mb-4 group transition-transform duration-500 hover:scale-105"
+      aria-label="PlanOut"
+    >
+      <div className="w-[70px] h-[70px] sm:w-[80px] sm:h-[80px]">
+        <img src={imgLogo} alt="" className="w-full h-full object-cover rounded-2xl" />
+      </div>
+      <span className="font-semibold leading-none text-[#1e9680] text-[28px] sm:text-[32px] tracking-[-0.04em]">
+        PlanOut
+      </span>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // OTP Input
 // ---------------------------------------------------------------------------
@@ -184,7 +200,7 @@ function OtpInput({
         return (
           <div
             key={i}
-            className={`group relative p-[2.5px] rounded-[16px] transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+            className={`group relative p-[2.5px] rounded-[16px] transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
               isFocused
                 ? 'bg-gradient-to-b from-[#28b99e] to-[#177564] shadow-[0_12px_24px_-8px_rgba(23,117,100,0.25)] scale-[1.06]'
                 : 'bg-slate-200/50 hover:bg-slate-300/60 shadow-[0_2px_4px_rgba(0,0,0,0.01)]'
@@ -299,9 +315,7 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
   const renderEmailStep = () => (
     <div className="flex flex-col items-center w-full animate-in fade-in duration-500">
       {/* Logo */}
-      <div className="w-[70px] h-[70px] sm:w-[80px] sm:h-[80px] mb-4 group transition-transform duration-500 hover:scale-105">
-        <img src={imgLogo} alt="PlanOut" className="w-full h-full object-cover rounded-2xl" />
-      </div>
+      <BrandLockup />
 
       {/* Heading */}
       <h1 className="text-[26px] sm:text-[32px] font-extrabold text-slate-900 tracking-[-0.035em] text-center leading-tight">
@@ -411,6 +425,19 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
             </>
           )}
         </PrimaryButton>
+
+        {/* Consent notice — keep this immediately after the primary action so it is easy to find. */}
+        <p className="mx-auto mt-3 max-w-[290px] px-2 text-center text-[11.5px] font-medium leading-[1.55] tracking-[-0.01em] text-slate-500 sm:text-[12px]">
+          By continuing, you agree to PlanOut&apos;s{' '}
+          <span className="font-bold text-[#177564] underline decoration-[#177564]/35 underline-offset-2">
+            Terms of Service
+          </span>{' '}
+          and{' '}
+          <span className="font-bold text-[#177564] underline decoration-[#177564]/35 underline-offset-2">
+            Privacy Policy
+          </span>
+          .
+        </p>
       </div>
 
       {/* Divider */}
@@ -445,9 +472,7 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
   const renderOtpStep = () => (
     <div className="flex flex-col items-center w-full animate-in fade-in duration-500">
       {/* Logo */}
-      <div className="w-[70px] h-[70px] sm:w-[80px] sm:h-[80px] mb-4 group transition-transform duration-500 hover:scale-105">
-        <img src={imgLogo} alt="PlanOut" className="w-full h-full object-cover rounded-2xl" />
-      </div>
+      <BrandLockup />
 
       {/* Heading */}
       <h1 className="text-[26px] sm:text-[32px] font-extrabold text-slate-900 tracking-[-0.035em] text-center leading-tight">

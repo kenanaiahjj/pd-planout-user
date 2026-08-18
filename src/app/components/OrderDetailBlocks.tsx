@@ -67,7 +67,7 @@ export function OrderRegistrationItemCard({ item }: { item: OrderRegistrationLin
                 </p>
               )}
             </div>
-            <span className="shrink-0 text-[13px] font-semibold text-[#181d27]">
+            <span className="shrink-0 tabular-nums text-[13px] font-semibold text-[#181d27]">
               {formatOrderMoney(item.amount)}
             </span>
           </div>
@@ -89,6 +89,7 @@ export function OrderPaymentSummary({
   totalLabel = 'Total',
   statusLabel,
   statusTone = 'neutral',
+  footerAction,
 }: {
   lineItems?: OrderPaymentLine[];
   subtotal: number;
@@ -101,51 +102,57 @@ export function OrderPaymentSummary({
   totalLabel?: string;
   statusLabel?: string;
   statusTone?: 'ready' | 'pending' | 'neutral' | 'danger';
+  footerAction?: React.ReactNode;
 }) {
   const hasLineItems = lineItems && lineItems.length > 0;
 
   return (
-    <section className="rounded-[18px] border border-neutral-100 bg-white p-4">
+    <section className="rounded-[16px] border border-[#e4e8ec] bg-white p-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[16px] font-semibold text-[#181d27]">{title}</h2>
+        <h2 className="text-[16px] font-semibold tracking-[-0.2px] text-[#181d27]">{title}</h2>
         {statusLabel && (
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusClasses(statusTone)}`}>
             {statusLabel}
           </span>
         )}
       </div>
-      <div className="mt-3 flex flex-col gap-2">
+      <dl className="mt-4 flex flex-col gap-2">
         {hasLineItems && lineItems.map((item) => (
-          <div key={item.id} className="flex justify-between gap-3 text-[13px] text-[#64748b]">
-            <span className="min-w-0 truncate">{item.label}</span>
-            <span className="shrink-0 font-semibold text-[#414651]">{formatOrderMoney(item.amount)}</span>
+          <div key={item.id} className="flex justify-between gap-3 text-[13px] text-[#516173]">
+            <dt className="min-w-0 truncate">{item.label}</dt>
+            <dd className="shrink-0 tabular-nums font-semibold text-[#344054]">{formatOrderMoney(item.amount)}</dd>
           </div>
         ))}
-        <div className={hasLineItems ? "mt-2 border-t border-[#eef2f7] pt-2" : ""}>
-          <div className="flex justify-between text-[13px] text-[#64748b]">
-            <span>Subtotal</span>
-            <span>{formatOrderMoney(subtotal)}</span>
+        <div className={hasLineItems ? "mt-2 border-t border-[#edf0f3] pt-3" : ""}>
+          <div className="flex justify-between text-[12px] text-[#718096]">
+            <dt>Subtotal</dt>
+            <dd className="tabular-nums">{formatOrderMoney(subtotal)}</dd>
           </div>
-          <div className="mt-1 flex justify-between text-[13px] text-[#64748b]">
-            <span>Fees</span>
-            <span>{formatOrderMoney(fees)}</span>
+          <div className="mt-1.5 flex justify-between text-[12px] text-[#718096]">
+            <dt>Fees</dt>
+            <dd className="tabular-nums">{formatOrderMoney(fees)}</dd>
           </div>
           {discount > 0 && (
-            <div className="mt-1 flex justify-between text-[13px] text-[#177564]">
-              <span>{discountLabel}</span>
-              <span>-{formatOrderMoney(discount)}</span>
+            <div className="mt-1.5 flex justify-between text-[12px] text-[#177564]">
+              <dt>{discountLabel}</dt>
+              <dd className="tabular-nums">-{formatOrderMoney(discount)}</dd>
             </div>
           )}
-          <div className="mt-2 flex justify-between text-[15px] font-semibold text-[#181d27]">
-            <span>{totalLabel}</span>
-            <span>{formatOrderMoney(total)}</span>
+          <div className="mt-3 flex items-baseline justify-between border-t border-[#edf0f3] pt-3 text-[#181d27]">
+            <dt className="text-[14px] font-semibold">{totalLabel}</dt>
+            <dd className="tabular-nums text-[18px] font-semibold tracking-[-0.25px]">{formatOrderMoney(total)}</dd>
           </div>
         </div>
-      </div>
+      </dl>
       {paymentMeta && (
-        <p className="mt-3 text-[12px] font-medium text-[#64748b]">
+        <p className="mt-4 border-t border-[#edf0f3] pt-3 text-[11px] font-medium text-[#718096]">
           {paymentMeta}
         </p>
+      )}
+      {footerAction && (
+        <div className="mt-4 border-t border-[#edf0f3] pt-3">
+          {footerAction}
+        </div>
       )}
     </section>
   );

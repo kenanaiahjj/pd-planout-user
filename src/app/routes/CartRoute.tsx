@@ -14,12 +14,14 @@ export function CartRoute() {
   return (
     <CartPage
       onClose={() => navigate('/')}
-      onCheckout={() => {
+      onCheckout={(items, totalAmount) => {
+        const firstItem = items[0];
         setCheckoutIntent({
-          eventName: 'City Half Marathon 2025',
-          category: '10K Category',
-          price: 1500,
-          image: 'https://images.unsplash.com/photo-1759674915081-b38844dbb613?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYXJhdGhvbiUyMHJ1bm5lciUyMHJhY2UlMjBiaWIlMjBudW1iZXJ8ZW58MXx8fHwxNzcwODc3MjY0fDA&ixlib=rb-4.1.0&q=80&w=1080',
+          eventName: firstItem?.eventName || 'Selected tickets',
+          category: items.length === 1 ? firstItem.category : `${items.length} ticket types`,
+          price: totalAmount,
+          items,
+          image: firstItem?.image || '',
         });
         navigate('/checkout');
       }}

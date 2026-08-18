@@ -28,14 +28,14 @@ function isPending(entry: RegistrationQueueEntry) {
 
 function subtitleFor(entry: RegistrationQueueEntry) {
   if (entry.type === 'team') {
-    return `Team · ${entry.teamAttachedCount || 0}/${entry.teamTotalCount || 0} player forms complete`;
+    return `Team purchase · ${entry.teamAttachedCount || 0}/${entry.teamTotalCount || 0} player forms complete`;
   }
   if (entry.type === 'guest') return `For ${entry.personName}`;
   return entry.category || 'Your entry';
 }
 
 function actionLabel(entry: RegistrationQueueEntry) {
-  if (entry.type === 'team') return 'Complete team entries';
+  if (entry.type === 'team') return 'Complete player details';
   if (entry.entryStatus === 'resubmit_required') return 'Resubmit';
   return 'Fill out';
 }
@@ -133,7 +133,7 @@ export function RegistrationQueuePage({ mode, entryId, ticketId }: RegistrationQ
 
   const openForm = (entry: RegistrationQueueEntry) => {
     if (entry.type === 'team') {
-      navigate(`/orders/${entry.ticketId}?returnTo=registration-queue`);
+      navigate(`${entry.formRoute}?returnTo=registration-queue&entryId=${encodeURIComponent(entry.id)}`);
     } else {
       navigate(`${entry.formRoute}?returnTo=registration-queue&entryId=${encodeURIComponent(entry.id)}`);
     }

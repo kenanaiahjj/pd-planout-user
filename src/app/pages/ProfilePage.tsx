@@ -14,7 +14,6 @@ import {
   Youtube,
   Search,
   Award,
-  ArrowLeft,
   X,
 } from 'lucide-react';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
@@ -32,7 +31,6 @@ import imgEvent1 from '@/assets/9dd246725291ca31eadbba57f65fc35c16ef8f44.png';
 // ---------------------------------------------------------------------------
 
 interface ProfilePageProps {
-  onBack: () => void;
   onEventSelect?: (eventId: string) => void;
 }
 
@@ -142,11 +140,13 @@ const CERTIFICATES: Certificate[] = [
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function SocialButton({ children }: { children: React.ReactNode }) {
+function SocialButton({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <motion.button 
       whileTap={{ scale: 0.94 }}
       whileHover={{ scale: 1.05 }}
+      type="button"
+      aria-label={label}
       className="w-9 h-9 rounded-full bg-[#f8fafc] border border-slate-200/60 flex items-center justify-center text-slate-400 hover:bg-[#f1f5f9] hover:text-slate-700 transition-all cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.015)]"
     >
       {children}
@@ -176,6 +176,8 @@ function CertificateRow({ cert }: { cert: Certificate }) {
         {/* Share */}
         <motion.button 
           whileTap={{ scale: 0.92 }}
+          type="button"
+          aria-label={`Share ${cert.title}`}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors shrink-0 cursor-pointer"
         >
           <Share2 className="w-4.5 h-4.5" />
@@ -189,7 +191,7 @@ function CertificateRow({ cert }: { cert: Certificate }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export function ProfilePage({ onBack, onEventSelect }: ProfilePageProps) {
+export function ProfilePage({ onEventSelect }: ProfilePageProps) {
   const { userProfile } = useAppContext();
   const [activeTab, setActiveTab] = useState<'events' | 'certificates'>('events');
   const [searchQuery, setSearchQuery] = useState('');
@@ -205,15 +207,6 @@ export function ProfilePage({ onBack, onEventSelect }: ProfilePageProps) {
           alt="Profile cover"
           className="w-full h-full object-cover opacity-80"
         />
-        {/* Floating Back Button */}
-        <motion.button
-          whileTap={{ scale: 0.94 }}
-          onClick={onBack}
-          className="absolute top-4 left-4 z-20 w-8 h-8 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/10 hover:bg-black/60 transition-colors cursor-pointer"
-          aria-label="Back"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </motion.button>
       </div>
 
       {/* ---- Profile Card ---- */}
@@ -283,10 +276,10 @@ export function ProfilePage({ onBack, onEventSelect }: ProfilePageProps) {
 
             {/* Social Icons */}
             <div className="flex items-center justify-center gap-2 mt-5">
-              <SocialButton><Facebook className="w-4 h-4" /></SocialButton>
-              <SocialButton><Instagram className="w-4 h-4" /></SocialButton>
-              <SocialButton><Twitter className="w-4 h-4" /></SocialButton>
-              <SocialButton><Youtube className="w-4 h-4" /></SocialButton>
+              <SocialButton label="Facebook"><Facebook className="w-4 h-4" /></SocialButton>
+              <SocialButton label="Instagram"><Instagram className="w-4 h-4" /></SocialButton>
+              <SocialButton label="Twitter"><Twitter className="w-4 h-4" /></SocialButton>
+              <SocialButton label="YouTube"><Youtube className="w-4 h-4" /></SocialButton>
             </div>
           </div>
         </div>
@@ -334,7 +327,7 @@ export function ProfilePage({ onBack, onEventSelect }: ProfilePageProps) {
       {/* ---- Tab Content ---- */}
       <div className="px-4 sm:px-8 mt-5">
         {activeTab === 'events' ? (
-          <div className="flex flex-col gap-4.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
             {ATTENDED_EVENTS.filter((e) => {
               if (!searchQuery) return true;
               const q = searchQuery.toLowerCase();
@@ -371,14 +364,14 @@ export function ProfilePage({ onBack, onEventSelect }: ProfilePageProps) {
                   e.labels.some((b) => b.toLowerCase().includes(q))
                 );
               }).length === 0 && (
-                <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(15,23,42,0.015)]">
+                <div className="md:col-span-2 text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(15,23,42,0.015)]">
                   <p className="text-slate-600 text-[14.5px] font-semibold">No events found</p>
                   <p className="text-slate-400 text-[12px] font-medium mt-1">Try a different search term</p>
                 </div>
               )}
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {CERTIFICATES.filter((c) => {
               if (!searchQuery) return true;
               const q = searchQuery.toLowerCase();
@@ -398,7 +391,7 @@ export function ProfilePage({ onBack, onEventSelect }: ProfilePageProps) {
                   c.issuer.toLowerCase().includes(q)
                 );
               }).length === 0 && (
-                <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(15,23,42,0.015)]">
+                <div className="md:col-span-2 text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(15,23,42,0.015)]">
                   <p className="text-slate-600 text-[14.5px] font-semibold">No certificates found</p>
                   <p className="text-slate-400 text-[12px] font-medium mt-1">Try a different search term</p>
                 </div>

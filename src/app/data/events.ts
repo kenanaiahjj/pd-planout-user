@@ -80,7 +80,7 @@ function formatEventDate(date: Date, timeStr: string): string {
   return `${MONTH_NAMES[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()} at ${timeStr}`;
 }
 
-const EVENT_BRANDS = {
+export const EVENT_BRANDS = {
   stride: {
     accent: '#c4513f',
     accentDark: '#7f2a22',
@@ -272,7 +272,7 @@ export const MOCK_EVENTS: EventData[] = [
     rating: 4.7,
     labels: ["Tennis", "Tournament", "Outdoor"],
     brand: EVENT_BRANDS.court,
-    image: "https://images.unsplash.com/photo-176128675355-2f39b4413c1c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZW5uaXMlMjBwbGF5ZXIlMjBhY3Rpb24lMjBjb3VydHxlbnwxfHx8fDE3NzAxNTE2MzJ8MA&ixlib=rb-4.1.0&q=80&w=1080"
+    image: "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZW5uaXMlMjBwbGF5ZXIlMjBhY3Rpb24lMjBjb3VydHxlbnwxfHx8fDE3NzAxNTE2MzJ8MA&ixlib=rb-4.1.0&q=80&w=1080"
   },
   {
     id: '4',

@@ -52,9 +52,8 @@ function PassportQrMini({ value, className }: { value: string; className?: strin
             key={`${r}-${c}`}
             x={c * cellSize}
             y={r * cellSize}
-            width={cellSize * 0.85}
-            height={cellSize * 0.85}
-            rx="0.5"
+            width={cellSize * 0.86}
+            height={cellSize * 0.86}
             fill="#0f172b"
           />
         );
@@ -64,8 +63,10 @@ function PassportQrMini({ value, className }: { value: string; className?: strin
 
   return (
     <svg
+      data-qr-material="premium"
       viewBox="0 0 100 100"
-      className={`w-full h-full aspect-square rounded-[8px] border border-white/80 bg-white/70 p-2 shadow-sm backdrop-blur-sm ${className || ''}`}
+      shapeRendering="crispEdges"
+      className={`h-full w-full aspect-square rounded-[15px] border border-[#d9ebe6] bg-white p-2.5 shadow-[0_14px_28px_-20px_rgba(15,23,42,0.52),inset_0_1px_0_rgba(255,255,255,0.98)] ring-1 ring-[#177564]/10 ${className || ''}`}
     >
       <g>{rects}</g>
     </svg>
@@ -153,6 +154,7 @@ export function PlanOutPassportCard({
   const [holderScale, setHolderScale] = useState(1);
   const transitionTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const draggedRef = React.useRef(false);
+  const holderContainerRef = React.useRef<HTMLDivElement | null>(null);
   const holderDesignWidth = 390;
   const holderDesignHeight = 590;
 
@@ -181,16 +183,26 @@ export function PlanOutPassportCard({
     };
   }, []);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    const holderContainer = holderContainerRef.current;
+    if (!holderContainer) return;
+
     const updateHolderScale = () => {
-      const viewportWidth = window.innerWidth || holderDesignWidth;
-      const availableWidth = Math.max(280, viewportWidth - 24);
+      const availableWidth = holderContainer.getBoundingClientRect().width;
+      if (availableWidth <= 0) return;
       setHolderScale(Math.min(1, availableWidth / holderDesignWidth));
     };
 
     updateHolderScale();
-    window.addEventListener('resize', updateHolderScale);
-    return () => window.removeEventListener('resize', updateHolderScale);
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateHolderScale);
+      return () => window.removeEventListener('resize', updateHolderScale);
+    }
+
+    const resizeObserver = new ResizeObserver(updateHolderScale);
+    resizeObserver.observe(holderContainer);
+    return () => resizeObserver.disconnect();
   }, []);
 
   const textShadowStyle = {
@@ -291,13 +303,6 @@ export function PlanOutPassportCard({
     }
   }, [isOpen, handleTriggerReveal, clearTransitionTimeout]);
 
-  const handleCardKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      handleTriggerReveal();
-    }
-  }, [handleTriggerReveal]);
-
   // When fullscreen QR is closed, automatically slide card back inside the wallet pocket
   const handleCloseExpandedQr = useCallback(() => {
     clearTransitionTimeout();
@@ -316,6 +321,7 @@ export function PlanOutPassportCard({
   return (
     <>
       <div
+        ref={holderContainerRef}
         className="relative flex w-full justify-center"
         onMouseEnter={() => { if (!disableInteractivity) setIsHovered(true); }}
         onMouseLeave={disableInteractivity ? undefined : handleMouseLeave}
@@ -338,13 +344,9 @@ export function PlanOutPassportCard({
             <motion.div
               className={`relative h-[590px] w-[390px] touch-manipulation select-none overflow-visible ${disableInteractivity ? 'cursor-default' : 'cursor-pointer'}`}
               onClick={disableInteractivity ? undefined : handleCardClick}
-              onKeyDown={disableInteractivity ? undefined : handleCardKeyDown}
-              role="button"
-              tabIndex={0}
-              aria-label="Toggle Universal Passport Card"
-            >
+          >
           {/* Deep Ambient shadow behind the leather system */}
-          <div className="absolute left-0 right-0 top-[104px] z-0 h-[330px] rounded-[38px] bg-[linear-gradient(90deg,#b28e65_0%,#d8b48f_48%,#b28e65_100%)] shadow-[0_34px_68px_-26px_rgba(75,60,45,0.38),inset_0_1px_1px_rgba(255,255,255,0.24)]" />
+          <div className="absolute left-0 right-0 top-[104px] z-0 h-[330px] rounded-[38px] bg-[linear-gradient(90deg,#063c36_0%,#0b5d58_48%,#063c36_100%)] shadow-[0_34px_68px_-26px_rgba(4,45,41,0.42),inset_0_1px_1px_rgba(214,255,247,0.16)]" />
 
           {/* Silver Metal Card (Layer 2 - Middle) */}
           <motion.div
@@ -393,13 +395,15 @@ export function PlanOutPassportCard({
               <motion.div
                 layoutId="passport-qr-code"
                 transition={premiumSpring}
-                className="relative mx-auto mt-1 flex h-[148px] w-[148px] items-center justify-center rounded-[27px] border border-white/55 bg-white/85 shadow-[0_19px_30px_-22px_rgba(10,10,10,0.74),inset_0_1px_0_rgba(255,255,255,0.95)]"
+                className="relative mx-auto mt-1 flex h-[148px] w-[148px] items-center justify-center rounded-[29px] border border-white/80 bg-[linear-gradient(145deg,#ffffff_0%,#eef7f5_100%)] shadow-[0_19px_32px_-22px_rgba(10,10,10,0.72),inset_0_1.5px_0_rgba(255,255,255,0.98)] ring-1 ring-[#177564]/10"
               >
-                <div
+                <button
+                  type="button"
+                  aria-label="Open Passport QR"
                   className="qr-code-button relative z-10 flex h-full w-full items-center justify-center rounded-[27px] overflow-hidden p-3.5"
                 >
                   <PassportQrMini value={qrPayload} />
-                </div>
+                </button>
               </motion.div>
 
               <motion.div
@@ -418,8 +422,8 @@ export function PlanOutPassportCard({
           </motion.div>
 
           {/* Leather Pocket Back (Layer 2.5) */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 h-[294px] rounded-[38px] bg-[#d3b18a] bg-[linear-gradient(180deg,#d8b68f_0%,#b28e65_100%)] shadow-[0_32px_52px_-30px_rgba(45,35,25,0.48),inset_0_1px_0_rgba(255,255,255,0.38),inset_0_-24px_48px_rgba(0,0,0,0.11)] border border-[#ad885c]">
-            <div className="pointer-events-none absolute inset-3.5 rounded-[30px] border border-dashed border-[#8c6d48]/40" />
+          <div className="absolute bottom-0 left-0 right-0 z-20 h-[294px] rounded-[38px] bg-[#0b5d58] bg-[linear-gradient(180deg,#0b7067_0%,#075f56_52%,#063c36_100%)] shadow-[0_32px_52px_-30px_rgba(4,45,41,0.58),inset_0_1px_0_rgba(214,255,247,0.22),inset_0_-24px_48px_rgba(0,0,0,0.2)] border border-[#084c46]">
+            <div className="pointer-events-none absolute inset-3.5 rounded-[30px] border border-dashed border-[#b8ddd5]/30" />
           </div>
 
           {/* Footer Actions (Layer 3) */}
@@ -430,15 +434,15 @@ export function PlanOutPassportCard({
           )}
 
           {/* Leather Pocket Front Lip (Layer 4) with Stamped Wordmark */}
-          <div className="absolute bottom-[32px] left-[24px] right-[24px] z-40 h-[132px] rounded-[22px] bg-[#b8956c] bg-[linear-gradient(135deg,#bd9a72_0%,#9e7a52_100%)] shadow-[0_19px_28px_-20px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.25),inset_0_-22px_34px_rgba(0,0,0,0.16)] border border-[#8a6842]">
-            <div className="pointer-events-none absolute inset-2.5 rounded-[17px] border border-[#705230]/40" />
+          <div className="absolute bottom-[32px] left-[24px] right-[24px] z-40 h-[132px] rounded-[22px] bg-[#176f63] bg-[linear-gradient(135deg,#176f63_0%,#0a4c46_100%)] shadow-[0_19px_28px_-20px_rgba(3,33,30,0.48),inset_0_1px_0_rgba(225,255,249,0.22),inset_0_-22px_34px_rgba(0,0,0,0.22)] border border-[#0b4f48]">
+            <div className="pointer-events-none absolute inset-2.5 rounded-[17px] border border-[#b8ddd5]/25" />
             
             {/* Elegant Debossed Branding system */}
             <div className="absolute inset-0 flex flex-col items-center justify-center opacity-75">
-              <img src={imgPlanOutLogo} alt="" className="h-6 w-auto opacity-30 brightness-0 invert pointer-events-none" />
-              <span className="mt-1 text-[8.5px] font-bold uppercase tracking-[3.5px] text-[#5c4935]/70">
-                Passport Holder
-              </span>
+                  <img src={imgPlanOutLogo} alt="" className="h-6 w-auto opacity-30 brightness-0 invert pointer-events-none" />
+                  <span className="mt-1 text-[8.5px] font-bold uppercase tracking-[3.5px] text-[#b8ddd5]/70">
+                    PlanOut Passport
+                  </span>
             </div>
           </div>
 
@@ -479,9 +483,9 @@ export function PlanOutPassportCard({
 
                 {/* Centered QR Frame (Enlarged) */}
                 <motion.div
-                  layoutId="passport-qr-code"
-                  transition={premiumSpring}
-                  className="relative mx-auto flex h-[220px] w-[220px] items-center justify-center rounded-[32px] border border-white/60 bg-white/90 shadow-[0_24px_38px_-26px_rgba(10,10,10,0.76),inset_0_1.5px_0_rgba(255,255,255,0.98)]"
+                      layoutId="passport-qr-code"
+                      transition={premiumSpring}
+                      className="relative mx-auto flex h-[220px] w-[220px] items-center justify-center rounded-[34px] border border-white/80 bg-[linear-gradient(145deg,#ffffff_0%,#eef7f5_100%)] shadow-[0_24px_42px_-28px_rgba(10,10,10,0.76),inset_0_1.5px_0_rgba(255,255,255,0.98)] ring-1 ring-[#177564]/12"
                 >
                   <div
                     className="qr-code-button relative z-10 flex h-full w-full items-center justify-center rounded-[32px] overflow-hidden p-5"

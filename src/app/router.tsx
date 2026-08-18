@@ -89,7 +89,6 @@ import {
   TransactionPendingPreviewRoute,
   TransactionExpiredPreviewRoute,
 } from '@/app/routes/previews/TransactionPreviewRoutes';
-import { ParticipantFormPreviewRoute } from '@/app/routes/previews/ParticipantFormPreviewRoute';
 
 export const router = createBrowserRouter([
   {
@@ -140,8 +139,6 @@ export const router = createBrowserRouter([
           { path: 'checkout', Component: CheckoutRoute },
           { path: 'orders', Component: OrdersRoute },
           { path: 'registration-queue', Component: RegistrationQueueRoute },
-          // ── Preview (static) must come before the dynamic sibling ──
-          { path: 'orders/tkt-002/form', Component: ParticipantFormPreviewRoute },
           { path: 'orders/:ticketId/form', Component: ParticipantFormRoute },
           {
             path: 'orders/:orderId/entry/:entryId/guest-qr',

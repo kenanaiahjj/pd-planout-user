@@ -350,7 +350,7 @@ export function EventsPage({ onEventSelect }: EventsPageProps) {
         </h1>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[188px_minmax(0,1fr)] lg:gap-8">
+      <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-8">
         <aside className="hidden lg:block">
           <div className="sticky top-[96px] flex flex-col gap-4">
             <div>
@@ -477,31 +477,33 @@ export function EventsPage({ onEventSelect }: EventsPageProps) {
             </div>
           )}
 
-          <div className="flex flex-col gap-4">
+          <div>
             {isLoading ? (
-              <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <EventCardSkeleton />
                 <EventCardSkeleton />
                 <EventCardSkeleton />
-              </>
+              </div>
             ) : visibleEvents.length > 0 ? (
               <>
-                {visibleEvents.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    title={event.title}
-                    date={event.date}
-                    endDate={event.endDate}
-                    eventDates={event.eventDates}
-                    dailySchedule={event.dailySchedule}
-                    location={event.location}
-                    organizer={event.organizer}
-                    rating={event.rating}
-                    labels={event.labels}
-                    image={event.image}
-                    onClick={() => onEventSelect(event)}
-                  />
-                ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                  {visibleEvents.map((event) => (
+                    <EventCard
+                      key={event.id}
+                      title={event.title}
+                      date={event.date}
+                      endDate={event.endDate}
+                      eventDates={event.eventDates}
+                      dailySchedule={event.dailySchedule}
+                      location={event.location}
+                      organizer={event.organizer}
+                      rating={event.rating}
+                      labels={event.labels}
+                      image={event.image}
+                      onClick={() => onEventSelect(event)}
+                    />
+                  ))}
+                </div>
 
                 <div className="pt-2 flex flex-col items-center gap-3">
                   <p className="text-[13px] font-medium text-[#64748b]">

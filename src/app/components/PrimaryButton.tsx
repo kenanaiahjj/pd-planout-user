@@ -76,7 +76,9 @@ export function PrimaryButton({
         ${compact ? 'px-4 py-2' : 'px-[18px] py-[10px]'}
         ${fullWidth ? 'w-full' : ''}
         rounded-xl text-[15px] font-semibold text-white text-center
-        transition-all active:scale-[0.97]
+        transition-[filter,transform] duration-150 ease-out active:scale-[0.98]
+        motion-reduce:transition-none motion-reduce:active:scale-100
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/35 focus-visible:ring-offset-2
         ${disabled ? 'opacity-50 cursor-not-allowed saturate-50' : 'cursor-pointer hover:brightness-110'}
         ${className}
       `.trim()}

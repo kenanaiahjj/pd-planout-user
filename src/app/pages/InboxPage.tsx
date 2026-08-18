@@ -161,7 +161,7 @@ const MOCK_MESSAGES: InboxMessage[] = [
     dateGroup: 'earlier',
     title: 'New Feature: Group Registrations',
     preview: 'Register your entire team at once and save 15% on group entries. Perfect for running clubs...',
-    body: 'Hi there,\n\nExciting news! We\'ve just launched Group Registrations on PlanOut — a feature many of you have been asking for.\n\nNow you can register your entire team for any event in just a few taps. Here\'s what\'s new:\n\n• Register 3+ participants in a single transaction\n• Automatic 15% group discount applied at checkout\n• Manage your team roster from one dashboard\n• Resolve team check-ins from the lead passport\n• Bulk certificate downloads after the event\n\nTo celebrate the launch, use code GROUP15 for an extra 15% off your first group registration.\n\nHappy running!\nThe PlanOut Team',
+    body: 'Hi there,\n\nExciting news! We\'ve just launched Group Registrations on PlanOut — a feature many of you have been asking for.\n\nNow you can buy multiple player entries in one transaction. Each player has their own way to receive the entry:\n\n• Complete a player\'s details and share an app-less Guest QR\n• Send a claim link so the player completes their own form and receives the entry on their Passport\n• No team-wide Passport or gate credential\n\nTo celebrate the launch, use code GROUP15 for an extra 15% off your first group registration.\n\nHappy running!\nThe PlanOut Team',
     unread: false,
     promoDescription:
       'Register your entire team at once and save 15% on group entries.',

@@ -82,7 +82,7 @@ interface EventPeekPanelProps {
   onGoToEventPage: (event: EventData) => void;
   onEventChange: (event: EventData) => void;
   onOrganizerClick?: (organizerSlug: string) => void;
-  onGoToCart?: () => void;
+  onGoToCart?: (items?: CheckoutIntentItem[]) => void;
   onGoToCheckout?: (eventName: string, category: string, price: number, image: string, items?: CheckoutIntentItem[]) => void;
 }
 
@@ -513,9 +513,16 @@ export function EventPeekPanel({
         <GetTicketsModal
           isOpen={showTicketsModal}
           onClose={() => setShowTicketsModal(false)}
-          onAddToCart={() => {
+          onAddToCart={(items) => {
             setShowTicketsModal(false);
-            onGoToCart?.();
+            onGoToCart?.(items.map((item) => ({
+              ticketId: item.ticketId,
+              qty: item.qty,
+              category: item.category,
+              price: item.price,
+              eventName: event.title,
+              image: event.image || '',
+            })));
           }}
           onCheckout={(items, total) => {
             setShowTicketsModal(false);
@@ -524,6 +531,8 @@ export function EventPeekPanel({
               qty: item.qty,
               category: item.category,
               price: item.price,
+              eventName: event.title,
+              image: event.image || '',
             }));
             const category =
               items.length === 1

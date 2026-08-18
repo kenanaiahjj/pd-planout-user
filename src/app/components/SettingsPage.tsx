@@ -419,195 +419,204 @@ export function SettingsPage({ onBack, onGoToMyAccount, onGoToInbox, onGoToProfi
         </div>
       )}
 
-      {/* ---- My Account Navigation ---- */}
-      <SettingsSection title="General">
-        <SettingsRow
-          icon={<User className="w-4 h-4 text-[#177564]" />}
-          iconBg="bg-[#def2ee]"
-          label="My Account"
-          value="Profile, preferences & certificates"
-          onClick={onGoToMyAccount}
-        />
+      {/* Grid wrapper for desktop viewports */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        {/* Left Column: General & Organizations */}
+        <div className="flex flex-col gap-5">
+          {/* ---- My Account Navigation ---- */}
+          <SettingsSection title="General">
+            <SettingsRow
+              icon={<User className="w-4 h-4 text-[#177564]" />}
+              iconBg="bg-[#def2ee]"
+              label="My Account"
+              value="Profile, preferences & certificates"
+              onClick={onGoToMyAccount}
+            />
 
-        <SettingsRow
-          icon={<Receipt className="w-4 h-4 text-[#177564]" />}
-          iconBg="bg-[#def2ee]"
-          label="Transactions"
-          value="Payment ledger & receipts"
-          onClick={onGoToTransactions}
-        />
-        <SettingsRow
-          icon={<Inbox className="w-4 h-4 text-[#7d8490]" />}
-          iconBg="bg-[#f3f4f6]"
-          label="Inbox"
-          value="Invitations, promotions & updates"
-          onClick={onGoToInbox}
-        />
-      </SettingsSection>
+            <SettingsRow
+              icon={<Receipt className="w-4 h-4 text-[#177564]" />}
+              iconBg="bg-[#def2ee]"
+              label="Transactions"
+              value="Payment ledger & receipts"
+              onClick={onGoToTransactions}
+            />
+            <SettingsRow
+              icon={<Inbox className="w-4 h-4 text-[#7d8490]" />}
+              iconBg="bg-[#f3f4f6]"
+              label="Inbox"
+              value="Invitations, promotions & updates"
+              onClick={onGoToInbox}
+            />
+          </SettingsSection>
 
-      {/* ---- Organizations Section ---- */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between px-1 mb-1">
-          <p className="text-[#94a3b8] text-[11px] font-semibold uppercase tracking-[0.8px]">
-            Organizations
-          </p>
-          <span className="text-[#94a3b8] text-[11px]">
-            {MOCK_ORGANIZATIONS.length} org{MOCK_ORGANIZATIONS.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-        <div className="bg-white rounded-[12px] border border-[#e2e8f0] overflow-hidden">
-          {/* Personal account row */}
-          <div
-            className={`flex items-center gap-3 px-3.5 py-3.5 border-b border-[#f3f4f6] transition-colors ${
-              !activeOrgId ? 'bg-[#f0fdf9]' : 'hover:bg-[#f8fafc]'
-            }`}
-          >
-            <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-[#177564] to-[#21a58d] flex items-center justify-center text-white text-[13px] font-bold shrink-0">
-              {initials}
-              {!activeOrgId && (
-                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#177564] border-2 border-white flex items-center justify-center">
-                  <Check className="w-2.5 h-2.5 text-white" />
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[#181d27] text-[14px] font-semibold truncate">{displayName}</p>
-              <p className="text-[#94a3b8] text-[11px]">Personal Account</p>
-            </div>
-            {!activeOrgId ? (
-              <span className="px-2.5 py-1 bg-[#def2ee] text-[#177564] text-[11px] font-bold rounded-full shrink-0">
-                Active
+          {/* ---- Organizations Section ---- */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between px-1 mb-1">
+              <p className="text-[#94a3b8] text-[11px] font-semibold uppercase tracking-[0.8px]">
+                Organizations
+              </p>
+              <span className="text-[#94a3b8] text-[11px]">
+                {MOCK_ORGANIZATIONS.length} org{MOCK_ORGANIZATIONS.length !== 1 ? 's' : ''}
               </span>
-            ) : (
-              <button
-                onClick={() => handleSwitchOrg(null)}
-                className="flex items-center gap-1 px-2.5 py-1 bg-white border border-[#e2e8f0] text-[#64748b] text-[11px] font-semibold rounded-full hover:border-[#177564] hover:text-[#177564] transition-colors shrink-0"
-              >
-                <ArrowRightLeft className="w-3 h-3" />
-                Switch
-              </button>
-            )}
-          </div>
-
-          {/* Org list */}
-          {MOCK_ORGANIZATIONS.map((org) => (
-            <div key={org.id} className="border-b border-[#f3f4f6] last:border-b-0">
-              <OrgCard
-                org={org}
-                isActive={activeOrgId === org.id}
-                onSwitch={() => handleSwitchOrg(org.id)}
-              />
             </div>
-          ))}
-
-          {/* Pending org application */}
-          {pendingOrgApplication && (
-            <div className="border-b border-[#f3f4f6]">
-              <div className="flex items-center gap-3 px-3.5 py-3.5 bg-[#fffbeb]/40">
-                <div className="relative w-10 h-10 rounded-[10px] bg-gradient-to-br from-[#f59e0b]/20 to-[#f59e0b]/10 border border-[#fde68a] flex items-center justify-center shrink-0">
-                  <span className="text-[#b45309] text-[13px] font-bold">
-                    {pendingOrgApplication.orgName.split(' ').map(w => w.charAt(0)).join('').slice(0, 2).toUpperCase()}
-                  </span>
+            <div className="bg-white rounded-[12px] border border-[#e2e8f0] overflow-hidden">
+              {/* Personal account row */}
+              <div
+                className={`flex items-center gap-3 px-3.5 py-3.5 border-b border-[#f3f4f6] transition-colors ${
+                  !activeOrgId ? 'bg-[#f0fdf9]' : 'hover:bg-[#f8fafc]'
+                }`}
+              >
+                <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-[#177564] to-[#21a58d] flex items-center justify-center text-white text-[13px] font-bold shrink-0">
+                  {initials}
+                  {!activeOrgId && (
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#177564] border-2 border-white flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5 text-white" />
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[#181d27] text-[14px] font-semibold truncate">{pendingOrgApplication.orgName}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border bg-[#fffbeb] border-[#fde68a] text-[#b45309] shrink-0 whitespace-nowrap">
-                      <Clock className="w-3 h-3" />
-                      Under Review
-                    </span>
-                    <span className="text-[#94a3b8] text-[11px] truncate">
-                      Submitted {new Date(pendingOrgApplication.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  <p className="text-[#181d27] text-[14px] font-semibold truncate">{displayName}</p>
+                  <p className="text-[#94a3b8] text-[11px]">Personal Account</p>
+                </div>
+                {!activeOrgId ? (
+                  <span className="px-2.5 py-1 bg-[#def2ee] text-[#177564] text-[11px] font-bold rounded-full shrink-0">
+                    Active
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleSwitchOrg(null)}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-white border border-[#e2e8f0] text-[#64748b] text-[11px] font-semibold rounded-full hover:border-[#177564] hover:text-[#177564] transition-colors shrink-0"
+                  >
+                    <ArrowRightLeft className="w-3 h-3" />
+                    Switch
+                  </button>
+                )}
+              </div>
+
+              {/* Org list */}
+              {MOCK_ORGANIZATIONS.map((org) => (
+                <div key={org.id} className="border-b border-[#f3f4f6] last:border-b-0">
+                  <OrgCard
+                    org={org}
+                    isActive={activeOrgId === org.id}
+                    onSwitch={() => handleSwitchOrg(org.id)}
+                  />
+                </div>
+              ))}
+
+              {/* Pending org application */}
+              {pendingOrgApplication && (
+                <div className="border-b border-[#f3f4f6]">
+                  <div className="flex items-center gap-3 px-3.5 py-3.5 bg-[#fffbeb]/40">
+                    <div className="relative w-10 h-10 rounded-[10px] bg-gradient-to-br from-[#f59e0b]/20 to-[#f59e0b]/10 border border-[#fde68a] flex items-center justify-center shrink-0">
+                      <span className="text-[#b45309] text-[13px] font-bold">
+                        {pendingOrgApplication.orgName.split(' ').map(w => w.charAt(0)).join('').slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[#181d27] text-[14px] font-semibold truncate">{pendingOrgApplication.orgName}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border bg-[#fffbeb] border-[#fde68a] text-[#b45309] shrink-0 whitespace-nowrap">
+                          <Clock className="w-3 h-3" />
+                          Under Review
+                        </span>
+                        <span className="text-[#94a3b8] text-[11px] truncate">
+                          Submitted {new Date(pendingOrgApplication.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 bg-[#fffbeb] text-[#b45309] text-[11px] font-bold rounded-full border border-[#fde68a] shrink-0">
+                      Pending
                     </span>
                   </div>
                 </div>
-                <span className="px-2.5 py-1 bg-[#fffbeb] text-[#b45309] text-[11px] font-bold rounded-full border border-[#fde68a] shrink-0">
-                  Pending
-                </span>
+              )}
+
+              {/* Create org */}
+              <div className="border-t border-[#e2e8f0] bg-[#fafbfc]">
+                <button
+                  onClick={onGoToApplyOrganizer}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-[#f0fdf9] transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-[10px] border-2 border-dashed border-[#177564]/30 bg-[#f0fdf9] flex items-center justify-center shrink-0">
+                    <Plus className="w-4.5 h-4.5 text-[#177564]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[#177564] text-[14px] font-semibold">Create Organization</p>
+                    <p className="text-[#94a3b8] text-[12px]">Apply to become an event organizer</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#177564]/40 shrink-0" />
+                </button>
               </div>
             </div>
-          )}
-
-          {/* Create org */}
-          <div className="border-t border-[#e2e8f0] bg-[#fafbfc]">
-            <button
-              onClick={onGoToApplyOrganizer}
-              className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-[#f0fdf9] transition-colors"
-            >
-              <div className="w-10 h-10 rounded-[10px] border-2 border-dashed border-[#177564]/30 bg-[#f0fdf9] flex items-center justify-center shrink-0">
-                <Plus className="w-4.5 h-4.5 text-[#177564]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[#177564] text-[14px] font-semibold">Create Organization</p>
-                <p className="text-[#94a3b8] text-[12px]">Apply to become an event organizer</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-[#177564]/40 shrink-0" />
-            </button>
           </div>
         </div>
-      </div>
 
-      {/* ---- Support & About ---- */}
-      <SettingsSection title="Support">
-        <SettingsRow
-          icon={<HelpCircle className="w-4 h-4 text-[#f59e0b]" />}
-          iconBg="bg-[#fffbeb]"
-          label="Help Center"
-          value="FAQs and support"
-        />
-        <SettingsRow
-          icon={<Shield className="w-4 h-4 text-[#177564]" />}
-          iconBg="bg-[#def2ee]"
-          label="Privacy Policy"
-        />
-        <SettingsRow
-          icon={<FileText className="w-4 h-4 text-[#64748b]" />}
-          iconBg="bg-[#f3f4f6]"
-          label="Terms of Service"
-        />
-      </SettingsSection>
+        {/* Right Column: Support, About, Prototype, Sign Out */}
+        <div className="flex flex-col gap-5">
+          {/* ---- Support & About ---- */}
+          <SettingsSection title="Support">
+            <SettingsRow
+              icon={<HelpCircle className="w-4 h-4 text-[#f59e0b]" />}
+              iconBg="bg-[#fffbeb]"
+              label="Help Center"
+              value="FAQs and support"
+            />
+            <SettingsRow
+              icon={<Shield className="w-4 h-4 text-[#177564]" />}
+              iconBg="bg-[#def2ee]"
+              label="Privacy Policy"
+            />
+            <SettingsRow
+              icon={<FileText className="w-4 h-4 text-[#64748b]" />}
+              iconBg="bg-[#f3f4f6]"
+              label="Terms of Service"
+            />
+          </SettingsSection>
 
-      <SettingsSection title="About">
-        <SettingsRow
-          icon={<Info className="w-4 h-4 text-[#94a3b8]" />}
-          iconBg="bg-[#f3f4f6]"
-          label="App Version"
-          value="1.0.0 (Build 2026.02)"
-          trailing={<span className="text-[#94a3b8] text-[12px] font-mono">v1.0.0</span>}
-        />
-      </SettingsSection>
+          <SettingsSection title="About">
+            <SettingsRow
+              icon={<Info className="w-4 h-4 text-[#94a3b8]" />}
+              iconBg="bg-[#f3f4f6]"
+              label="App Version"
+              value="1.0.0 (Build 2026.02)"
+              trailing={<span className="text-[#94a3b8] text-[12px] font-mono">v1.0.0</span>}
+            />
+          </SettingsSection>
 
-      {/* ---- Prototype / Stakeholder tools ---- */}
-      {onGoToPassportCases && (
-        <SettingsSection title="Prototype">
-          <SettingsRow
-            icon={<LayoutList className="w-4 h-4 text-[#8b5cf6]" />}
-            iconBg="bg-[#f5f3ff]"
-            label="Passport Cases Board"
-            value="All 34 registration & access scenarios"
-            onClick={onGoToPassportCases}
+          {/* ---- Prototype / Stakeholder tools ---- */}
+          {onGoToPassportCases && (
+            <SettingsSection title="Prototype">
+              <SettingsRow
+                icon={<LayoutList className="w-4 h-4 text-[#8b5cf6]" />}
+                iconBg="bg-[#f5f3ff]"
+                label="Passport Cases Board"
+                value="All 34 registration & access scenarios"
+                onClick={onGoToPassportCases}
+              />
+            </SettingsSection>
+          )}
+
+          {/* Sign Out */}
+          <ConfirmDialog
+            trigger={
+              <button
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-[12px] border border-[#fecaca] bg-[#fef2f2] text-[#dc2626] text-sm font-semibold hover:bg-[#fee2e2] transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </button>
+            }
+            title="Sign Out?"
+            description="Are you sure you want to sign out? You'll need to log back in to access your account, tickets, and event registrations."
+            icon={<LogOut className="w-6 h-6" />}
+            iconVariant="destructive"
+            confirmLabel="Yes, Sign Out"
+            variant="destructive"
+            onConfirm={() => onSignOut?.()}
           />
-        </SettingsSection>
-      )}
-
-      {/* Sign Out */}
-      <ConfirmDialog
-        trigger={
-          <button
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-[12px] border border-[#fecaca] bg-[#fef2f2] text-[#dc2626] text-sm font-semibold hover:bg-[#fee2e2] transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </button>
-        }
-        title="Sign Out?"
-        description="Are you sure you want to sign out? You'll need to log back in to access your account, tickets, and event registrations."
-        icon={<LogOut className="w-6 h-6" />}
-        iconVariant="destructive"
-        confirmLabel="Yes, Sign Out"
-        variant="destructive"
-        onConfirm={() => onSignOut?.()}
-      />
+        </div>
+      </div>
 
       <div className="h-4" />
     </div>

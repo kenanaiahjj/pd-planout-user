@@ -11,8 +11,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Home, Calendar, IdCard, ShoppingBag } from 'lucide-react';
 import imgAvatar from '@/assets/ce45a896d958cf406bb83c3c0a93e2f03fcb0bef.png';
 
-// Radial shine overlay (simulates overhead spotlight reflection on curved glass)
 const PASSPORT_SHINE_SVG = `url('data:image/svg+xml;utf8,<svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="100%" height="100%" fill="url(%23specular)" opacity="0.65"/><rect x="0" y="0" width="100%" height="100%" fill="url(%23bounce)" opacity="0.25"/><defs><radialGradient id="specular" cx="30%" cy="20%" r="40%"><stop stop-color="white" offset="0%"/><stop stop-color="rgba(255,255,255,0)" offset="100%"/></radialGradient><radialGradient id="bounce" cx="70%" cy="80%" r="40%"><stop stop-color="white" offset="0%"/><stop stop-color="rgba(255,255,255,0)" offset="100%"/></radialGradient></defs></svg>')`;
+const PASSPORT_MESH_BACKGROUND = [
+  'radial-gradient(circle at 25% 20%, rgba(221, 255, 247, 0.72) 0%, rgba(115, 237, 213, 0.48) 16%, rgba(23, 117, 100, 0) 43%)',
+  'radial-gradient(circle at 83% 76%, rgba(71, 219, 187, 0.78) 0%, rgba(23, 117, 100, 0) 48%)',
+  'radial-gradient(circle at 78% 16%, rgba(5, 91, 84, 0.88) 0%, rgba(23, 117, 100, 0) 44%)',
+  'linear-gradient(145deg, #0b7067 0%, #138c7b 46%, #075f56 100%)',
+].join(', ');
 
 // ---------------------------------------------------------------------------
 // Types
@@ -82,7 +87,7 @@ export function BottomNav({
 
   return (
     <div
-      className={`fixed bottom-6 left-4 right-4 z-50 sm:hidden max-w-[420px] mx-auto transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+      className={`fixed-bottom-ios fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-[420px] transition-transform duration-200 ease-out motion-reduce:transition-none md:hidden ${
         isShrunk
           ? 'scale-[0.9] translate-y-2 hover:scale-100 hover:translate-y-0'
           : 'scale-100 translate-y-0'
@@ -110,27 +115,20 @@ export function BottomNav({
           50% { transform: translate(-8px, 8px) scale(1.1); }
           100% { transform: translate(0px, 0px) scale(1); }
         }
-        .animate-mesh-rotate {
-          animation: mesh-rotate 16s infinite linear;
-          transform-origin: center center;
-        }
-        .animate-mesh-blob-1 {
-          animation: mesh-blob-1 8s infinite ease-in-out;
-        }
-        .animate-mesh-blob-2 {
-          animation: mesh-blob-2 9s infinite ease-in-out;
-        }
-        .animate-mesh-blob-3 {
-          animation: mesh-blob-3 7s infinite ease-in-out;
+        .animate-mesh-rotate { animation: mesh-rotate 16s infinite linear; transform-origin: center center; }
+        .animate-mesh-blob-1 { animation: mesh-blob-1 8s infinite ease-in-out; }
+        .animate-mesh-blob-2 { animation: mesh-blob-2 9s infinite ease-in-out; }
+        .animate-mesh-blob-3 { animation: mesh-blob-3 7s infinite ease-in-out; }
+        @media (prefers-reduced-motion: reduce) {
+          .animate-mesh-rotate, .animate-mesh-blob-1, .animate-mesh-blob-2, .animate-mesh-blob-3 { animation: none; }
         }
       `}</style>
-      {/* Floating Glassmorphism Tab Bar */}
-      <div className="backdrop-blur-[24px] bg-white/72 border border-slate-200/50 rounded-full shadow-[0_12px_40px_rgba(15,23,42,0.08),inset_0_1px_1.5px_rgba(255,255,255,0.7)] h-[56px] px-2 flex items-center justify-around relative">
+      <div className="relative flex h-14 items-center justify-around rounded-full border border-slate-200/70 bg-white/86 px-2 backdrop-blur-[18px] shadow-[0_8px_10px_-8px_rgba(15,23,42,0.32)]">
 
         {/* Home */}
         <button
           onClick={() => onTabChange('home')}
-          className="relative flex h-full flex-col items-center justify-center flex-1 py-1 transition-all active:scale-90 cursor-pointer"
+          className="relative flex h-full flex-1 cursor-pointer flex-col items-center justify-center py-1 transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 focus-visible:ring-offset-2"
           aria-label="Home"
         >
           <div className="transition-transform hover:scale-105">
@@ -148,7 +146,7 @@ export function BottomNav({
         {/* Events */}
         <button
           onClick={() => onTabChange('events')}
-          className="relative flex h-full flex-col items-center justify-center flex-1 py-1 transition-all active:scale-90 cursor-pointer"
+          className="relative flex h-full flex-1 cursor-pointer flex-col items-center justify-center py-1 transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 focus-visible:ring-offset-2"
           aria-label="Events"
         >
           <div className="transition-transform hover:scale-105">
@@ -166,52 +164,33 @@ export function BottomNav({
         {/* Passport - Prominent Floating Center Action */}
         <button
           onClick={() => onTabChange('passport')}
-          className="relative -mt-6 flex h-full items-center justify-center flex-1 transition-transform active:scale-[0.94]"
+          className="relative -mt-6 flex h-full flex-1 items-center justify-center transition-transform active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 focus-visible:ring-offset-2"
           aria-label="Open Passport"
         >
           <div
-            className={`relative flex h-[54px] w-[54px] items-center justify-center rounded-[18px] border border-white/45 text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden ${
+            className={`relative flex h-[54px] w-[54px] items-center justify-center text-white transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
               activeTab === 'passport'
-                ? 'translate-y-[-4px] scale-105 shadow-[0_16px_36px_rgba(23,117,100,0.6),0_0_24px_rgba(34,211,238,0.4),inset_0_2.5px_4px_rgba(255,255,255,0.75)] brightness-110'
-                : 'shadow-[0_10px_24px_rgba(23,117,100,0.45),0_0_16px_rgba(34,211,238,0.25),inset_0_2px_3.5px_rgba(255,255,255,0.55)] hover:scale-105 hover:shadow-[0_12px_28px_rgba(23,117,100,0.5),0_0_20px_rgba(34,211,238,0.35)]'
+                ? 'translate-y-[-5px] scale-[1.02] drop-shadow-[0_18px_28px_rgba(9,99,88,0.38)]'
+                : 'drop-shadow-[0_12px_18px_rgba(9,99,88,0.3)] hover:scale-[1.02]'
             }`}
-            style={{
-              backgroundImage: 'linear-gradient(135deg, #3cd4b9 0%, #177564 100%)',
-            }}
+            data-testid="passport-nav-tile-shell"
           >
-            {/* Animated Mesh Gradient Blobs */}
-            <div className="absolute inset-0 z-0 pointer-events-none opacity-90 animate-mesh-rotate">
-              <div 
-                className="absolute w-[52px] h-[52px] rounded-full bg-[#115e59] mix-blend-multiply filter blur-[12px] animate-mesh-blob-1"
-                style={{
-                  top: '-15%',
-                  left: '-15%',
-                }}
-              />
-              <div 
-                className="absolute w-[46px] h-[46px] rounded-full bg-[#3cd4b9] mix-blend-screen filter blur-[10px] animate-mesh-blob-2"
-                style={{
-                  bottom: '-15%',
-                  right: '-15%',
-                }}
-              />
-              <div 
-                className="absolute w-[42px] h-[42px] rounded-full bg-[#177564] mix-blend-screen filter blur-[10px] animate-mesh-blob-3"
-                style={{
-                  top: '15%',
-                  right: '5%',
-                }}
-              />
-            </div>
-            {/* Spotlight overlay shine */}
-            <div 
-              className="absolute inset-0 z-[1] pointer-events-none opacity-85 mix-blend-overlay"
-              style={{ backgroundImage: PASSPORT_SHINE_SVG }}
-            />
-            {/* Gloss Highlight Overlay */}
-            <div className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-tr from-transparent via-white/15 to-white/35 mix-blend-overlay" />
-            <IdCard className="relative h-[25px] w-[25px] z-[2] drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)]" strokeWidth={2.2} />
-            <span className="absolute inset-0 rounded-[inherit] border border-white/30 shadow-[inset_0_2px_3px_rgba(255,255,255,0.55)] z-[1] pointer-events-none" />
+            <span className="pointer-events-none absolute -inset-3 z-0 rounded-full bg-[radial-gradient(circle,rgba(92,239,216,0.7)_0%,rgba(92,239,216,0.22)_38%,transparent_72%)] blur-[8px]" />
+            <span
+              className="relative flex h-[54px] w-[54px] items-center justify-center overflow-hidden rounded-[18px] border border-white/50"
+              style={{ backgroundImage: PASSPORT_MESH_BACKGROUND }}
+              data-testid="passport-nav-tile"
+            >
+              <span className="pointer-events-none absolute inset-0 z-0 animate-mesh-rotate opacity-90">
+                <span className="absolute -left-[15%] -top-[15%] h-[52px] w-[52px] rounded-full bg-[#0b5d58] mix-blend-multiply blur-[12px] animate-mesh-blob-1" />
+                <span className="absolute -bottom-[15%] -right-[15%] h-[46px] w-[46px] rounded-full bg-[#5debd1] mix-blend-screen blur-[10px] animate-mesh-blob-2" />
+                <span className="absolute right-[5%] top-[15%] h-[42px] w-[42px] rounded-full bg-[#1ba58f] mix-blend-screen blur-[10px] animate-mesh-blob-3" />
+              </span>
+              <span className="pointer-events-none absolute inset-0 z-[1] opacity-75 mix-blend-overlay" style={{ backgroundImage: PASSPORT_SHINE_SVG }} />
+              <span className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-tr from-transparent via-white/15 to-white/35 mix-blend-overlay" />
+              <IdCard className="relative z-[2] h-[25px] w-[25px] drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)]" strokeWidth={2.1} />
+              <span className="pointer-events-none absolute inset-0 z-[1] rounded-[inherit] border border-white/30 shadow-[inset_0_2px_5px_rgba(255,255,255,0.55)]" />
+            </span>
           </div>
         </button>
 
@@ -219,7 +198,7 @@ export function BottomNav({
         {isAuthenticated && (
           <button
             onClick={() => onTabChange('orders')}
-            className="relative flex h-full flex-col items-center justify-center flex-1 py-1 transition-all active:scale-90 cursor-pointer"
+            className="relative flex h-full flex-1 cursor-pointer flex-col items-center justify-center py-1 transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 focus-visible:ring-offset-2"
             aria-label="Orders"
           >
             <div className="h-[22px] w-[22px] relative transition-transform hover:scale-105">
@@ -244,7 +223,7 @@ export function BottomNav({
         {isAuthenticated && (
           <button
             onClick={() => onTabChange('settings')}
-            className="relative flex h-full flex-col items-center justify-center flex-1 py-1 transition-all active:scale-90 cursor-pointer"
+            className="relative flex h-full flex-1 cursor-pointer flex-col items-center justify-center py-1 transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 focus-visible:ring-offset-2"
             aria-label="Settings"
           >
             <div className="transition-transform hover:scale-105">

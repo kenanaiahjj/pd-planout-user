@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 630">
+  <defs>
+    <linearGradient id="pocketGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2b8f80"/>
+      <stop offset="45%" stop-color="#177564"/>
+      <stop offset="100%" stop-color="#0b5a50"/>
+    </linearGradient>
+    <radialGradient id="shadowBlob" cx="38%" cy="60%" r="55%">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="highlight" cx="30%" cy="15%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="softBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <filter id="dropShadowBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+    <clipPath id="pocketClip">
+      <rect x="100" y="302" width="462" height="212" rx="24"/>
+    </clipPath>
+  </defs>
+
+  <ellipse cx="330" cy="560" rx="230" ry="26" fill="#000000" opacity="0.18" filter="url(#dropShadowBlur)"/>
+
+  <path d="M 122,118 L 250,118 Q 300,118 300,168 L 540,168 Q 566,168 566,194 L 566,486 Q 566,512 540,512 L 122,512 Q 96,512 96,486 L 96,144 Q 96,118 122,118 Z" fill="#0f665b"/>
+
+  <rect x="245" y="178" width="222" height="188" rx="16" fill="#fafafa" transform="rotate(-9 356 272)"/>
+  <g transform="rotate(-9 356 272)">
+    <rect x="270" y="222" width="150" height="7" rx="3.5" fill="#d6d6d6"/>
+    <rect x="270" y="242" width="150" height="7" rx="3.5" fill="#d6d6d6"/>
+    <rect x="270" y="262" width="110" height="7" rx="3.5" fill="#d6d6d6"/>
+  </g>
+
+  <g clip-path="url(#pocketClip)">
+    <rect x="100" y="302" width="462" height="212" fill="url(#pocketGrad)"/>
+    <rect x="100" y="302" width="462" height="212" fill="url(#shadowBlob)"/>
+    <ellipse cx="230" cy="318" rx="140" ry="50" fill="url(#highlight)" filter="url(#softBlur)"/>
+
+    <rect x="210" y="452" width="240" height="4" rx="2" fill="#1c5e55"/>
+    <rect x="210" y="464" width="240" height="4" rx="2" fill="#154b44"/>
+    <rect x="210" y="476" width="240" height="4" rx="2" fill="#0f3e39"/>
+  </g>
+</svg>

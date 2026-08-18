@@ -20,6 +20,19 @@ const DEFAULT_EVENT_BRAND = {
   textOnAccent: '#ffffff',
 };
 
+/** PlanOut-owned fallback for order surfaces without an organizer palette. */
+export const PLANOUT_EVENT_BRAND: EventBrandTheme = {
+  accent: '#56ddc3',
+  accentDark: '#0b443a',
+  accentSoft: '#c8f2e9',
+  accentWash: '#eafaf6',
+  pageBackground: '#1b7c6c',
+  pageBackgroundTo: '#0c493f',
+  ctaFrom: '#56ddc3',
+  ctaTo: '#177564',
+  textOnAccent: '#ffffff',
+};
+
 function normalizeHex(hex: string) {
   const value = hex.replace('#', '').trim();
   if (value.length === 3) {

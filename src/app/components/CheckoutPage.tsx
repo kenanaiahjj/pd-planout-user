@@ -35,6 +35,7 @@ import {
   IdCard,
   Phone,
   Send,
+  Wrench,
 } from 'lucide-react';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { PrimaryButton } from './PrimaryButton';
@@ -47,7 +48,10 @@ import { useAppContext } from '@/app/context/AppContext';
 import {
   OrderPaymentSummary,
 } from '@/app/components/OrderDetailBlocks';
-import { type RegistrationQueueEntry } from '@/app/data/tickets';
+import {
+  type RegistrationQueueEntry,
+  type TeamPlayerAccessPath,
+} from '@/app/data/tickets';
 
 import imgGcashLogo from "@/assets/361b5ff808595f5b0ded183dc36121f71aa9d6bf.png";
 import imgMayaLogo from "@/assets/65ebd716d42cf572d26c663985c86d40104a8c69.png";
@@ -79,6 +83,10 @@ interface CheckoutPageProps {
   userEmail?: string;
   userPhone?: string;
 }
+
+type ConfirmationState = 'success' | 'failed' | 'expired' | 'registered' | 'pending';
+type CheckoutItemMode = 'single' | 'multiple';
+type CheckoutEntryOwner = 'self' | 'guest';
 
 const VOUCHER_MAP: Record<string, number> = {
   SAVE100: 100,
@@ -324,6 +332,165 @@ function PendingFormsHeroCard({
   );
 }
 
+function CheckoutEntryOwnerChoice({
+  name,
+  value,
+  onChange,
+  selfTakenByAnotherEntry = false,
+}: {
+  name: string;
+  value: CheckoutEntryOwner;
+  onChange: (value: CheckoutEntryOwner) => void;
+  selfTakenByAnotherEntry?: boolean;
+}) {
+  const options = [
+    {
+      value: 'self' as const,
+      label: 'For me',
+      description: 'Attaches to my Passport',
+    },
+    {
+      value: 'guest' as const,
+      label: 'For someone else',
+      description: 'Buyer-filled Guest QR',
+    },
+  ];
+
+  return (
+    <fieldset className="participant-form-ownership flex flex-col gap-2">
+      <legend className="text-[14px] font-semibold text-[#181d27]">This entry is for</legend>
+      <div className="grid grid-cols-1 gap-2">
+        {options.map((option) => {
+          const selected = value === option.value;
+          const disabled = option.value === 'self' && selfTakenByAnotherEntry && !selected;
+
+          return (
+            <label
+              key={option.value}
+              data-selected={selected ? '' : undefined}
+              className={`participant-form-owner-choice flex min-h-[70px] items-start gap-3 rounded-[12px] border px-3.5 py-3 transition-all ${
+                selected
+                  ? 'border-[#177564] bg-[#f0fdf9] text-[#177564]'
+                  : 'border-[#e2e8f0] bg-white text-[#64748b]'
+              } ${
+                disabled
+                  ? 'cursor-not-allowed opacity-50'
+                  : 'cursor-pointer hover:border-[#b7ded6] hover:bg-[#f8fbfa]'
+              }`}
+            >
+              <input
+                type="radio"
+                name={name}
+                value={option.value}
+                checked={selected}
+                onChange={() => onChange(option.value)}
+                disabled={disabled}
+                className="mt-0.5 h-4 w-4 accent-[#177564]"
+              />
+              <span className="min-w-0">
+                <span className={`block text-[13px] font-semibold ${selected ? 'text-[#177564]' : 'text-[#181d27]'}`}>
+                  {option.label}
+                </span>
+                <span className="mt-0.5 block text-[11px] font-medium leading-relaxed text-[#64748b]">
+                  {option.description}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+      {selfTakenByAnotherEntry && value !== 'self' && (
+        <p className="text-[12px] font-medium leading-relaxed text-[#64748b]">
+          This order already has a Passport entry for you. Additional player entries use Guest QR or claim links.
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
+function CheckoutDevTools({
+  confirmationState,
+  onConfirmationStateChange,
+  itemMode,
+  onItemModeChange,
+}: {
+  confirmationState: ConfirmationState;
+  onConfirmationStateChange: (value: ConfirmationState) => void;
+  itemMode: CheckoutItemMode;
+  onItemModeChange: (value: CheckoutItemMode) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (!import.meta.env.DEV) return null;
+
+  return (
+    <div className="fixed right-4 top-[calc(5.75rem+env(safe-area-inset-top))] z-[70]">
+      {open && (
+        <div className="absolute bottom-auto right-0 top-12 w-[min(320px,calc(100vw-2rem))] rounded-[16px] border border-[#dbe5e3] bg-white p-3 shadow-[0_4px_8px_-2px_rgba(15,23,42,0.18)]">
+          <div className="flex items-start justify-between gap-3 px-1 pb-3">
+            <div>
+              <p className="text-[12px] font-semibold text-[#181d27]">Checkout dev tools</p>
+              <p className="mt-0.5 text-[11px] text-[#7b8b9a]">Preview controls · development only</p>
+            </div>
+            <IconButton
+              size="sm"
+              aria-label="Close checkout dev tools"
+              onClick={() => setOpen(false)}
+            >
+              <X className="h-3.5 w-3.5" />
+            </IconButton>
+          </div>
+
+          <div className="space-y-3 border-t border-[#edf2f0] pt-3">
+            <div>
+              <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.4px] text-[#8a9bb1]">Confirmation state</p>
+              <SegmentedChoice
+                size="sm"
+                value={confirmationState}
+                onChange={onConfirmationStateChange}
+                columnsClass="grid-cols-2"
+                className="w-full"
+                options={[
+                  { value: 'success', label: 'Success' },
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'failed', label: 'Failed' },
+                  { value: 'expired', label: 'Expired' },
+                ]}
+              />
+            </div>
+
+            <div>
+              <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.4px] text-[#8a9bb1]">Order shape</p>
+              <SegmentedChoice
+                size="sm"
+                value={itemMode}
+                onChange={onItemModeChange}
+                columnsClass="grid-cols-2"
+                className="w-full"
+                options={[
+                  { value: 'multiple', label: 'Multiple Events', badge: 3 },
+                  { value: 'single', label: 'Single Event', badge: 1 },
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        aria-label="Open checkout dev tools"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#c8ded9] bg-white px-3 py-2 text-[11px] font-semibold text-[#177564] shadow-[0_4px_8px_-2px_rgba(15,23,42,0.18)] transition-colors hover:bg-[#f3fbf8] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/25"
+      >
+        <Wrench className="h-3.5 w-3.5" />
+        <span>Dev tools</span>
+      </button>
+    </div>
+  );
+}
+
 // --- Main Component ---
 export function CheckoutPage({
   eventName = 'NegOr50•50 Series 2: NUTRI-RUN 65',
@@ -396,7 +563,6 @@ export function CheckoutPage({
   const confirmRef = 'MNL-2024-789456';
 
   // Confirmation sub-state (for demo controls)
-  type ConfirmationState = 'success' | 'failed' | 'expired' | 'registered' | 'pending';
   const [confirmationState, setConfirmationState] = useState<ConfirmationState>('success');
 
   // Countdown timer for failed state (ticket hold)
@@ -471,7 +637,15 @@ export function CheckoutPage({
   ]);
 
   // Demo state: itemMode determines if 1 or 3 events are in the checkout confirmation
-  const [itemMode, setItemMode] = useState<'single' | 'multiple'>('multiple');
+  const [itemMode, setItemMode] = useState<CheckoutItemMode>('multiple');
+  const handleItemModeChange = (mode: CheckoutItemMode) => {
+    setItemMode(mode);
+    if (mode === 'single') {
+      setOrderItems((prev) => prev.map((item, idx) => idx === 0 ? { ...item, formComplete: false } : item));
+    } else {
+      setOrderItems((prev) => prev.map((item) => ({ ...item, formComplete: false })));
+    }
+  };
   const displayedItems = itemMode === 'single' ? [orderItems[0]] : orderItems;
 
   const getItemFormTiming = useCallback((item: OrderItem): FormTiming => {
@@ -807,6 +981,7 @@ export function CheckoutPage({
   // Form data state per slot
   interface SlotFormData {
     deliveryMethod: 'fill' | 'invite';
+    entryOwner: CheckoutEntryOwner;
     firstName: string;
     lastName: string;
     email: string;
@@ -821,6 +996,7 @@ export function CheckoutPage({
     setSlotsData((prev) => {
       const existing = prev[slotId] || {
         deliveryMethod: 'fill',
+        entryOwner: 'self' as CheckoutEntryOwner,
         firstName: '',
         lastName: '',
         email: '',
@@ -839,6 +1015,14 @@ export function CheckoutPage({
   };
 
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
+
+  const isSelfOwnerTakenByAnotherEntry = (slotId: string) =>
+    checkoutSlots.some(
+      (slot) =>
+        slot.id !== slotId &&
+        slotsData[slot.id]?.deliveryMethod === 'fill' &&
+        slotsData[slot.id]?.entryOwner === 'self',
+    );
 
   // Shared completeness check for a slot (used by both validation and progress display).
   const emailRegexShared = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -887,10 +1071,11 @@ export function CheckoutPage({
       let updated = false;
       checkoutSlots.forEach((slot) => {
         if (!next[slot.id]) {
-          const isPrimary = slot.id.endsWith('-0');
+          const isPrimary = slot.id === checkoutSlots[0]?.id;
           const nameParts = (userName || '').trim().split(/\s+/);
           next[slot.id] = {
             deliveryMethod: isPrimary ? 'fill' : 'invite',
+            entryOwner: isPrimary ? 'self' : 'guest',
             firstName: isPrimary ? nameParts[0] || '' : '',
             lastName: isPrimary ? nameParts.slice(1).join(' ') || '' : '',
             email: isPrimary ? userEmail || '' : '',
@@ -940,6 +1125,8 @@ export function CheckoutPage({
         let personName = `${firstName || userName?.split(' ')[0] || 'Ken'} ${lastName || 'Jo'}`.trim();
         let inviteEmail = email || userEmail;
         let isInvited = false;
+        let entryType: RegistrationQueueEntry['type'] = 'self';
+        let accessPath: TeamPlayerAccessPath = 'passport';
         let status: EntryStatus = 'attached';
 
         if (slotData) {
@@ -947,9 +1134,13 @@ export function CheckoutPage({
             personName = 'Guest (unassigned)';
             inviteEmail = slotData.inviteEmail.trim() || userEmail;
             isInvited = true;
+            entryType = 'guest';
+            accessPath = 'pending';
           } else {
             personName = `${slotData.firstName} ${slotData.lastName}`.trim() || personName;
             inviteEmail = slotData.email.trim() || inviteEmail;
+            entryType = slotData.entryOwner === 'guest' ? 'guest' : 'self';
+            accessPath = slotData.entryOwner === 'guest' ? 'guest_qr' : 'passport';
           }
         }
 
@@ -966,7 +1157,9 @@ export function CheckoutPage({
           eventName: item.eventName,
           personName,
           category: item.category,
-          type: 'self' as const,
+          type: entryType,
+          accessPath,
+          participantIsPrimary: entryType === 'self',
           entryStatus: status,
           deadline: item.requiresForm ? 'May 30, 2026' : undefined,
           formRoute: `/orders/${ticketId}/form`,
@@ -1042,15 +1235,20 @@ export function CheckoutPage({
     let personName = `${firstName || userName?.split(' ')[0] || 'Ken'} ${lastName || 'Jo'}`.trim();
     let inviteEmail = email || userEmail;
     let isInvited = false;
+    let buyerManagedGuest = false;
+    let accessPath: TeamPlayerAccessPath = 'passport';
 
     if (slotData) {
       if (slotData.deliveryMethod === 'invite') {
         personName = 'Guest (unassigned)';
         inviteEmail = slotData.inviteEmail.trim() || userEmail;
         isInvited = true;
+        accessPath = 'pending';
       } else {
         personName = `${slotData.firstName} ${slotData.lastName}`.trim() || personName;
         inviteEmail = slotData.email.trim() || inviteEmail;
+        buyerManagedGuest = slotData.entryOwner === 'guest';
+        accessPath = buyerManagedGuest ? 'guest_qr' : 'passport';
       }
     } else {
       if (index === 1) {
@@ -1074,7 +1272,9 @@ export function CheckoutPage({
       eventName: item.eventName,
       personName,
       category: item.category,
-      type: isTeam ? ('team' as const) : (isInvited ? ('guest' as const) : ('self' as const)),
+      type: isTeam ? ('team' as const) : (isInvited || buyerManagedGuest ? ('guest' as const) : ('self' as const)),
+      accessPath: isTeam ? undefined : accessPath,
+      participantIsPrimary: !isTeam && !isInvited && !buyerManagedGuest,
       entryStatus: status,
       deadline: item.requiresForm ? 'May 30, 2026' : undefined,
       formRoute: `/orders/${ticketId}/form`,
@@ -1090,6 +1290,8 @@ export function CheckoutPage({
     (entry) => entry.entryStatus === 'pending_form' || entry.entryStatus === 'resubmit_required',
   );
   const allOrderEntriesAttached = pendingConfirmationEntries.length === 0;
+  const frontloadedFormComplete =
+    allGatedSlots.length > 0 && allGatedSlots.every((slot) => slot.item.formComplete);
   const imageForConfirmationEntry = useCallback((entry: RegistrationQueueEntry) => {
     const matchedItem = displayedItems.find((item) =>
       entry.id.includes(item.id) ||
@@ -1124,11 +1326,14 @@ export function CheckoutPage({
   };
 
   // Derived
-  const subtotal = price * itemQuantity;
+  const subtotal = displayedItems.reduce(
+    (sum, item, index) => sum + item.price * (index === 0 ? itemQuantity : 1),
+    0,
+  );
   const convenienceFee = Math.round(subtotal * CONVENIENCE_FEE_RATE * 100) / 100;
   const discount = appliedVoucher ? Math.min(appliedVoucher.discount, subtotal) : 0;
   const total = Math.max(0, subtotal + convenienceFee - discount);
-  const confirmationSubtotal = orderItems.reduce((sum, item) => sum + item.price, 0);
+  const confirmationSubtotal = subtotal;
   const confirmationConvenienceFee =
     Math.round(confirmationSubtotal * CONVENIENCE_FEE_RATE * 100) / 100;
   const confirmationTotal = Math.max(0, confirmationSubtotal + confirmationConvenienceFee - discount);
@@ -1136,11 +1341,14 @@ export function CheckoutPage({
   const fmt = (n: number) =>
     `₱ ${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const confirmationPaymentLines = orderItems.map((item) => ({
-    id: item.id,
-    label: item.label,
-    amount: item.price,
-  }));
+  const confirmationPaymentLines = displayedItems.map((item, index) => {
+    const quantity = index === 0 ? itemQuantity : 1;
+    return {
+      id: item.id,
+      label: `${item.eventName} · ${item.category}${quantity > 1 ? ` × ${quantity}` : ''}`,
+      amount: item.price * quantity,
+    };
+  });
 
   const confirmationOrderDetails = (
     <OrderPaymentSummary
@@ -1151,7 +1359,19 @@ export function CheckoutPage({
       discountLabel={appliedVoucher ? `Discount - ${appliedVoucher.code}` : 'Discount'}
       total={confirmationTotal}
       paymentMeta={`Order reference - ${confirmRef}`}
+      title="Order summary"
       totalLabel="Total paid"
+      footerAction={
+        !allOrderEntriesAttached ? (
+          <SecondaryButton
+            type="button"
+            onClick={() => navigate('/orders')}
+            className="h-[46px] w-full px-5 text-[14px]"
+          >
+            View order
+          </SecondaryButton>
+        ) : undefined
+      }
     />
   );
 
@@ -1197,6 +1417,14 @@ export function CheckoutPage({
   if (isConfirmation) {
     return (
       <div className="flex flex-col gap-5 pb-28 pt-10 sm:pt-0 lg:pb-8">
+        {import.meta.env.DEV && (
+          <CheckoutDevTools
+            confirmationState={confirmationState}
+            onConfirmationStateChange={setConfirmationState}
+            itemMode={itemMode}
+            onItemModeChange={handleItemModeChange}
+          />
+        )}
         {/* --- Header --- */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -1206,41 +1434,6 @@ export function CheckoutPage({
             <p className="mt-1.5 max-w-[520px] text-[13px] leading-relaxed text-[#64748b]">
               Your order is tied to PlanOut Passport for event-day access.
             </p>
-          </div>
-          {/* Demo state switcher */}
-          <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
-            <SegmentedChoice
-              size="sm"
-              value={confirmationState}
-              onChange={setConfirmationState}
-              columnsClass="grid-cols-4 min-w-[280px]"
-              className="w-auto"
-              options={[
-                { value: 'success', label: 'Success' },
-                { value: 'pending', label: 'Pending' },
-                { value: 'failed', label: 'Failed' },
-                { value: 'expired', label: 'Expired' },
-              ]}
-            />
-
-            <SegmentedChoice
-              size="sm"
-              value={itemMode}
-              onChange={(mode) => {
-                setItemMode(mode);
-                if (mode === 'single') {
-                  setOrderItems(prev => prev.map((item, idx) => idx === 0 ? { ...item, formComplete: false } : item));
-	                } else {
-                  setOrderItems(prev => prev.map((item, idx) => idx === 0 || idx === 2 ? { ...item, formComplete: false } : item));
-                }
-              }}
-              columnsClass="grid-cols-2 min-w-[255px]"
-              className="w-auto"
-              options={[
-                { value: 'multiple', label: 'Multiple Events', badge: 3 },
-                { value: 'single', label: 'Single Event', badge: 1 },
-              ]}
-            />
           </div>
         </div>
 
@@ -1688,7 +1881,7 @@ export function CheckoutPage({
                     </div>
                     <div>
                       <span className="text-[#94a3b8] text-[15px] font-medium">Confirmation</span>
-                      <p className="text-[#94a3b8] text-sm mt-1">Passport access updates once payment and required forms are complete.</p>
+                      <p className="text-[#94a3b8] text-sm mt-1">Each participant's registration status updates once payment and required forms are complete.</p>
                     </div>
                   </div>
                 </div>
@@ -1752,6 +1945,7 @@ export function CheckoutPage({
                     const singleSlot = formSlots[0];
                     const singleSlotData = slotsData[singleSlot?.id] || {
                       deliveryMethod: 'fill',
+                      entryOwner: 'self' as CheckoutEntryOwner,
                       firstName: '',
                       lastName: '',
                       email: '',
@@ -1760,7 +1954,7 @@ export function CheckoutPage({
 	                      inviteEmail: '',
                     };
                     return (
-                      <section className="rounded-[22px] border border-[#d9e8e5] bg-white p-5 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.52)] sm:p-6 flex flex-col gap-5">
+                      <section className="participant-form-premium participant-form-card rounded-[22px] border border-[#d9e8e5] bg-white p-5 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.52)] sm:p-6 flex flex-col gap-5">
                         <PendingFormsHeroCard
                           eyebrow="1 form needs your attention"
                           title="Finish the required forms to complete your registration."
@@ -1777,6 +1971,15 @@ export function CheckoutPage({
                               { value: 'invite', label: 'Invite via Email', icon: Mail },
                             ]}
                           />
+
+                          {singleSlotData.deliveryMethod === 'fill' && (
+                            <CheckoutEntryOwnerChoice
+                              name={`checkout-entry-owner-${singleSlot.id}`}
+                              value={singleSlotData.entryOwner}
+                              onChange={(owner) => updateSlotFieldGlobal(singleSlot.id, 'entryOwner', owner)}
+                              selfTakenByAnotherEntry={isSelfOwnerTakenByAnotherEntry(singleSlot.id)}
+                            />
+                          )}
 
                           {singleSlotData.deliveryMethod === 'fill' ? (
                             <div className="flex flex-col gap-4 animate-in fade-in duration-200 mt-1">
@@ -1826,7 +2029,7 @@ export function CheckoutPage({
                                   Upload the file requested by the organizer, such as a waiver, medical certificate, or ID.
                                 </p>
                                 {singleSlotData.uploadedFile ? (
-                                  <div className="flex items-center justify-between p-3.5 bg-[#ecfdf5] border border-[#a7f3d0] rounded-2xl">
+                                  <div className="participant-form-upload flex items-center justify-between p-3.5 bg-[#ecfdf5] border border-[#a7f3d0] rounded-2xl">
                                     <div className="flex items-center gap-2 min-w-0">
                                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#059669]">
                                         <CheckCircle2 className="w-4.5 h-4.5" />
@@ -1850,7 +2053,7 @@ export function CheckoutPage({
                                       updateSlotFieldGlobal(singleSlot.id, 'uploadedFile', 'medical_clearance_sanchez.pdf');
                                       toast.success('File Uploaded', { description: 'medical_clearance_sanchez.pdf has been attached.' });
                                     }}
-                                    className="border border-dashed border-slate-200 bg-slate-50/50 rounded-2xl p-5 text-center flex flex-col items-center justify-center hover:bg-slate-100/50 hover:border-[#177564]/40 transition-all cursor-pointer select-none group"
+                                    className="participant-form-upload border border-dashed border-slate-200 bg-slate-50/50 rounded-2xl p-5 text-center flex flex-col items-center justify-center hover:bg-slate-100/50 hover:border-[#177564]/40 transition-all cursor-pointer select-none group"
                                   >
                                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-slate-150 shadow-sm text-slate-400 group-hover:scale-105 transition-transform mb-2">
                                       <Plus className="w-5 h-5 text-slate-450" />
@@ -1903,7 +2106,7 @@ export function CheckoutPage({
                           <PendingFormsHeroCard
                             eyebrow={`${pendingConfirmationEntries.length} form${pendingConfirmationEntries.length === 1 ? '' : 's'} need your attention`}
                             title="Finish the required forms to complete your registration."
-                            description="Your order is paid and reserved. Complete the forms below so each registration can attach to PlanOut Passport."
+                            description="Your order is paid and reserved. Choose how each participant receives their entry: a claim link for their Passport or a buyer-filled app-less Guest QR."
                             progress={`${requiredFormsCompleted}/${requiredFormsTotal}`}
                           />
 
@@ -1914,7 +2117,7 @@ export function CheckoutPage({
                               </span>
                               <div>
                                 <p className="text-sm font-semibold text-[#065f46]">
-                                  Roster invitations sent!
+                                  Player claim links sent!
                                 </p>
                                 <p className="text-xs text-[#047857] mt-1 leading-relaxed">
                                   Email invites have been automatically sent to <strong>{sentEmails.join(', ')}</strong> now that your payment is complete.
@@ -1972,7 +2175,7 @@ export function CheckoutPage({
                                   </div>
                                   <div className="flex shrink-0 items-center gap-1 text-[#177564]" aria-hidden="true">
                                     <span className="hidden text-[13px] font-medium sm:inline">
-                                      {entry.type === 'team' ? 'Complete team entries' : 'Finish form'}
+                                      {entry.type === 'team' ? 'Complete player details' : 'Finish form'}
                                     </span>
                                     <ArrowUpRight className="h-3.5 w-3.5 opacity-70" strokeWidth={2} />
                                   </div>
@@ -1985,36 +2188,36 @@ export function CheckoutPage({
                     </section>
                   )}
 
-                  <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-                    <SecondaryButton
-                      type="button"
-                      onClick={() => navigate('/orders')}
-                      className={`h-[46px] px-5 text-[14px] ${displayedItems.length === 1 ? 'w-full' : ''}`}
-                    >
-                      View order
-                    </SecondaryButton>
+                  <div className="flex justify-center">
                     <button
                       type="button"
                       onClick={() => navigate('/')}
-                      className="text-[13px] font-medium text-[#64748b] transition-colors hover:text-[#414651] sm:col-span-2 text-center"
+                      className="text-[13px] font-medium text-[#64748b] transition-colors hover:text-[#414651]"
                     >
                       Do this later
                     </button>
                   </div>
 
+                  {confirmationOrderDetails}
+
                 </>
               ) : (
                 <>
-                  <section className="rounded-[22px] border border-[#d9e8e5] bg-white p-5 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.52)] sm:p-6">
+                  <section
+                    data-confirmation-success={frontloadedFormComplete ? 'frontloaded-form' : 'passport-ready'}
+                    className="rounded-[22px] border border-[#d9e8e5] bg-white p-5 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.52)] sm:p-6"
+                  >
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-[#cce8e2] bg-[#f5fbf9] px-2.5 py-1 text-[11px] font-semibold text-[#177564]">
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      Passport ready
+                      {frontloadedFormComplete ? 'Form completed before checkout' : 'Passport ready'}
                     </span>
                     <h2 className="mt-3 max-w-[560px] text-[28px] font-semibold leading-[1.05] tracking-[-0.9px] text-[#181d27] sm:text-[34px]">
                       Registration confirmed
                     </h2>
                     <p className="mt-3 max-w-[560px] text-[14px] leading-relaxed text-[#64748b]">
-                      Your registrations are attached to PlanOut Passport. Present the universal QR at the venue.
+                      {frontloadedFormComplete
+                        ? 'Your participant details were completed before payment and attached to your PlanOut Passport. Present the universal QR at the venue.'
+                        : 'Your registrations are attached to PlanOut Passport. Present the universal QR at the venue.'}
                     </p>
                     <div className="mt-5 grid gap-4 border-t border-[#eef2f6] pt-4 sm:grid-cols-3">
                       <div>
@@ -2460,7 +2663,7 @@ export function CheckoutPage({
           )}
 
           {showPreCheckoutForms && (
-            <div className="space-y-3 pt-[104px] lg:pt-0" data-pre-payment-gate>
+            <div className="participant-form-premium space-y-3 pt-[104px] lg:pt-0" data-pre-payment-gate>
               <div
                 aria-hidden
                 className="pointer-events-none fixed inset-x-0 top-0 z-10 h-[170px] bg-[#f8fafc]/95 backdrop-blur-sm lg:hidden"
@@ -2558,7 +2761,7 @@ export function CheckoutPage({
                 const isActive = activeSlotId === slot.id;
 
                 return (
-                  <div key={slot.id} className="overflow-hidden rounded-[16px] border border-[#d5e3df] bg-white shadow-[0_8px_18px_-16px_rgba(15,23,42,0.42)] transition-all duration-300">
+                  <div key={slot.id} className="participant-form-card overflow-hidden rounded-[16px] border border-[#d5e3df] bg-white shadow-[0_8px_18px_-16px_rgba(15,23,42,0.42)] transition-all duration-300">
                     {/* Header */}
 	                    <div className="flex w-full items-center justify-between px-5 py-4 text-left">
                       <div className="flex-1 min-w-0 pr-3">
@@ -2609,6 +2812,15 @@ export function CheckoutPage({
                               ]}
                             />
 
+                            {data.deliveryMethod === 'fill' && (
+                              <CheckoutEntryOwnerChoice
+                                name={`checkout-entry-owner-${slot.id}`}
+                                value={data.entryOwner}
+                                onChange={(owner) => updateSlotField('entryOwner', owner)}
+                                selfTakenByAnotherEntry={isSelfOwnerTakenByAnotherEntry(slot.id)}
+                              />
+                            )}
+
                             {data.deliveryMethod === 'fill' ? (
                               <div className="flex flex-col gap-4 animate-in fade-in duration-200 mt-1">
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -2653,7 +2865,7 @@ export function CheckoutPage({
                                     Upload the file requested by the organizer, such as a waiver, medical certificate, or ID.
                                   </p>
                                   {data.uploadedFile ? (
-                                    <div className="flex items-center justify-between rounded-xl border border-[#a7f3d0] bg-[#ecfdf5] p-3">
+                                    <div className="participant-form-upload flex items-center justify-between rounded-xl border border-[#a7f3d0] bg-[#ecfdf5] p-3">
                                       <div className="flex min-w-0 items-center gap-2">
                                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-[#059669]">
                                           <CheckCircle2 className="h-4 w-4" />
@@ -2678,7 +2890,7 @@ export function CheckoutPage({
                                         updateSlotField('uploadedFile', 'medical_clearance_sanchez.pdf');
                                         toast.success('File Uploaded', { description: `medical_clearance_sanchez.pdf attached for ${slot.label}.` });
                                       }}
-                                      className="flex cursor-pointer select-none flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-4 text-center transition-all hover:border-[#177564]/40 hover:bg-slate-50"
+                                      className="participant-form-upload flex cursor-pointer select-none flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-4 text-center transition-all hover:border-[#177564]/40 hover:bg-slate-50"
                                     >
                                       <span className="mb-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-400 shadow-xs">
                                         <Plus className="h-4.5 w-4.5" />
