@@ -46,6 +46,8 @@ interface PrimaryButtonProps
   fullWidth?: boolean;
   /** Compact size variant for inline actions (smaller padding). */
   compact?: boolean;
+  /** Use a flat native action surface instead of the default gradient shine. */
+  appearance?: 'gradient' | 'solid';
   /** Optional organizer/event brand gradient for event-owned surfaces. */
   brandGradient?: {
     from: string;
@@ -63,11 +65,22 @@ export function PrimaryButton({
   className = '',
   fullWidth = false,
   compact = false,
+  appearance = 'gradient',
   brandGradient,
   disabled,
   style,
   ...rest
 }: PrimaryButtonProps) {
+  const resolvedStyle = disabled
+    ? style
+    : appearance === 'solid'
+      ? {
+          backgroundColor: '#177564',
+          boxShadow: '0 8px 18px -14px rgba(23,117,100,0.6)',
+          ...style,
+        }
+      : { ...createBackgroundStyle(brandGradient), ...style };
+
   return (
     <button
       disabled={disabled}
@@ -82,7 +95,7 @@ export function PrimaryButton({
         ${disabled ? 'opacity-50 cursor-not-allowed saturate-50' : 'cursor-pointer hover:brightness-110'}
         ${className}
       `.trim()}
-      style={disabled ? style : { ...createBackgroundStyle(brandGradient), ...style }}
+      style={resolvedStyle}
       {...rest}
     >
       {/* Content */}
