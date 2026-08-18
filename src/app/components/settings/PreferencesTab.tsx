@@ -17,10 +17,11 @@ import {
 import { PrimaryButton } from '../PrimaryButton';
 
 // --- Toggle Switch ---
-function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+function Toggle({ enabled, onToggle, label }: { enabled: boolean; onToggle: () => void; label: string }) {
   return (
     <button
       onClick={onToggle}
+      aria-label={`${label}: ${enabled ? 'on' : 'off'}`}
       className={`relative w-[44px] h-[24px] rounded-full transition-all duration-200 shrink-0 active:scale-95 ${
         enabled ? 'bg-[#177564] shadow-[0_2px_8px_rgba(23,117,100,0.2)]' : 'bg-slate-200'
       }`}
@@ -36,9 +37,9 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/60 p-5 sm:p-6 flex flex-col gap-5 shadow-[0px_1px_3px_0px_rgba(15,23,42,0.03)]">
+    <section className="account-settings-section flex flex-col gap-5 border-b border-slate-200/80 pb-7">
       {children}
-    </div>
+    </section>
   );
 }
 
@@ -65,7 +66,7 @@ function ToggleRow({
         <p className="text-[#181d27] text-[14px] font-semibold">{label}</p>
         <p className="text-[#94a3b8] text-[13px] mt-0.5 leading-relaxed">{description}</p>
       </div>
-      <Toggle enabled={enabled} onToggle={onToggle} />
+      <Toggle enabled={enabled} onToggle={onToggle} label={label} />
     </div>
   );
 }
@@ -89,7 +90,7 @@ export function PreferencesTab() {
       {/* Notifications */}
       <SectionCard>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#fef2f2] flex items-center justify-center shrink-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#fef2f2]">
             <Bell className="w-4 h-4 text-[#ef4444]" />
           </div>
           <div>
@@ -139,7 +140,7 @@ export function PreferencesTab() {
       {/* Privacy */}
       <SectionCard>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#def2ee] flex items-center justify-center shrink-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#def2ee]">
             <Eye className="w-4 h-4 text-[#177564]" />
           </div>
           <div>
@@ -151,10 +152,10 @@ export function PreferencesTab() {
         <div className="flex flex-col gap-3">
           <button
             onClick={() => setPrivacy('public')}
-            className={`w-full text-left p-4 rounded-2xl border transition-all duration-300 hover:scale-[1.005] ${
+            className={`w-full text-left rounded-[10px] border p-4 transition-colors ${
               privacy === 'public'
-                ? 'border-[#177564] bg-[#f0fdf9]/60 backdrop-blur-sm shadow-[0_4px_16px_rgba(23,117,100,0.03)]'
-                : 'border-slate-200/80 bg-white hover:border-slate-350 shadow-sm'
+                ? 'border-[#177564] bg-[#f7faf8]'
+                : 'border-slate-200/80 bg-white hover:border-slate-300'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -163,7 +164,7 @@ export function PreferencesTab() {
                 <p className="text-[#94a3b8] text-[13px] mt-0.5">Anyone can see your profile and event activity</p>
               </div>
               {privacy === 'public' && (
-                <div className="w-5 h-5 rounded-full bg-[#177564] flex items-center justify-center shrink-0 shadow-[0_2px_6px_rgba(23,117,100,0.2)]">
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#177564]">
                   <Check className="w-3 h-3 text-white" />
                 </div>
               )}
@@ -172,10 +173,10 @@ export function PreferencesTab() {
 
           <button
             onClick={() => setPrivacy('private')}
-            className={`w-full text-left p-4 rounded-2xl border transition-all duration-300 hover:scale-[1.005] ${
+            className={`w-full text-left rounded-[10px] border p-4 transition-colors ${
               privacy === 'private'
-                ? 'border-[#177564] bg-[#f0fdf9]/60 backdrop-blur-sm shadow-[0_4px_16px_rgba(23,117,100,0.03)]'
-                : 'border-slate-200/80 bg-white hover:border-slate-350 shadow-sm'
+                ? 'border-[#177564] bg-[#f7faf8]'
+                : 'border-slate-200/80 bg-white hover:border-slate-300'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -184,7 +185,7 @@ export function PreferencesTab() {
                 <p className="text-[#94a3b8] text-[13px] mt-0.5">Only you can see your profile and event history</p>
               </div>
               {privacy === 'private' && (
-                <div className="w-5 h-5 rounded-full bg-[#177564] flex items-center justify-center shrink-0 shadow-[0_2px_6px_rgba(23,117,100,0.2)]">
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#177564]">
                   <Check className="w-3 h-3 text-white" />
                 </div>
               )}
@@ -196,7 +197,7 @@ export function PreferencesTab() {
       {/* Language & Region */}
       <SectionCard>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#ecfeff] flex items-center justify-center shrink-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#ecfeff]">
             <Globe className="w-4 h-4 text-[#06b6d4]" />
           </div>
           <div>
@@ -213,7 +214,7 @@ export function PreferencesTab() {
               autoComplete="language"
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="w-full appearance-none bg-white border border-slate-200/80 rounded-full px-4 py-2.5 pr-10 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#177564]/10 focus:border-[#177564] transition-all shadow-sm cursor-pointer"
+              className="min-h-11 w-full cursor-pointer appearance-none rounded-[10px] border border-slate-200/80 bg-white px-4 py-2.5 pr-10 text-slate-900 text-sm transition-colors focus:border-[#177564] focus:outline-none focus:ring-2 focus:ring-[#177564]/10"
             >
               <option>English</option>
               <option>Filipino</option>
@@ -227,7 +228,7 @@ export function PreferencesTab() {
 
       {/* Save */}
       <div>
-        <PrimaryButton onClick={handleSave}>
+        <PrimaryButton onClick={handleSave} className="rounded-[10px]">
           <Check className="w-4 h-4" />
           {saved ? 'Saved!' : 'Save Preferences'}
         </PrimaryButton>

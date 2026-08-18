@@ -23,12 +23,9 @@ import {
   X,
   ArrowRight,
   Clock,
-  MailOpen,
   Copy,
   CheckCheck,
   ChevronRight,
-  Trash2,
-  MoreHorizontal,
   Paperclip,
   Calendar,
   MapPin,
@@ -37,9 +34,9 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { EmptyStateGraphic } from '@/app/components/EmptyStateGraphic';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
-import { SegmentedChoice } from '@/app/components/SegmentedChoice';
 import { PrimaryButton } from '@/app/components/PrimaryButton';
 import { SecondaryButton } from '@/app/components/SecondaryButton';
+import { IconButton } from '@/app/components/IconButton';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -281,17 +278,61 @@ function SenderAvatar({
 }
 
 function CategoryBadge({ category, size = 'sm' }: { category: MessageCategory; size?: 'sm' | 'md' }) {
-  const styles: Record<MessageCategory, { bg: string; border: string; text: string; label: string }> = {
-    invite: { bg: 'bg-[#ecfdf5]', border: 'border-[#a7f3d0]', text: 'text-[#059669]', label: 'Invite' },
-    promotion: { bg: 'bg-[#eff6ff]', border: 'border-[#bfdbfe]', text: 'text-[#3b82f6]', label: 'Promo' },
-    update: { bg: 'bg-[#fffbeb]', border: 'border-[#fde68a]', text: 'text-[#d97706]', label: 'Update' },
+  const styles: Record<MessageCategory, { text: string; label: string }> = {
+    invite: { text: 'text-[#177564]', label: 'Invite' },
+    promotion: { text: 'text-[#3b82f6]', label: 'Promo' },
+    update: { text: 'text-[#b45309]', label: 'Update' },
   };
   const s = styles[category];
-  const textSize = size === 'md' ? 'text-[12px] px-3 py-1' : 'text-[10px] px-2 py-0.5';
+  const textSize = size === 'md' ? 'text-[12px]' : 'text-[11px]';
   return (
-    <span className={`${s.bg} ${s.text} ${s.border} ${textSize} font-semibold rounded-full leading-[16px] border whitespace-nowrap`}>
+    <span className={`${s.text} ${textSize} font-semibold leading-[16px] whitespace-nowrap`}>
       {s.label}
     </span>
+  );
+}
+
+function InboxViewTabs({
+  value,
+  unreadCount,
+  archivedCount,
+  onChange,
+}: {
+  value: 'inbox' | 'archived';
+  unreadCount: number;
+  archivedCount: number;
+  onChange: (value: 'inbox' | 'archived') => void;
+}) {
+  const options = [
+    { value: 'inbox' as const, label: 'Inbox', icon: Inbox, count: unreadCount },
+    { value: 'archived' as const, label: 'Archived', icon: Archive, count: archivedCount },
+  ];
+
+  return (
+    <nav className="inbox-view-tabs flex w-full border-b border-slate-200/80" aria-label="Inbox views">
+      {options.map(({ value: optionValue, label, icon: Icon, count }) => {
+        const isActive = value === optionValue;
+        return (
+          <button
+            key={optionValue}
+            type="button"
+            onClick={() => onChange(optionValue)}
+            aria-current={isActive ? 'page' : undefined}
+            className={`flex min-h-11 items-center gap-2 border-b-2 px-1 text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#177564]/35 sm:px-2 ${
+              optionValue === 'inbox' ? 'mr-6' : ''
+            } ${
+              isActive
+                ? 'border-[#177564] text-slate-950'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Icon className="h-4 w-4" strokeWidth={1.8} />
+            {label}
+            <span className={`text-[11px] ${isActive ? 'text-[#177564]' : 'text-slate-400'}`}>{count}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -507,23 +548,18 @@ function MessageDetail({ msg, onBack, onArchive, onAccept, onDecline }: MessageD
       <div className="flex items-center justify-between mb-5">
         <button
           onClick={onBack}
-          className="w-9 h-9 rounded-full bg-white border border-slate-200/50 shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 active:scale-95 transition-all shrink-0"
+          aria-label="Back to inbox"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-slate-200/80 bg-white text-slate-600 transition-colors hover:bg-slate-50 active:scale-95"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex items-center gap-2">
           <button
             onClick={() => onArchive(msg.id)}
-            className="w-9 h-9 rounded-full bg-white border border-slate-200/50 shadow-sm flex items-center justify-center text-slate-500 hover:text-slate-850 hover:bg-slate-50 active:scale-95 transition-all"
+            className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-slate-200/80 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-850 active:scale-95"
             aria-label="Archive"
           >
             <Archive className="w-3.5 h-3.5" />
-          </button>
-          <button className="w-9 h-9 rounded-full bg-white border border-slate-200/50 shadow-sm flex items-center justify-center text-slate-500 hover:text-slate-850 hover:bg-slate-50 active:scale-95 transition-all">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-          <button className="w-9 h-9 rounded-full bg-white border border-slate-200/50 shadow-sm flex items-center justify-center text-slate-500 hover:text-slate-850 hover:bg-slate-50 active:scale-95 transition-all">
-            <MoreHorizontal className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -551,7 +587,7 @@ function MessageDetail({ msg, onBack, onArchive, onAccept, onDecline }: MessageD
       {/* Category-specific rich content */}
       {msg.category === 'invite' && (
         <div className="mb-5">
-          <div className="bg-slate-50/60 backdrop-blur-md rounded-2xl border border-slate-200/50 p-4 sm:p-5 flex flex-col gap-3 shadow-[0_2px_8px_rgba(15,23,42,0.02)]">
+          <div className="rounded-[12px] border border-[#dce5e1] bg-[#f7faf8] p-4 sm:p-5 flex flex-col gap-3">
             {msg.orgName && (
               <div className="flex items-start gap-3">
                 <div className="w-5 h-5 rounded-full bg-[#ecfdf5] border border-[#def2ee] flex items-center justify-center shrink-0 mt-0.5">
@@ -579,13 +615,13 @@ function MessageDetail({ msg, onBack, onArchive, onAccept, onDecline }: MessageD
       )}
 
       {msg.category === 'promotion' && msg.promoImage && (
-        <div className="rounded-2xl overflow-hidden bg-[#f1f5f9] h-[160px] sm:h-[200px] border border-slate-250/30 mb-5">
+        <div className="rounded-[12px] overflow-hidden bg-[#f1f5f9] h-[160px] sm:h-[200px] border border-slate-200/80 mb-5">
           <ImageWithFallback src={msg.promoImage} alt="Promotion" className="w-full h-full object-cover" />
         </div>
       )}
 
       {msg.category === 'update' && (msg.updateLocation || msg.updateDate) && (
-        <div className="bg-[#fffbeb]/60 backdrop-blur-sm border border-[#fde68a]/60 rounded-2xl p-4 flex flex-col gap-2.5 mb-5">
+        <div className="border-l-2 border-[#f2c66d] bg-[#fffbeb]/70 p-4 flex flex-col gap-2.5 mb-5">
           {msg.updateEvent && (
             <div className="flex items-center gap-2.5">
               <Clock className="w-4 h-4 text-[#92400e] shrink-0" />
@@ -611,7 +647,7 @@ function MessageDetail({ msg, onBack, onArchive, onAccept, onDecline }: MessageD
       )}
 
       {/* Body text */}
-      <div className="bg-white rounded-2xl border border-slate-150/80 p-5 sm:p-6 mb-5 shadow-[0px_1px_3px_0px_rgba(15,23,42,0.02)]">
+      <div className="border-y border-slate-200/80 bg-white p-5 sm:p-6 mb-5">
         <div className="text-[#334155] text-[14px] leading-[1.75] whitespace-pre-line">
           {msg.body}
         </div>
@@ -753,7 +789,7 @@ export function InboxPage({ onBack }: InboxPageProps) {
   // ---- Detail view ----
   if (selectedMessage) {
     return (
-      <div className="animate-in fade-in duration-300">
+      <div className="mx-auto w-full max-w-[680px] px-4 pb-6 sm:px-6 animate-in fade-in duration-300">
         <AnimatePresence mode="wait">
           <MessageDetail
             key={selectedMessage.id}
@@ -770,40 +806,40 @@ export function InboxPage({ onBack }: InboxPageProps) {
 
   // ---- List view ----
   return (
-    <div className="flex flex-col gap-0 pb-6">
+    <div className="inbox-page-shell mx-auto flex w-full max-w-[680px] flex-col gap-0 px-4 pb-6 sm:px-6">
       {/* Page header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
+      <header className="mb-7 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <IconButton onClick={onBack} aria-label="Go back" tone="neutral" className="mt-0.5 h-11 w-11">
+            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+          </IconButton>
           <div>
-            <h1 className="text-[28px] sm:text-[36px] font-semibold text-[#181d27] leading-none tracking-tight">Inbox</h1>
+            <h1 className="text-[30px] font-semibold leading-9 tracking-[-0.03em] text-slate-950">Inbox</h1>
+            <p className="mt-1 text-[13px] leading-5 text-slate-500">Invitations, promotions, and event updates.</p>
           </div>
         </div>
         {unreadCount > 0 && activeView === 'inbox' && (
           <button
             onClick={markAllRead}
-            className="text-[#177564] text-[13px] font-bold hover:text-[#0f5f4f] transition-colors shrink-0"
+            className="min-h-11 shrink-0 text-right text-[13px] font-medium text-[#177564] transition-colors hover:text-[#0f5f4f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/25"
           >
             Mark all as read
           </button>
         )}
-      </div>
+      </header>
 
-      <SegmentedChoice
+      <InboxViewTabs
         value={activeView}
+        unreadCount={unreadCount}
+        archivedCount={archived.length}
         onChange={(view) => {
           setActiveView(view);
           setActiveFilter('all');
         }}
-        options={[
-          { value: 'inbox', label: 'Inbox', icon: Inbox, badge: unreadCount > 0 ? unreadCount : undefined },
-          { value: 'archived', label: 'Archived', icon: Archive, badge: archived.length > 0 ? archived.length : undefined },
-        ]}
-        columnsClass="grid-cols-2 max-w-[320px]"
-        className="mb-6"
       />
 
       {/* Search */}
-      <div className="relative mb-5">
+      <div className="relative mb-4 mt-5">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94a3b8] pointer-events-none" />
         <input
           type="search"
@@ -814,20 +850,20 @@ export function InboxPage({ onBack }: InboxPageProps) {
           placeholder="Search messages..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-white border border-slate-200/80 rounded-full pl-10 pr-9 py-2.5 text-slate-900 text-sm placeholder:text-[#94a3b8] tracking-[-0.31px] focus:outline-none focus:ring-2 focus:ring-[#177564]/10 focus:border-[#177564] transition-all shadow-[inset_0_1.5px_2px_rgba(0,0,0,0.005)]"
+          className="min-h-11 w-full rounded-[10px] border border-slate-200/80 bg-white pl-10 pr-11 py-2.5 text-slate-900 text-sm placeholder:text-[#94a3b8] tracking-[-0.31px] focus:outline-none focus:ring-2 focus:ring-[#177564]/10 focus:border-[#177564] transition-colors"
         />
         {search && (
           <button
             onClick={() => setSearch('')}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-[#94a3b8] hover:text-[#64748b] transition-colors"
+            className="absolute right-1 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-[8px] text-[#94a3b8] transition-colors hover:bg-slate-100 hover:text-[#64748b]"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
 
-      {/* Filter pills */}
-      <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
+      {/* Filter tabs */}
+      <div className="mb-5 flex items-center gap-5 overflow-x-auto border-b border-slate-200/80" style={{ scrollbarWidth: 'none' }}>
         {FILTERS.map((filter) => {
           const isActive = activeFilter === filter.key;
           const count = getFilterCount(filter.key);
@@ -835,18 +871,16 @@ export function InboxPage({ onBack }: InboxPageProps) {
             <button
               key={filter.key}
               onClick={() => setActiveFilter(filter.key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all duration-200 shrink-0 border ${
+              className={`flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 border-b-2 px-2 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#177564]/35 ${
                 isActive
-                  ? 'bg-[#177564] text-white border-[#177564] shadow-[0_2px_8px_rgba(23,117,100,0.2)]'
-                  : 'bg-white text-[#64748b] border-slate-200/60 hover:bg-slate-50 hover:border-slate-350 active:scale-95'
+                  ? 'border-[#177564] text-slate-950'
+                  : 'border-transparent text-[#64748b] hover:text-slate-900'
               }`}
             >
-              {filter.icon && <span className={isActive ? 'text-white' : 'text-slate-400'}>{filter.icon}</span>}
+              {filter.icon && <span className={isActive ? 'text-[#177564]' : 'text-slate-400'}>{filter.icon}</span>}
               {filter.label}
               {count > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-[#64748b]'
-                }`}>
+                <span className="text-[11px] text-slate-400">
                   {count}
                 </span>
               )}
@@ -870,11 +904,11 @@ export function InboxPage({ onBack }: InboxPageProps) {
               {/* Section header */}
               <div className="flex items-center gap-3 mb-1.5 px-1">
                 <span className="text-[#94a3b8] text-[11px] font-bold uppercase tracking-[0.1em]">{group.label}</span>
-                <div className="flex-1 h-px bg-gradient-to-r from-[#e2e8f0] to-transparent" />
+                <div className="flex-1 h-px bg-[#e2e8f0]" />
               </div>
 
-              {/* Message rows in a card container */}
-              <div className="bg-white rounded-2xl border border-slate-200/60 divide-y divide-[#f3f4f6] overflow-hidden shadow-[0px_1px_3px_0px_rgba(15,23,42,0.02)]">
+              {/* Message rows in a quiet list */}
+              <div className="divide-y divide-[#e6ece9] overflow-hidden border-b border-[#e6ece9] bg-white">
                 <AnimatePresence mode="popLayout">
                   {group.items.map((msg) => (
                     <SwipeableMessageRow
@@ -892,7 +926,7 @@ export function InboxPage({ onBack }: InboxPageProps) {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl border border-slate-200/60 shadow-sm py-14 px-6 flex flex-col items-center text-center mt-4"
+            className="mt-4 flex flex-col items-center border-y border-slate-200/80 bg-white px-6 py-14 text-center"
           >
             <EmptyStateGraphic kind="no-messages" className="h-36 w-36" />
             <div className="mt-2 flex flex-col gap-1">

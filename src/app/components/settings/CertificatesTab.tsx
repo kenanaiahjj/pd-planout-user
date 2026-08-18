@@ -70,18 +70,18 @@ function CertificateCard({
 }) {
   return (
     <div
-      className={`bg-white rounded-2xl border p-4 sm:p-5 flex flex-col gap-3 transition-all shadow-[0px_1px_3px_0px_rgba(15,23,42,0.02)] ${
+      className={`account-settings-section flex flex-col gap-3 border-b p-4 sm:p-5 transition-colors ${
         !cert.visible
-          ? 'border-slate-200/50 opacity-60'
+          ? 'border-slate-200/80 opacity-60'
           : cert.expired
-          ? 'border-red-200/50 bg-red-50/5'
-          : 'border-slate-200/60'
+          ? 'border-red-200/70 bg-red-50/20'
+          : 'border-slate-200/80'
       }`}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] ${
               !cert.visible
                 ? 'bg-slate-100'
                 : cert.expired
@@ -109,12 +109,12 @@ function CertificateCard({
                 {cert.name}
               </p>
               {cert.expired && cert.visible && (
-                <span className="px-2 py-0.5 bg-[#dc2626] text-white text-[10px] font-bold rounded-full">
+                <span className="px-2 py-0.5 text-[10px] font-semibold text-[#dc2626]">
                   Expired
                 </span>
               )}
               {!cert.visible && (
-                <span className="px-2 py-0.5 bg-[#f3f4f6] text-[#94a3b8] text-[10px] font-bold rounded-full">
+                <span className="px-2 py-0.5 text-[10px] font-semibold text-[#94a3b8]">
                   Hidden
                 </span>
               )}
@@ -125,7 +125,8 @@ function CertificateCard({
           <ConfirmDialog
             trigger={
               <button
-                className="text-[#94a3b8] hover:text-[#177564] transition-colors shrink-0 ml-2"
+                aria-label={`Hide ${cert.name}`}
+                className="ml-2 flex h-11 w-11 shrink-0 items-center justify-center text-[#94a3b8] transition-colors hover:text-[#177564]"
               >
                 <Eye className="w-4 h-4" />
               </button>
@@ -146,7 +147,8 @@ function CertificateCard({
         ) : (
           <button
             onClick={onToggleVisibility}
-            className="text-[#94a3b8] hover:text-[#177564] transition-colors shrink-0 ml-2"
+            aria-label={`Show ${cert.name}`}
+            className="ml-2 flex h-11 w-11 shrink-0 items-center justify-center text-[#94a3b8] transition-colors hover:text-[#177564]"
             title="Show on profile"
           >
             <EyeOff className="w-4 h-4" />
@@ -168,7 +170,7 @@ function CertificateCard({
       </div>
 
       <div className="ml-11">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#f3f4f6] rounded text-[11px] font-mono text-[#64748b]">
+        <span className="inline-flex items-center gap-1 border-l-2 border-slate-300 px-2 py-0.5 text-[11px] font-mono text-[#64748b]">
           <Hash className="w-3 h-3" />
           {cert.certId}
         </span>
@@ -288,20 +290,20 @@ export function CertificatesTab() {
   return (
     <div className="flex flex-col gap-5 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="bg-white rounded-2xl border border-slate-200/60 p-5 sm:p-6 shadow-[0px_1px_3px_0px_rgba(15,23,42,0.03)]">
+      <section className="account-settings-section border-b border-slate-200/80 pb-5">
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-[#181d27] text-[16px] font-semibold">Certificates & Trainings</h3>
             <p className="text-[#94a3b8] text-[13px] mt-0.5">Manage your professional certifications and training records</p>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Active Certificates */}
       {active.length > 0 && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2 px-1">
-            <div className="w-2 h-2 rounded-full bg-[#177564]" />
+            <div className="h-1.5 w-1.5 rounded-full bg-[#177564]" />
             <p className="text-[#181d27] text-[14px] font-semibold">
               Active Certificates ({active.length})
             </p>
@@ -320,7 +322,7 @@ export function CertificatesTab() {
       {expired.length > 0 && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2 px-1">
-            <div className="w-2 h-2 rounded-full bg-[#dc2626]" />
+            <div className="h-1.5 w-1.5 rounded-full bg-[#dc2626]" />
             <p className="text-[#181d27] text-[14px] font-semibold">
               Expired Certificates ({expired.length})
             </p>
@@ -337,7 +339,7 @@ export function CertificatesTab() {
 
       {/* Empty state */}
       {certificates.length === 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200/60 p-8 flex flex-col items-center gap-3 text-center shadow-[0px_1px_3px_0px_rgba(15,23,42,0.02)]">
+        <div className="flex flex-col items-center gap-3 border-y border-slate-200/80 bg-white p-8 text-center">
           <EmptyStateGraphic kind="no-certificates" className="h-32 w-32" />
           <p className="text-[#181d27] text-sm font-semibold">No certificates yet</p>
           <p className="text-[#94a3b8] text-[13px]">

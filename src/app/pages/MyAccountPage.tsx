@@ -6,7 +6,7 @@
  * Extracted from SettingsPage so Settings remains a clean hub/menu page.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   ArrowLeft,
   User,
@@ -18,7 +18,7 @@ import {
 import { AccountTab } from '@/app/components/settings/AccountTab';
 import { PreferencesTab } from '@/app/components/settings/PreferencesTab';
 import { CertificatesTab } from '@/app/components/settings/CertificatesTab';
-import { SegmentedChoice } from '@/app/components/SegmentedChoice';
+import { IconButton } from '@/app/components/IconButton';
 
 // ---------------------------------------------------------------------------
 // Tab definition
@@ -48,28 +48,39 @@ export function MyAccountPage({ onBack }: MyAccountPageProps) {
   const [activeTab, setActiveTab] = useState<AccountSettingsTab>('account');
 
   return (
-    <div className="flex flex-col gap-5 pb-6">
+    <div className="mx-auto flex w-full max-w-[680px] flex-col gap-7 px-4 pb-6 sm:px-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <header className="flex items-start gap-3">
+        <IconButton onClick={onBack} aria-label="Go back" tone="neutral" className="mt-0.5 h-11 w-11">
+          <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+        </IconButton>
         <div>
-          <h1 className="text-[28px] sm:text-[36px] font-semibold text-[#181d27] leading-none tracking-tight">
-            My Account
-          </h1>
-          <p className="text-[#94a3b8] text-[13px] tracking-[-0.15px]">
-            Manage your profile and preferences.
-          </p>
+          <h1 className="text-[30px] font-semibold leading-9 tracking-[-0.03em] text-slate-950">My Account</h1>
+          <p className="mt-1 text-[13px] leading-5 text-slate-500">Profile, preferences, and certificates.</p>
         </div>
-      </div>
+      </header>
 
-      <SegmentedChoice
-        value={activeTab}
-        onChange={setActiveTab}
-        options={TABS}
-        columnsClass="grid-cols-3 max-w-[420px]"
-        className="mb-2"
-        size="sm"
-        wrapLabels
-      />
+      <nav className="account-settings-tabs -mb-1 flex w-full overflow-x-auto border-b border-slate-200/80" aria-label="Account settings">
+        {TABS.map(({ value, label, icon: Icon }) => {
+          const isActive = activeTab === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setActiveTab(value)}
+              aria-current={isActive ? 'page' : undefined}
+              className={`relative flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap border-b-2 px-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#177564]/35 sm:flex-none sm:px-4 sm:text-[14px] ${
+                isActive
+                  ? 'border-[#177564] text-slate-950'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Icon className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+              {label}
+            </button>
+          );
+        })}
+      </nav>
 
       {/* Tab Content */}
       <div className="min-h-[200px]">

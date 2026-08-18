@@ -93,11 +93,11 @@ const MOCK_TRANSACTIONS: Transaction[] = [
 
 const STATUS_CONFIG: Record<
   Transaction['status'],
-  { label: string; textColor: string; bgColor: string }
+  { label: string; textColor: string }
 > = {
-  Completed: { label: 'Completed', textColor: '#177564', bgColor: '#ecfdf5' },
-  Pending:   { label: 'Pending',   textColor: '#b45309', bgColor: '#fffbeb' },
-  Expired:   { label: 'Expired',   textColor: '#6b7280', bgColor: '#f3f4f6' },
+  Completed: { label: 'Completed', textColor: '#177564' },
+  Pending:   { label: 'Pending',   textColor: '#b45309' },
+  Expired:   { label: 'Expired',   textColor: '#6b7280' },
 };
 
 function transactionEventLabel(status: Transaction['status']) {
@@ -116,10 +116,8 @@ function transactionItemSummary(txn: Transaction) {
 function StatusBadge({ status }: { status: Transaction['status'] }) {
   const cfg = STATUS_CONFIG[status];
   return (
-    <span
-      className="inline-flex items-center px-2.5 py-[5px] rounded-full text-[12px] font-semibold whitespace-nowrap"
-      style={{ color: cfg.textColor, backgroundColor: cfg.bgColor }}
-    >
+    <span className="inline-flex items-center gap-1.5 text-[12px] font-medium whitespace-nowrap" style={{ color: cfg.textColor }}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: cfg.textColor }} aria-hidden="true" />
       {cfg.label}
     </span>
   );
@@ -145,13 +143,13 @@ function TableRow({
         !isLast ? 'border-b border-[#e9edf3]' : ''
       } ${isExpired ? 'opacity-60' : ''}`}
     >
-      <td className="px-5 py-4 whitespace-nowrap">
+      <td className="px-3.5 py-4 whitespace-nowrap">
         <span className="text-[#181d27] text-[13px] font-bold tracking-wide">{txn.id}</span>
       </td>
-      <td className="px-5 py-4 whitespace-nowrap">
+      <td className="px-3.5 py-4 whitespace-nowrap">
         <span className={`text-[13px] ${isExpired ? 'text-[#9ca3af]' : 'text-[#177564]'}`}>{txn.date}</span>
       </td>
-      <td className="px-5 py-4">
+      <td className="px-3.5 py-4">
         <p className="text-[#181d27] text-[13px] font-semibold leading-snug">
           {transactionEventLabel(txn.status)}
         </p>
@@ -159,12 +157,12 @@ function TableRow({
           {transactionItemSummary(txn)} &middot; {primary.tickets} {primary.tickets === 1 ? 'ticket' : 'tickets'}
         </p>
       </td>
-      <td className="px-5 py-4 whitespace-nowrap">
+      <td className="px-3.5 py-4 whitespace-nowrap">
         <span className={`text-[13px] font-bold ${isExpired ? 'text-[#9ca3af] line-through' : 'text-[#181d27]'}`}>
           &#8369;{txn.amount.toFixed(2)}
         </span>
       </td>
-      <td className="px-5 py-4 whitespace-nowrap">
+      <td className="px-3.5 py-4 whitespace-nowrap">
         <StatusBadge status={txn.status} />
       </td>
     </tr>
@@ -243,10 +241,37 @@ export function TransactionsTab() {
     []
   );
 
+  const handleExport = () => {
+    const csvRows = [
+      ['Transaction ID', 'Date', 'Payment event', 'Event', 'Tickets', 'Amount', 'Status'],
+      ...filtered.map((txn) => {
+        const primary = txn.events[0];
+        return [
+          txn.id,
+          txn.date,
+          transactionEventLabel(txn.status),
+          transactionItemSummary(txn),
+          String(primary.tickets),
+          `PHP ${txn.amount.toFixed(2)}`,
+          txn.status,
+        ];
+      }),
+    ];
+    const csv = csvRows
+      .map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(','))
+      .join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'planout-transactions.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="flex flex-col gap-3 animate-in fade-in duration-300">
+    <div className="transactions-list-shell flex flex-col gap-5 animate-in fade-in duration-300">
       {/* Top bar: Search + Export */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94a3b8]" />
           <input
@@ -258,10 +283,10 @@ export function TransactionsTab() {
             placeholder="Search transactions..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white border border-slate-200/80 rounded-full pl-10 pr-4 py-2.5 text-[#181d27] text-[14px] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#177564]/10 focus:border-[#177564] transition-all shadow-[inset_0_1.5px_2px_rgba(0,0,0,0.005)]"
+            className="min-h-11 w-full rounded-[10px] border border-slate-200/80 bg-white pl-10 pr-4 py-2.5 text-[#181d27] text-[14px] placeholder:text-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#177564]/10 focus:border-[#177564] transition-colors"
           />
         </div>
-        <SecondaryButton compact tone="neutral" className="rounded-full px-4 py-2.5 text-[13px]">
+        <SecondaryButton onClick={handleExport} compact tone="neutral" className="min-h-11 self-start rounded-[10px] px-4 py-2.5 text-[13px] sm:self-auto">
           <Download className="w-4 h-4" />
           Export
         </SecondaryButton>
@@ -271,14 +296,14 @@ export function TransactionsTab() {
       {filtered.length > 0 ? (
         <>
           {/* Desktop table */}
-          <div className="hidden md:block bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-[0px_1px_3px_0px_rgba(15,23,42,0.03)]">
+          <div className="hidden overflow-hidden border-y border-slate-200/80 bg-white md:block">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-[#e9edf3]">
                   {['Transaction ID', 'Date', 'Payment event', 'Amount', 'Status'].map((col) => (
                     <th
                       key={col}
-                      className="px-5 py-3 text-left text-[11px] font-semibold tracking-[0.06em] uppercase text-[#94a3b8]"
+                      className="px-3.5 py-3 text-left text-[11px] font-semibold tracking-[0.06em] uppercase text-[#94a3b8]"
                     >
                       {col}
                     </th>
@@ -299,7 +324,7 @@ export function TransactionsTab() {
           </div>
 
           {/* Mobile cards */}
-          <div className="md:hidden bg-white rounded-2xl border border-slate-200/60 overflow-hidden shadow-[0px_1px_3px_0px_rgba(15,23,42,0.03)]">
+          <div className="overflow-hidden border-y border-slate-200/80 bg-white md:hidden">
             {filtered.map((txn, i) => (
               <MobileRow
                 key={txn.id}
@@ -311,8 +336,8 @@ export function TransactionsTab() {
           </div>
         </>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200/60 p-10 flex flex-col items-center gap-3 text-center shadow-[0px_1px_3px_0px_rgba(15,23,42,0.03)]">
-          <div className="w-12 h-12 rounded-full bg-[#f3f4f6] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 border-y border-slate-200/80 bg-white p-10 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-[#f3f4f6]">
             <Receipt className="w-5 h-5 text-[#94a3b8]" />
           </div>
           <p className="text-[#94a3b8] text-sm">No transactions found</p>
@@ -320,7 +345,7 @@ export function TransactionsTab() {
       )}
 
       {/* Footer */}
-      <div className="flex items-end justify-between px-1 pt-1">
+      <div className="flex items-end justify-between border-t border-slate-200/80 px-1 pt-4">
         <p className="text-[#94a3b8] text-[12px]">
           Showing {filtered.length} of {MOCK_TRANSACTIONS.length} transactions
         </p>

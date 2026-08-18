@@ -81,6 +81,7 @@ function shouldHideBottomNav(pathname: string, checkoutConfirmed: boolean): bool
   if (pathname === '/notifications') return true;
   if (pathname === '/settings/inbox') return true;
   if (pathname === '/settings/account') return true;
+  if (pathname.startsWith('/settings/transactions')) return true;
   if (pathname === '/settings/apply-organizer') return true;
   if (pathname.startsWith('/organizers/')) return true;
   return false;

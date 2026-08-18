@@ -30,13 +30,13 @@ import { useAppContext } from '@/app/context/AppContext';
 
 // --- Shared input styles ---
 const INPUT_CLS =
-  'w-full bg-white border border-slate-200/80 rounded-full px-4 py-2.5 text-[#181d27] text-sm placeholder:text-[#64748b] focus:outline-none focus:ring-2 focus:ring-[#177564]/10 focus:border-[#177564] transition-all shadow-[inset_0_1.5px_2px_rgba(0,0,0,0.005)]';
+  'w-full rounded-[10px] border border-[#dce5e1] bg-[#fbfcfc] px-4 py-2.5 text-[#181d27] text-sm placeholder:text-[#64748b] focus:outline-none focus:ring-2 focus:ring-[#177564]/12 focus:border-[#177564] transition-colors';
 
 function SectionCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/60 p-5 sm:p-6 flex flex-col gap-5 shadow-[0px_1px_3px_0px_rgba(15,23,42,0.03)]">
+    <section className="account-settings-section flex flex-col gap-5 border-b border-slate-200/80 pb-7">
       {children}
-    </div>
+    </section>
   );
 }
 
@@ -70,7 +70,9 @@ export function AccountTab() {
   const [email, setEmailLocal] = useState(userProfile.email || 'jessica@email.com');
   const [phone, setPhoneLocal] = useState(userProfile.phone || '+63 961 480 2451');
   const [saved, setSaved] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(userProfile.avatarUrl || null);
   const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
+  const profileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
 
@@ -369,6 +371,19 @@ export function AccountTab() {
     }
   };
 
+  const handleProfilePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const nextPhoto = reader.result as string;
+        setProfilePhoto(nextPhoto);
+        setUserProfile((p) => ({ ...p, avatarUrl: nextPhoto }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleAddEmail = () => {
     setAddingEmail(true);
     setAddEmailValue('');
@@ -523,18 +538,24 @@ export function AccountTab() {
         <div className="flex flex-col gap-1.5">
           <p className="text-[#94a3b8] text-[13px] font-medium">Profile Photo</p>
           <div className="relative w-[88px] h-[88px]">
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-[#177564] to-[#21a58d] flex items-center justify-center text-white text-[28px] font-bold">
-              {firstName.charAt(0)}{lastName.charAt(0)}
+            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#177564] text-[28px] font-bold text-white">
+              {profilePhoto ? (
+                <ImageWithFallback src={profilePhoto} alt="Profile" className="h-full w-full object-cover" />
+              ) : (
+                <>{firstName.charAt(0)}{lastName.charAt(0)}</>
+              )}
             </div>
             <IconButton
+              onClick={() => profileInputRef.current?.click()}
               aria-label="Update profile photo"
               size="sm"
               tone="primary"
-              className="absolute -bottom-0.5 -right-0.5 border-2 border-white shadow-sm"
+              className="absolute -bottom-1 -right-1 h-11 w-11 border-2 border-white shadow-sm"
             >
               <Camera className="w-3.5 h-3.5" />
             </IconButton>
           </div>
+          <input ref={profileInputRef} type="file" accept="image/*" className="hidden" onChange={handleProfilePhotoChange} />
         </div>
 
         {/* Cover Photo */}
@@ -542,7 +563,7 @@ export function AccountTab() {
           <p className="text-[#94a3b8] text-[13px] font-medium">Cover Photo</p>
           <div
             onClick={() => coverInputRef.current?.click()}
-            className="w-full h-24 rounded-2xl border-2 border-dashed border-slate-200 hover:border-[#177564] bg-slate-50/50 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all duration-300 hover:scale-[1.01] hover:shadow-[0_4px_20px_rgba(23,117,100,0.04)] overflow-hidden"
+            className="flex h-24 w-full cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-[12px] border border-dashed border-slate-200 bg-slate-50/50 transition-colors hover:border-[#177564]"
           >
             {coverPhoto ? (
               <ImageWithFallback src={coverPhoto} alt="Cover" className="w-full h-full object-cover" />
@@ -605,13 +626,13 @@ export function AccountTab() {
                 transition={{ duration: 0.2 }}
                 className="flex items-center gap-2"
               >
-                <div className="flex-1 flex items-center gap-2 bg-slate-50/80 border border-slate-200/60 rounded-full px-4 py-2">
+                <div className="flex-1 flex items-center gap-2 rounded-[10px] border border-slate-200/80 bg-slate-50/80 px-4 py-2">
                   <Link2 className="w-3.5 h-3.5 text-[#94a3b8] shrink-0" />
                   <span className="text-[#181d27] text-sm truncate">{link}</span>
                 </div>
                 <ConfirmDialog
                   trigger={
-                    <button className="text-[#94a3b8] hover:text-[#dc2626] transition-colors shrink-0" title="Remove link">
+                    <button aria-label={`Remove ${link} link`} className="flex h-11 w-11 shrink-0 items-center justify-center text-[#94a3b8] transition-colors hover:text-[#dc2626]" title="Remove link">
                       <X className="w-3.5 h-3.5" />
                     </button>
                   }
@@ -645,7 +666,7 @@ export function AccountTab() {
               disabled={!newSocial.trim()}
               aria-label="Add social link"
               tone="primary"
-              className="h-9 w-9 shadow-sm"
+              className="h-11 w-11 shadow-sm"
             >
               <Plus className="w-4 h-4" />
             </IconButton>
@@ -654,7 +675,7 @@ export function AccountTab() {
 
         {/* Save */}
         <div>
-          <PrimaryButton onClick={handleSave} compact>
+          <PrimaryButton onClick={handleSave} compact className="min-h-11 rounded-[10px]">
             <Check className="w-4 h-4" />
             {saved ? 'Saved!' : 'Save Changes'}
           </PrimaryButton>
@@ -667,7 +688,7 @@ export function AccountTab() {
           title="Emails"
           subtitle="Your primary email is used to log in. Add secondary emails to receive event invites sent to those addresses."
         />
-        <div className="bg-[#f0fdf9]/60 backdrop-blur-sm border border-[#177564]/20 rounded-2xl p-4 flex flex-col gap-0 overflow-hidden">
+        <div className="rounded-[12px] border border-[#dce5e1] bg-[#f7faf8] p-4 flex flex-col gap-0 overflow-hidden">
           <AnimatePresence mode="wait" initial={false}>
             {!emailEditing ? (
               /* ---- Default display ---- */
@@ -689,7 +710,8 @@ export function AccountTab() {
                 </div>
                 <button
                   onClick={handleEmailEdit}
-                  className="text-[#94a3b8] hover:text-[#177564] transition-colors shrink-0"
+                  aria-label="Edit email"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center text-[#94a3b8] transition-colors hover:text-[#177564]"
                   title="Edit email"
                 >
                   <Pencil className="w-4 h-4" />
@@ -738,10 +760,10 @@ export function AccountTab() {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <SecondaryButton onClick={handleEmailCancel} compact tone="neutral" className="rounded-full">
+                  <SecondaryButton onClick={handleEmailCancel} compact tone="neutral" className="rounded-[10px]">
                     Cancel
                   </SecondaryButton>
-                  <PrimaryButton onClick={handleEmailSend} compact className="rounded-full">
+                  <PrimaryButton onClick={handleEmailSend} compact className="rounded-[10px]">
                     <Send className="w-3.5 h-3.5" />
                     Send Verification Link
                   </PrimaryButton>
@@ -777,7 +799,7 @@ export function AccountTab() {
                   <button
                     onClick={() => { if (resendCooldown === 0) startResendCooldown(); }}
                     disabled={resendCooldown > 0}
-                    className={`text-[12px] font-semibold transition-colors ${
+                    className={`min-h-11 text-[12px] font-semibold transition-colors ${
                       resendCooldown > 0 ? 'text-[#94a3b8] cursor-default' : 'text-[#177564] hover:underline'
                     }`}
                   >
@@ -786,7 +808,7 @@ export function AccountTab() {
                   <span className="text-[#64748b] text-[12px]">|</span>
                   <button
                     onClick={handleEmailCancel}
-                    className="text-[#94a3b8] text-[12px] font-medium hover:text-[#64748b] transition-colors"
+                    className="min-h-11 text-[12px] font-medium text-[#94a3b8] transition-colors hover:text-[#64748b]"
                   >
                     Cancel change
                   </button>
@@ -806,7 +828,7 @@ export function AccountTab() {
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <div className="bg-white border border-slate-200/60 rounded-2xl p-4 flex items-center gap-3 shadow-[0px_1px_3px_0px_rgba(15,23,42,0.02)]">
+              <div className="flex items-center gap-3 border-t border-slate-200/80 py-4">
                 <div className="flex-1 min-w-0">
                   <p className="text-[#181d27] text-[14px] font-semibold truncate">{se.email}</p>
                   <p className={`text-[12px] mt-0.5 ${se.verified ? 'text-[#177564]' : 'text-[#f59e0b]'}`}>
@@ -821,7 +843,7 @@ export function AccountTab() {
                           prev.map((e, idx) => (idx === i ? { ...e, verified: true } : e))
                         );
                       }}
-                      className="text-[#177564] text-[12px] font-semibold hover:underline"
+                      className="min-h-11 text-[12px] font-semibold text-[#177564] hover:underline"
                     >
                       Verify
                     </button>
@@ -830,7 +852,7 @@ export function AccountTab() {
                     <ConfirmDialog
                       trigger={
                         <button
-                          className="text-[#177564] text-[12px] font-semibold hover:underline flex items-center gap-1"
+                          className="flex min-h-11 items-center gap-1 text-[12px] font-semibold text-[#177564] hover:underline"
                           title="Set as primary login email"
                         >
                           <ArrowUpCircle className="w-3 h-3" />
@@ -857,7 +879,8 @@ export function AccountTab() {
                   <ConfirmDialog
                     trigger={
                       <button
-                        className="text-[#94a3b8] hover:text-[#dc2626] transition-colors"
+                        aria-label={`Remove ${se.email}`}
+                        className="flex h-11 w-11 items-center justify-center text-[#94a3b8] transition-colors hover:text-[#dc2626]"
                         title="Remove email"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -892,7 +915,7 @@ export function AccountTab() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.2 }}
-              className="bg-[#f0fdf9]/60 backdrop-blur-sm border border-[#177564]/20 rounded-2xl p-4 flex flex-col gap-3"
+              className="rounded-[12px] border border-[#dce5e1] bg-[#f7faf8] p-4 flex flex-col gap-3"
             >
               <div className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-full bg-[#177564]/10 flex items-center justify-center shrink-0 mt-0.5">
@@ -958,7 +981,7 @@ export function AccountTab() {
                     if (primaryOtpCooldown === 0) startPrimaryOtpCooldown();
                   }}
                   disabled={primaryOtpCooldown > 0}
-                  className={`text-[12px] font-semibold transition-colors ${
+                  className={`min-h-11 text-[12px] font-semibold transition-colors ${
                     primaryOtpCooldown > 0 ? 'text-[#94a3b8] cursor-default' : 'text-[#177564] hover:underline'
                   }`}
                 >
@@ -966,7 +989,7 @@ export function AccountTab() {
                 </button>
                 <button
                   onClick={handlePrimaryOtpCancel}
-                  className="text-[#94a3b8] text-[12px] font-medium hover:text-[#64748b] transition-colors"
+                  className="min-h-11 text-[12px] font-medium text-[#94a3b8] transition-colors hover:text-[#64748b]"
                 >
                   Cancel
                 </button>
@@ -981,7 +1004,7 @@ export function AccountTab() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.25 }}
-              className="bg-[#f0fdf9]/60 backdrop-blur-sm border border-[#177564]/20 rounded-2xl p-4 flex flex-col gap-2 items-center text-center"
+              className="rounded-[12px] border border-[#dce5e1] bg-[#f7faf8] p-4 flex flex-col gap-2 items-center text-center"
             >
               <motion.div
                 initial={{ scale: 0 }}
@@ -1022,7 +1045,7 @@ export function AccountTab() {
               >
                 <button
                   onClick={handleAddEmail}
-                  className="self-start text-[#177564] text-[13px] font-semibold hover:underline flex items-center gap-1"
+                  className="flex min-h-11 items-center gap-1 self-start text-[13px] font-semibold text-[#177564] hover:underline"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Add Email Address
@@ -1041,7 +1064,7 @@ export function AccountTab() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.2 }}
-              className="bg-white border border-slate-200/60 rounded-2xl p-4 shadow-[0px_1px_3px_0px_rgba(15,23,42,0.02)] flex flex-col gap-3"
+              className="border-t border-slate-200/80 py-4 flex flex-col gap-3"
             >
               <div>
                 <p className="text-[#181d27] text-[13px] font-semibold mb-1.5">Add email address</p>
@@ -1076,10 +1099,10 @@ export function AccountTab() {
                 )}
               </div>
               <div className="flex gap-2">
-                <SecondaryButton onClick={handleAddEmailCancel} compact tone="neutral" className="rounded-full">
+                <SecondaryButton onClick={handleAddEmailCancel} compact tone="neutral" className="rounded-[10px]">
                   Cancel
                 </SecondaryButton>
-                <PrimaryButton onClick={handleAddEmailSend} compact className="rounded-full">
+                <PrimaryButton onClick={handleAddEmailSend} compact className="rounded-[10px]">
                   <Send className="w-3.5 h-3.5" />
                   Send Verification Link
                 </PrimaryButton>
@@ -1092,7 +1115,7 @@ export function AccountTab() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.25 }}
-              className="bg-white border border-slate-200/60 rounded-2xl p-4 shadow-[0px_1px_3px_0px_rgba(15,23,42,0.02)] flex flex-col gap-2.5 items-center text-center py-4"
+              className="border-t border-slate-200/80 py-4 flex flex-col gap-2.5 items-center text-center"
             >
               <motion.div
                 initial={{ scale: 0 }}
@@ -1114,7 +1137,7 @@ export function AccountTab() {
                 <button
                   onClick={() => { if (addEmailResendCooldown === 0) startAddEmailResendCooldown(); }}
                   disabled={addEmailResendCooldown > 0}
-                  className={`text-[12px] font-semibold transition-colors ${
+                  className={`min-h-11 text-[12px] font-semibold transition-colors ${
                     addEmailResendCooldown > 0 ? 'text-[#94a3b8] cursor-default' : 'text-[#177564] hover:underline'
                   }`}
                 >
@@ -1123,7 +1146,7 @@ export function AccountTab() {
                 <span className="text-[#64748b] text-[12px]">|</span>
                 <button
                   onClick={handleAddEmailCancel}
-                  className="text-[#94a3b8] text-[12px] font-medium hover:text-[#64748b] transition-colors"
+                  className="min-h-11 text-[12px] font-medium text-[#94a3b8] transition-colors hover:text-[#64748b]"
                 >
                   Cancel
                 </button>
@@ -1139,7 +1162,7 @@ export function AccountTab() {
           title="Phone Number"
           subtitle="Manage the phone number you use to sign in to PlanOut and receive SMS updates."
         />
-        <div className="bg-[#f0fdf9]/60 backdrop-blur-sm border border-[#177564]/20 rounded-2xl p-4 flex flex-col gap-0 overflow-hidden">
+        <div className="rounded-[12px] border border-[#dce5e1] bg-[#f7faf8] p-4 flex flex-col gap-0 overflow-hidden">
           <AnimatePresence mode="wait" initial={false}>
             {phoneStep === 'display' && (
               <motion.div
@@ -1156,7 +1179,8 @@ export function AccountTab() {
                 </div>
                 <button
                   onClick={handlePhoneUpdate}
-                  className="text-[#94a3b8] hover:text-[#177564] transition-colors shrink-0"
+                  aria-label="Update phone"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center text-[#94a3b8] transition-colors hover:text-[#177564]"
                   title="Update phone"
                 >
                   <Pencil className="w-4 h-4" />
@@ -1206,10 +1230,10 @@ export function AccountTab() {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <SecondaryButton onClick={handlePhoneCancel} compact tone="neutral" className="rounded-full">
+                  <SecondaryButton onClick={handlePhoneCancel} compact tone="neutral" className="rounded-[10px]">
                     Cancel
                   </SecondaryButton>
-                  <PrimaryButton onClick={handlePhoneSendOtp} compact className="rounded-full">
+                  <PrimaryButton onClick={handlePhoneSendOtp} compact className="rounded-[10px]">
                     <Send className="w-3.5 h-3.5" />
                     Send Code
                   </PrimaryButton>
@@ -1282,7 +1306,7 @@ export function AccountTab() {
                   <button
                     onClick={() => { if (phoneResendCooldown === 0) { startPhoneResendCooldown(); } }}
                     disabled={phoneResendCooldown > 0}
-                    className={`text-[12px] font-semibold transition-colors ${
+                    className={`min-h-11 text-[12px] font-semibold transition-colors ${
                       phoneResendCooldown > 0 ? 'text-[#94a3b8] cursor-default' : 'text-[#177564] hover:underline'
                     }`}
                   >
@@ -1290,7 +1314,7 @@ export function AccountTab() {
                   </button>
                   <button
                     onClick={handlePhoneCancel}
-                    className="text-[#94a3b8] text-[12px] font-medium hover:text-[#64748b] transition-colors"
+                    className="min-h-11 text-[12px] font-medium text-[#94a3b8] transition-colors hover:text-[#64748b]"
                   >
                     Cancel
                   </button>
@@ -1333,7 +1357,7 @@ export function AccountTab() {
         />
         <ConfirmDialog
           trigger={
-            <button className="self-start px-4 py-2.5 bg-white border border-[#fecaca] text-[#dc2626] text-[13px] font-semibold rounded-full hover:bg-[#fef2f2] active:scale-95 transition-all flex items-center gap-2 shadow-sm">
+            <button className="flex min-h-11 items-center gap-2 self-start rounded-[10px] border border-[#fecaca] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#dc2626] transition-colors hover:bg-[#fef2f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dc2626]/20">
               <Trash2 className="w-4 h-4" />
               Delete Account
             </button>
