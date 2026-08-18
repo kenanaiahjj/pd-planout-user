@@ -14,6 +14,7 @@ import imgLogo from '@/assets/5a332411061613331a1ffc8c7aa2ccf247ff8699.png';
 import imgHero from '@/assets/80a9288cce0f3fbae7ebd6ed6d5626c04458d6fd.png';
 import svgPaths from '../../imports/svg-3kdsnz0ryc';
 import { PrimaryButton } from '@/app/components/PrimaryButton';
+import { detectLoginMethod } from '@/app/data/login';
 
 // ---------------------------------------------------------------------------
 // Social icon SVGs (from Figma import)
@@ -244,8 +245,10 @@ function OtpInput({
 // Props
 // ---------------------------------------------------------------------------
 
+type LoginMethod = 'email' | 'phone';
+
 interface LoginPageProps {
-  onLoginComplete: (method: 'email' | 'phone', value: string) => void;
+  onLoginComplete: (method: LoginMethod, value: string) => void;
   /** Allow guest browsing — navigates back without logging in. */
   onContinueAsGuest?: () => void;
 }
@@ -256,9 +259,8 @@ interface LoginPageProps {
 
 export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps) {
   const [step, setStep] = useState<'email' | 'otp'>('email');
-  const [inputMode, setInputMode] = useState<'email' | 'phone'>('email');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [otpTarget, setOtpTarget] = useState<{ method: LoginMethod; value: string } | null>(null);
   const [otp, setOtp] = useState<string[]>(Array(6).fill(''));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
@@ -278,26 +280,28 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
 
   // Auto-submit when all OTP digits are filled
   useEffect(() => {
-    if (otp.every((d) => d !== '')) {
-      setIsSubmitting(true);
-      const timeout = setTimeout(() => {
-        const value = inputMode === 'email' ? email.trim() : phone.trim();
-        onLoginComplete(inputMode, value);
-      }, 800);
-      return () => clearTimeout(timeout);
-    }
-  }, [otp, onLoginComplete, inputMode, email, phone]);
+    if (!otpTarget || !otp.every((d) => d !== '')) return;
+
+    setIsSubmitting(true);
+    const timeout = setTimeout(() => {
+      onLoginComplete(otpTarget.method, otpTarget.value);
+    }, 800);
+    return () => clearTimeout(timeout);
+  }, [otp, onLoginComplete, otpTarget]);
 
   const handleContinue = useCallback(() => {
-    const val = inputMode === 'email' ? email.trim() : phone.trim();
-    if (!val) return;
+    const value = identifier.trim();
+    const method = detectLoginMethod(value);
+    if (!value || !method) return;
+
+    setOtpTarget({ method, value });
     setIsSubmitting(true);
     // Simulate sending OTP
     setTimeout(() => {
       setIsSubmitting(false);
       setStep('otp');
     }, 600);
-  }, [email, phone, inputMode]);
+  }, [identifier]);
 
   const handleResend = useCallback(() => {
     if (resendTimer > 0) return;
@@ -305,9 +309,12 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
     setResendTimer(30);
   }, [resendTimer]);
 
-  const identifier = inputMode === 'email' ? email : phone;
-  const maskedIdentifier =
-    inputMode === 'email' ? maskEmail(email) : `${phone.slice(0, 4)}****${phone.slice(-2)}`;
+  const detectedMethod = detectLoginMethod(identifier);
+  const maskedIdentifier = otpTarget
+    ? otpTarget.method === 'email'
+      ? maskEmail(otpTarget.value)
+      : `${otpTarget.value.slice(0, 4)}****${otpTarget.value.slice(-2)}`
+    : '';
 
   // -----------------------------------------------------------------------
   // Render: Email / Phone step
@@ -331,75 +338,22 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
       {/* Input section */}
       <div className="w-full max-w-[320px]">
 
-        {/* Segmented tab toggle with sliding background */}
-        <div className="relative flex w-full bg-[#f1f5f9]/80 rounded-full p-[3px] mb-5 border border-black/[0.03] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-          {/* Sliding active background */}
-          <div
-            className="absolute top-[3px] bottom-[3px] left-[3px] rounded-full bg-white shadow-[0px_2px_6px_0px_rgba(10,13,18,0.06),0px_1px_2px_0px_rgba(10,13,18,0.04)] border border-black/[0.02] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
-            style={{
-              width: 'calc(50% - 3px)',
-              transform: inputMode === 'email' ? 'translateX(0)' : 'translateX(100%)',
-            }}
-          />
-          
-          <button
-            onClick={() => setInputMode('email')}
-            className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-full text-[13px] font-bold tracking-tight transition-colors duration-300 cursor-pointer ${
-              inputMode === 'email' ? 'text-slate-900' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <EmailIcon />
-            <span>Email</span>
-          </button>
-          <button
-            onClick={() => setInputMode('phone')}
-            className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-full text-[13px] font-bold tracking-tight transition-colors duration-300 cursor-pointer ${
-              inputMode === 'phone' ? 'text-slate-900' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <PhoneIcon />
-            <span>Phone</span>
-          </button>
-        </div>
-
         {/* Double Bezel Input Field */}
         <div className="relative mb-4 group">
           <div className="relative p-[1.5px] rounded-full bg-slate-100 hover:bg-slate-200/80 border border-slate-200/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300 focus-within:bg-gradient-to-b focus-within:from-[#28b99e]/40 focus-within:to-[#177564]/30 focus-within:shadow-[0_4px_16px_rgba(23,117,100,0.06)] focus-within:border-transparent">
             <div className="relative rounded-[calc(9999px-1.5px)] bg-white px-5 py-3 flex items-center gap-3 shadow-[inset_0_1.5px_2px_rgba(0,0,0,0.01)] border border-transparent">
-              <span className="text-slate-400 group-focus-within:text-[#177564] transition-colors duration-300">
-                {inputMode === 'email' ? (
-                  <svg className="w-4 h-4" viewBox="0 0 14 11" fill="none">
-                    <path
-                      d="M1 1L7 6L13 1M1 1H13V10H1V1Z"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : (
-                  <svg className="w-4.5 h-4.5" viewBox="0 0 11.4372 18" fill="none">
-                    <path
-                      d="M1 1.7L10.4 1.7M1.7 5H9.7M5.7 14.5V14.5M1.7 1H9.7C10.1 1 10.4 1.3 10.4 1.7V16.3C10.4 16.7 10.1 17 9.7 17H1.7C1.3 17 1 16.7 1 16.3V1.7C1 1.3 1.3 1 1.7 1Z"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                )}
+              <span className="flex h-4 w-4 items-center justify-center text-slate-400 group-focus-within:text-[#177564] transition-colors duration-300">
+                {detectedMethod === 'phone' ? <PhoneIcon /> : detectedMethod === 'email' ? <EmailIcon /> : null}
               </span>
-              
+
               <input
-                type={inputMode === 'email' ? 'email' : 'tel'}
-                value={inputMode === 'email' ? email : phone}
-                onChange={(e) =>
-                  inputMode === 'email' ? setEmail(e.target.value) : setPhone(e.target.value)
-                }
+                type="text"
+                inputMode={detectedMethod === 'phone' ? 'tel' : 'email'}
+                aria-label="Email or phone number"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
-                placeholder={
-                  inputMode === 'email' ? 'Enter email address' : 'Enter phone number'
-                }
+                placeholder="Email or phone number"
                 className="w-full bg-transparent text-[14.5px] text-slate-800 placeholder:text-slate-400 font-semibold outline-none border-none p-0 focus:ring-0"
               />
             </div>
@@ -525,7 +479,7 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
         className="group mt-8 text-[13.5px] font-semibold text-slate-500 hover:text-[#177564] tracking-tight transition-all duration-300 flex items-center gap-1.5 cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-        <span>Change {inputMode === 'email' ? 'email' : 'phone number'}</span>
+        <span>Change {otpTarget?.method === 'email' ? 'email' : 'phone number'}</span>
       </button>
     </div>
   );
