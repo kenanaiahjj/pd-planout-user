@@ -33,7 +33,7 @@ export function SegmentedChoice<T extends string>({
   const iconClass = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4';
 
   return (
-    <div className={`grid ${columnsClass} w-full rounded-full bg-slate-100/80 p-0.5 ${className}`}>
+    <div className={`segmented-choice grid ${columnsClass} w-full rounded-full bg-slate-100/80 p-0.5 ${className}`}>
       {options.map(({ value: optionValue, label, icon: Icon, badge }) => {
         const isActive = value === optionValue;
 
@@ -42,7 +42,8 @@ export function SegmentedChoice<T extends string>({
             key={optionValue}
             type="button"
             onClick={() => onChange(optionValue)}
-            className={`flex min-w-0 items-center justify-center rounded-full border font-semibold transition-all active:scale-[0.98] ${itemClass} ${
+            data-selected={isActive ? '' : undefined}
+            className={`segmented-choice__item flex min-w-0 items-center justify-center rounded-full border font-semibold transition-all active:scale-[0.98] ${itemClass} ${
               isActive
                 ? 'border-slate-200 bg-white text-slate-800 shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
