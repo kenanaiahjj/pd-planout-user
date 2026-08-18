@@ -24,12 +24,15 @@ const DEFAULT_GRADIENT = {
 
 function createBackgroundStyle(
   brandGradient?: PrimaryButtonProps['brandGradient'],
+  showShine = true,
 ): React.CSSProperties {
   const from = brandGradient?.from || DEFAULT_GRADIENT.from;
   const to = brandGradient?.to || DEFAULT_GRADIENT.to;
 
   return {
-    backgroundImage: `${SHINE_SVG}, linear-gradient(90deg, ${from} 0%, ${to} 100%)`,
+    backgroundImage: showShine
+      ? `${SHINE_SVG}, linear-gradient(90deg, ${from} 0%, ${to} 100%)`
+      : `linear-gradient(90deg, ${from} 0%, ${to} 100%)`,
     boxShadow: brandGradient?.shadow
       ? `0 14px 28px -18px ${brandGradient.shadow}`
       : undefined,
@@ -54,6 +57,8 @@ interface PrimaryButtonProps
     to: string;
     shadow?: string;
   };
+  showShine?: boolean;
+  pressScale?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +72,8 @@ export function PrimaryButton({
   compact = false,
   appearance = 'gradient',
   brandGradient,
+  showShine = true,
+  pressScale = true,
   disabled,
   style,
   ...rest
@@ -79,7 +86,7 @@ export function PrimaryButton({
           boxShadow: '0 8px 18px -14px rgba(23,117,100,0.6)',
           ...style,
         }
-      : { ...createBackgroundStyle(brandGradient), ...style };
+      : { ...createBackgroundStyle(brandGradient, showShine), ...style };
 
   return (
     <button
@@ -89,8 +96,9 @@ export function PrimaryButton({
         ${compact ? 'px-4 py-2' : 'px-[18px] py-[10px]'}
         ${fullWidth ? 'w-full' : ''}
         rounded-xl text-[15px] font-semibold text-white text-center
-        transition-[filter,transform] duration-150 ease-out active:scale-[0.98]
-        motion-reduce:transition-none motion-reduce:active:scale-100
+        transition-[filter,transform] duration-150 ease-out
+        ${pressScale ? 'active:scale-[0.98] motion-reduce:active:scale-100' : ''}
+        motion-reduce:transition-none
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/35 focus-visible:ring-offset-2
         ${disabled ? 'opacity-50 cursor-not-allowed saturate-50' : 'cursor-pointer hover:brightness-110'}
         ${className}
