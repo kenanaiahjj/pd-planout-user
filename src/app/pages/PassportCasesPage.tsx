@@ -2,20 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import {
   ArrowLeft,
-  Lock,
-  Mail,
-  Eye,
-  Check,
-  Upload,
-  ClipboardList,
-  ChevronRight,
-  QrCode,
   X,
   ArrowRight,
   ArrowUpRight,
   ShieldCheck,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import {
@@ -38,71 +29,47 @@ import { Switch } from '@/app/components/ui/switch';
 import passportEmailCover from '@/assets/planout-passport-email-cover-editorial.png';
 
 // ---------------------------------------------------------------------------
-// Wireframe Primitives
+// Screen sources
+//
+// Every case viewport is a real app screen: either this same-origin iframe of a
+// live route, or a Playwright capture of a state that needs an interaction to
+// reach (see scratch/capture_purchase_intent_screens.mjs). The only exception
+// is WF_DefaultScreen, which explicitly says a step has no screen in the app.
 // ---------------------------------------------------------------------------
 
-function WireframeQR({ size = 72, label = 'QR' }: { size?: number; label?: string }) {
-  return (
-    <div
-      className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center text-slate-400 select-none shrink-0"
-      style={{ width: size, height: size }}
-    >
-      <QrCode className="w-5 h-5 mb-0.5" />
-      <span className="text-[8px] font-bold uppercase tracking-wider">{label}</span>
-    </div>
-  );
-}
-
-function WireframeBadge({ text, color = 'bg-slate-100 text-slate-500' }: { text: string; color?: string }) {
-  return (
-    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${color}`}>
-      {text}
-    </span>
-  );
-}
-
-function WireframeBtn({ label, variant = 'primary' }: { label: string; variant?: 'primary' | 'secondary' | 'danger' | 'disabled' | 'orange' }) {
-  const cls: Record<string, string> = {
-    primary: 'bg-[#177564] text-white',
-    secondary: 'bg-white text-slate-600 border border-slate-200',
-    danger: 'bg-red-500/90 text-white',
-    disabled: 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed',
-    orange: 'bg-orange-600 text-white',
-  };
-  return (
-    <div className={`inline-flex h-8 items-center justify-center gap-1 rounded-full px-4 text-[11px] font-semibold ${cls[variant]}`}>
-      {label}
-      {variant === 'primary' && <ChevronRight className="w-3 h-3" />}
-    </div>
-  );
-}
-
-function WireframeImagePlaceholder({ size = 48 }: { size?: number }) {
-  return (
-    <div
-      className="rounded-xl bg-slate-200 shrink-0 flex items-center justify-center"
-      style={{ width: size, height: size }}
-    >
-      <Eye className="w-4 h-4 text-slate-400" />
-    </div>
-  );
-}
-
-function WireframeInput({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wide">{label}</span>
-      <div className="bg-slate-50 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-600 border border-slate-200 font-medium">{value}</div>
-    </div>
-  );
-}
-
-function LiveAppScreen({ path, title }: { path: string; title: string }) {
+function LiveAppScreen({ path, title, scrollToText }: { path: string; title: string; scrollToText?: string }) {
   const [ready, setReady] = useState(false);
   const src = `${path}${path.includes('?') ? '&' : '?'}passportCasePreview=1`;
   const frameWidth = 390;
   const frameHeight = 844;
   const frameScale = 280 / frameWidth;
+
+  /** Same-origin iframe: scroll the embedded app to the section named by `scrollToText`. */
+  const handleFrameLoad = (event: React.SyntheticEvent<HTMLIFrameElement>) => {
+    if (!scrollToText) return;
+    const frame = event.currentTarget;
+    // The SPA renders after load; retry briefly until the section heading exists.
+    let attempts = 0;
+    const tryScroll = () => {
+      attempts += 1;
+      try {
+        const doc = frame.contentDocument;
+        if (doc) {
+          const target = Array.from(doc.querySelectorAll('h1, h2, h3, h4, p, span')).find(
+            (el) => el.textContent?.trim() === scrollToText,
+          );
+          if (target) {
+            target.scrollIntoView({ block: 'start' });
+            return;
+          }
+        }
+      } catch {
+        return; // cross-origin or detached — leave the frame at the top
+      }
+      if (attempts < 20) setTimeout(tryScroll, 250);
+    };
+    tryScroll();
+  };
 
   useEffect(() => {
     try {
@@ -143,6 +110,8 @@ function LiveAppScreen({ path, title }: { path: string; title: string }) {
       <iframe
         title={title}
         src={src}
+        loading="lazy"
+        onLoad={handleFrameLoad}
         className="absolute left-0 top-0 border-0 bg-[#f6f8fb]"
         style={{
           width: frameWidth,
@@ -155,132 +124,11 @@ function LiveAppScreen({ path, title }: { path: string; title: string }) {
   );
 }
 
-/** Generic event row wireframe used across many cases */
-function WireframeEventRow({
-  eventName,
-  eventDate,
-  category,
-  badge,
-  badgeColor,
-  description,
-  buttons,
-  faded,
-  progressBar,
-}: {
-  eventName: string;
-  eventDate: string;
-  category?: string;
-  badge?: string;
-  badgeColor?: string;
-  description?: string;
-  buttons?: Array<{ label: string; variant?: 'primary' | 'secondary' | 'danger' | 'disabled' | 'orange' }>;
-  faded?: boolean;
-  progressBar?: { current: number; total: number };
-}) {
-  return (
-    <div className={`rounded-[16px] border border-slate-200 bg-white p-4 ${faded ? 'opacity-60' : ''}`}>
-      <div className="flex items-start gap-3">
-        <WireframeImagePlaceholder />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="truncate text-[13px] font-semibold text-slate-800">{eventName}</h3>
-              <p className="mt-0.5 text-[11px] text-slate-500">{eventDate}{category ? ` · ${category}` : ''}</p>
-            </div>
-            {badge && <WireframeBadge text={badge} color={badgeColor} />}
-          </div>
-          {progressBar && (
-            <div className="mt-2.5">
-              <p className="text-[11px] font-semibold text-slate-600 mb-1">
-                {progressBar.current} of {progressBar.total} roster forms complete
-              </p>
-              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-[#177564]"
-                  style={{ width: `${Math.round((progressBar.current / progressBar.total) * 100)}%` }}
-                />
-              </div>
-            </div>
-          )}
-          {description && (
-            <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">{description}</p>
-          )}
-          {buttons && buttons.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {buttons.map((b) => (
-                <WireframeBtn key={b.label} label={b.label} variant={b.variant} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-
 // ---------------------------------------------------------------------------
 // Case Item Showcase Component
 // ---------------------------------------------------------------------------// ---------------------------------------------------------------------------
 // Step Flow Reusable Viewports
 // ---------------------------------------------------------------------------
-
-function WF_Checkout({ eventName, category, price }: { eventName: string; category: string; price: string | number }) {
-  return (
-    <div className="bg-[#f8fafc] min-h-full flex flex-col p-4 justify-between font-sans text-slate-800">
-      <div className="flex flex-col gap-3">
-        {/* Header bar */}
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-          <ArrowLeft className="w-3.5 h-3.5 text-slate-600" />
-          <span className="text-[12px] font-bold text-slate-900">Checkout</span>
-        </div>
-
-        {/* Customer Details Section */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Customer Details</span>
-          <div className="flex flex-col gap-1 text-[10px]">
-            <div className="flex justify-between"><span className="text-slate-400 font-medium">Email:</span><span className="text-slate-800 font-semibold">jessica@email.com</span></div>
-            <div className="flex justify-between"><span className="text-slate-400 font-medium">Phone:</span><span className="text-slate-800 font-semibold">0917 123 4567</span></div>
-          </div>
-        </div>
-
-        {/* Payment Method Section */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Payment Method</span>
-          <div className="flex items-center justify-between border border-[#177564]/30 bg-[#ecfdf8] rounded-lg p-2 text-[10px]">
-            <span className="font-semibold text-[#177564]">Credit / Debit Card</span>
-            <span className="text-[8px] font-bold text-white bg-[#177564] px-1.5 py-0.5 rounded-full">Selected</span>
-          </div>
-        </div>
-
-        {/* Order Summary Section */}
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Order Summary</span>
-          <div className="flex gap-2 items-center">
-            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400"><Eye className="w-3.5 h-3.5" /></div>
-            <div className="min-w-0 flex-1">
-              <h4 className="text-[10px] font-bold text-slate-800 truncate">{eventName}</h4>
-              <p className="text-[8px] text-slate-400 font-semibold">{category}</p>
-            </div>
-          </div>
-          <div className="h-px bg-slate-100 my-0.5" />
-          <div className="flex justify-between items-center text-[10px]">
-            <span className="text-slate-400 font-semibold">Total Price</span>
-            <span className="text-slate-900 font-extrabold">₱{price}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="w-full pt-3">
-        <div className="bg-[#177564] text-white text-[11px] font-bold py-2 rounded-xl text-center select-none cursor-pointer flex items-center justify-center gap-1 shadow-sm">
-          Pay ₱{price}
-          <ChevronRight className="w-3.5 h-3.5" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 type EmailTone = 'ready' | 'action' | 'important' | 'update';
 
@@ -316,248 +164,6 @@ const EMAIL_TONE_META: Record<EmailTone, { label: string; dot: string; badge: st
   },
 };
 
-function WF_EmailView({ subject, body }: { subject: string; body: string }) {
-  const tone = getEmailTone(subject);
-  const toneMeta = EMAIL_TONE_META[tone];
-
-  return (
-    <div className="min-h-full bg-[#f6f8f7] p-3 font-sans text-[#142823]">
-      <article className="overflow-hidden rounded-lg bg-white shadow-[0_10px_22px_-20px_rgba(10,42,35,0.45)]">
-        <div
-          className="relative min-h-[132px] overflow-hidden bg-[#0d332d] bg-cover bg-center px-3 pb-4 pt-5 text-center text-white"
-          style={{ backgroundImage: `url(${passportEmailCover})` }}
-        >
-          <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#3cd4b9_0%,#28b99e_46%,#177564_100%)]" />
-          <div className="relative flex flex-col items-center">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md border border-white/50 bg-[#0b2d28]/60">
-              <ShieldCheck className="h-4 w-4 text-white" />
-            </div>
-            <p className="mt-1.5 text-[11px] font-semibold tracking-[-0.025em]">PlanOut</p>
-            <p className="text-[7px] font-semibold uppercase tracking-[0.19em] text-white/80">Passport access</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 text-center">
-          <p className="text-[7.5px] font-semibold uppercase tracking-[0.14em] text-[#5b7870]">{toneMeta.label}</p>
-          <p className="mt-2.5 text-[12px] font-semibold leading-[1.2] tracking-[-0.02em] text-[#173a32]">{subject}</p>
-          <p className="mt-2 text-[8.5px] leading-[1.55] text-[#5b716b]">{body}</p>
-          <span className="mt-4 inline-flex w-full items-center justify-center gap-1 rounded-md bg-[linear-gradient(90deg,#3cd4b9_0%,#177564_100%)] py-2 text-[8.5px] font-semibold text-white">
-            Open in PlanOut <ArrowUpRight className="h-3 w-3" />
-          </span>
-        </div>
-      </article>
-    </div>
-  );
-}
-
-function WF_FormFillStep({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="bg-[#f8fafc] min-h-full flex flex-col p-4 justify-between font-sans text-slate-800">
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-1 border-b border-slate-200 pb-2">
-          <ClipboardList className="w-3.5 h-3.5 text-[#177564]" />
-          <span className="text-[11px] font-bold text-slate-900 truncate">Participant Registration</span>
-        </div>
-        
-        <div className="rounded-lg bg-teal-50 border border-teal-205 p-2 text-[8px] text-teal-800 leading-normal font-medium">
-          ℹ️ <strong>Organizer-Defined Form</strong>: Fields, select options, and waivers are dynamically configured by the event organizer.
-        </div>
-
-        <h4 className="text-[11px] font-bold text-slate-800 mt-1">{title}</h4>
-        
-        <div className="flex flex-col gap-2 mt-0.5">
-          <WireframeInput label="Organizer Custom Field 1 (e.g. Emergency Contact)" value="Maria Sanchez" />
-          <WireframeInput label="Organizer Custom Field 2 (e.g. T-Shirt Size)" value="Medium" />
-          
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[8px] font-semibold text-slate-400 uppercase tracking-wide">Organizer Custom Waiver / Term</span>
-            <div className="flex items-start gap-2 border border-slate-200 bg-slate-50 rounded-lg p-2">
-              <input type="checkbox" checked disabled className="rounded border-slate-300 text-[#177564] mt-0.5 shrink-0" />
-              <span className="text-[8px] text-slate-500 font-medium leading-normal">
-                I agree to the organizer's custom terms & liability waiver statement.
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="w-full mt-4">
-        <div className="bg-[#177564] text-white text-[11px] font-bold py-2 rounded-xl text-center select-none cursor-pointer shadow-sm">
-          Submit Form
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WF_AuthStep({ desc }: { desc: string }) {
-  return (
-    <div className="bg-white min-h-full flex flex-col p-5 justify-between font-sans text-slate-800">
-      <div className="flex flex-col gap-5 mt-4">
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-10 h-10 rounded-2xl bg-[#177564] flex items-center justify-center shadow-sm">
-            <span className="text-white text-sm font-black">P</span>
-          </div>
-          <h3 className="text-[14px] font-bold text-slate-900 tracking-tight">Create PlanOut Account</h3>
-          <p className="text-[9.5px] text-slate-500 text-center leading-normal px-2">{desc}</p>
-        </div>
-        
-        <div className="flex flex-col gap-2.5">
-          <button className="w-full h-9 rounded-xl border border-slate-200 flex items-center justify-center gap-2 text-[10.5px] font-semibold text-slate-700 bg-slate-50">
-            <span className="text-[11px] font-black text-slate-500">G</span>
-            Continue with Google
-          </button>
-          <div className="flex items-center my-0.5">
-            <div className="flex-1 h-px bg-slate-100" />
-            <span className="text-[8px] text-slate-400 px-2.5 uppercase tracking-wider">or email</span>
-            <div className="flex-1 h-px bg-slate-100" />
-          </div>
-          <WireframeInput label="Email" value="jessica.sanchez@email.com" />
-        </div>
-      </div>
-      <div className="w-full pt-4">
-        <div className="bg-[#177564] text-white text-[11px] font-bold py-2.5 rounded-xl text-center select-none cursor-pointer shadow-sm">
-          Sign Up Free
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WF_PaymentStatusStep({
-  title,
-  status,
-  desc,
-  isMultiple = false,
-}: {
-  title: string;
-  status: 'success' | 'pending';
-  desc: string;
-  isMultiple?: boolean;
-}) {
-  const isPending = status === 'pending';
-
-  return (
-    <div className="bg-[#f8fafc] min-h-full flex flex-col p-4 gap-4 font-sans text-slate-800">
-      {/* Header bar */}
-      <div className="flex flex-col gap-1 border-b border-slate-200 pb-2 shrink-0">
-        <span className="text-[12px] font-bold text-slate-900 leading-tight">Confirmation</span>
-        <p className="text-[8.5px] text-slate-500 font-semibold leading-normal">
-          Your order is tied to PlanOut Passport for event-day access.
-        </p>
-      </div>
-
-      {isPending ? (
-        /* Waiting for Payment State */
-        <div className="flex flex-col gap-3">
-          <div className="rounded-[12px] border border-slate-200 bg-white overflow-hidden shadow-sm">
-            <div className="bg-gradient-to-r from-amber-600 to-amber-500 p-3 text-center text-white">
-              <h4 className="text-[11px] font-bold">Waiting for Payment</h4>
-              <p className="text-[8px] text-amber-50 mt-0.5 leading-normal">
-                Please complete your payment to confirm your order.
-              </p>
-            </div>
-            <div className="p-2.5 flex items-center justify-between text-[9px] border-t border-slate-100 bg-white">
-              <span className="text-slate-400 font-semibold">Ref Code</span>
-              <span className="text-slate-800 font-bold font-mono">REF-4902-JK</span>
-            </div>
-          </div>
-
-          {/* Reserved Items summary */}
-          <div className="bg-white rounded-[12px] border border-slate-200 p-3 flex flex-col gap-2 shadow-sm">
-            <div className="text-[9.5px] font-bold text-slate-700">Reserved Items</div>
-            <div className="h-px bg-slate-100 my-0.5" />
-            <div className="flex justify-between text-[9px] text-slate-600">
-              <span>Sprint Distance Ticket</span>
-              <span className="font-bold text-slate-800">₱1,200</span>
-            </div>
-            <div className="flex justify-between text-[9px] text-slate-650 font-bold border-t border-slate-50 pt-1.5 mt-0.5">
-              <span>Total Price</span>
-              <span className="text-slate-900 font-extrabold">₱1,200</span>
-            </div>
-          </div>
-
-          <button className="w-full bg-[#177564] text-white text-[10.5px] font-bold py-2 rounded-xl text-center shadow-sm select-none">
-            Continue to Payment
-          </button>
-        </div>
-      ) : !isMultiple ? (
-        /* Success State: Single Ticket Inline Form */
-        <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-3 shadow-sm">
-          <div className="flex items-center gap-1">
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-100 px-2 py-0.5 text-[8px] font-bold text-amber-700 uppercase tracking-wide">
-              <Lock className="w-2.5 h-2.5" />
-              Form Pending
-            </span>
-          </div>
-          <div>
-            <h4 className="text-[12px] font-bold text-slate-900 leading-tight">Complete registration</h4>
-            <p className="text-[9px] text-slate-500 mt-1 leading-normal">
-              Your payment was successful. Complete attendee details inline to activate Passport check-in.
-            </p>
-          </div>
-          <div className="h-px bg-slate-100 my-0.5" />
-          <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-2 gap-2">
-              <WireframeInput label="First Name" value="Jessica" />
-              <WireframeInput label="Last Name" value="Sanchez" />
-            </div>
-            <WireframeInput label="Email" value="jessica@email.com" />
-            <div className="border border-dashed border-slate-200 bg-slate-50 rounded-lg p-2 text-center flex flex-col items-center">
-              <span className="text-[8px] font-semibold text-slate-500">Upload medical waiver</span>
-            </div>
-            <button className="w-full bg-[#177564] text-white text-[10.5px] font-bold py-2 rounded-xl text-center shadow-sm mt-1">
-              Submit & Activate Passport
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* Success State: Multiple Tickets Reserved slots */
-        <div className="flex flex-col gap-3">
-          <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-2 shadow-sm">
-            <h4 className="text-[13px] font-bold text-slate-900 leading-tight">Your spots are reserved</h4>
-            <p className="text-[9px] text-slate-500 leading-normal">
-              Complete remaining participant forms so these registrations attach to your PlanOut Passport.
-            </p>
-            <div className="grid grid-cols-2 gap-1.5 border-t border-slate-100 pt-2 mt-1.5 text-[8.5px] font-semibold text-slate-400 uppercase tracking-wide">
-              <div>
-                <p>Order Reference</p>
-                <p className="text-[9.5px] text-slate-800 font-bold font-mono mt-0.5">REF-8902-JK</p>
-              </div>
-              <div>
-                <p>Form Progress</p>
-                <p className="text-[9.5px] text-amber-700 font-bold mt-0.5">0 of 3 complete</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider px-0.5">3 forms still needed</p>
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col">
-              {[
-                { event: 'Canlaon Marathon', label: 'Finish form' },
-                { event: 'VisMin Super Cup', label: 'Finish form' },
-                { event: 'Apo Island Swim', label: 'Complete team form' },
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600 shrink-0">
-                      <ClipboardList className="w-4 h-4" />
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-800 truncate">{item.event}</span>
-                  </div>
-                  <span className="text-[9px] font-bold text-[#177564] flex items-center gap-0.5 shrink-0">
-                    {item.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function WF_DefaultScreen({ title, desc }: { title: string; desc: string }) {
   return (
     <div className="bg-[#0f172a] text-slate-200 min-h-full flex flex-col p-6 justify-center items-center text-center gap-4.5 font-sans">
@@ -581,22 +187,25 @@ function WF_DefaultScreen({ title, desc }: { title: string; desc: string }) {
 }
 
 function getPurchaseIntentStepRoute(caseTitle: string, stepTitle: string): string | null {
-  if (!/^Case\s+(2[4-9]|3[0-4]):/i.test(caseTitle)) return null;
+  if (!/^Case\s+(2[4-9]|3[0-6]):/i.test(caseTitle)) return null;
 
   const title = stepTitle.toLowerCase();
   const routeByCase = {
     solo: '/passport',
     guestManager: '/orders/tkt-008/guest-manager',
     guestQr: '/orders/tkt-010/entry/tkt-010-p2/guest-qr',
-    claim: '/ticket-claim/CLM-CANLAON-42K',
+    // '/ticket-claim/:ref' resolves the order and entry from its query, then
+    // opens the organizer form in invite mode. Without both params it bounces
+    // to '/orders', so the recipient screen never renders.
+    claim: '/ticket-claim/CLM-CANLAON-42K?order=tkt-011&entry=tkt-011-p2',
     formFill: '/orders/tkt-003/form?returnTo=orders',
     temporary: '/orders/tkt-010/entry/tkt-010-p2/guest-qr',
     mixed: '/passport/events',
-    teamForm: '/orders/tkt-004/form?returnTo=orders',
-    groupShare: '/order-share/tkt-011',
   };
 
-  if (title.includes('checkout') || title.includes('purchase')) return '/checkout';
+  // '/checkout' redirects to '/cart' without an active order, so checkout steps
+  // use the static capture (or the checkout wireframe) instead of a live route.
+  if (title.includes('checkout') || title.includes('purchase')) return null;
 
   // Case 25: Solo buyer — all post-checkout steps show passport
   if (caseTitle.includes('Buyer Buys For Himself')) return routeByCase.solo;
@@ -641,24 +250,32 @@ function getPurchaseIntentStepRoute(caseTitle: string, stepTitle: string): strin
     return null;
   }
 
-  // Case 31 alt: Sends A Guest QR
-  if (caseTitle.includes('Sends A Guest QR')) {
-    if (title.includes('friend opens')) return '/guest-entry/GE-CANLAON-42K';
-    return routeByCase.guestQr;
+  // Case 33: Team purchase — buyer manages each player from the order; players resolve individually
+  if (caseTitle.includes('Team Purchase')) {
+    // 'Add player' lives on the team order, not at checkout. tkt-002 shows the
+    // "Players X of Y ready" count with the Add player action.
+    if (title.includes('size the roster')) return '/orders/tkt-002';
+    if (title.includes('choose access')) return '/orders/tkt-013';
+    if (title.includes('players resolve')) return routeByCase.claim;
+    if (title.includes('gate access')) return routeByCase.solo;
+    return null;
   }
 
-  // Case 33: Coach buys team, invites roster
-  if (caseTitle.includes('Coach Buys A Team')) {
-    if (title.includes('invite roster') || title.includes('email')) return null; // email action, no live screen
-    if (title.includes('members fill') || title.includes('member') || title.includes('fills form')) return routeByCase.teamForm;
-    if (title.includes('team attaches') || title.includes('access')) return null;
-    return routeByCase.teamForm;
+  // Case 34: app-less Guest QR holder creates an account later and claims the entry once
+  if (caseTitle.includes('Creates An Account Later')) {
+    if (title.includes('guest qr shared')) return '/guest-entry/GE-TEMP-4021';
+    if (title.includes('add-entry')) return '/passport/add-entry';
+    if (title.includes('invalidated')) return routeByCase.solo;
+    // 'Guest attends or keeps code' and 'Confirm one-time claim' are physical / mid-flow steps
+    return null;
   }
 
-  // Group claim links — each recipient selects their own entry from the shared page.
-  if (caseTitle.includes('Group Chat Claim Links')) {
-    if (title.includes('open shared') || title.includes('select their entry') || title.includes('choose')) return routeByCase.groupShare;
-    if (title.includes('new lead accepts') || title.includes('accepts')) return routeByCase.claim;
+  // Case 36: a Guest QR that was already scanned at the gate becomes Passport history
+  if (caseTitle.includes('Past Guest QR')) {
+    if (title.includes('scanner')) return '/passport/add-entry';
+    if (title.includes('scan the used pass')) return '/passport/add-entry?code=GE-USED-4218';
+    if (title.includes('passport keeps')) return routeByCase.solo;
+    // Step 1 uses the used-pass capture; 'Confirm the past event' uses the post-action capture.
     return null;
   }
 
@@ -697,12 +314,26 @@ const PURCHASE_INTENT_CAPTURES: Array<{ match: string; screens: string[] }> = [
     screens: ['checkout-purchase', 'participant-form', 'buyer-guest-qr', 'public-guest-pass', 'order-ready-guest'],
   },
   {
-    match: 'Coach Buys A Team',
-    screens: ['checkout-purchase', 'team-form', 'ticket-claim', 'passport-qr', 'team-order'],
+    // Step 1 (checkout) uses the capture; empty slots fall through to live app screens.
+    match: 'Team Purchase',
+    screens: ['checkout-purchase', '', '', '', ''],
   },
   {
-    match: 'Team Lead Transfer',
-    screens: ['checkout-purchase', 'team-lead-selector', 'team-lead-selected', 'team-lead-share', 'team-order'],
+    // Case 3 — real confirmation captures; empty slots fall through to step heuristics.
+    match: 'Inline Form Pending',
+    screens: ['checkout-purchase', '', 'checkout-confirmation', '', ''],
+  },
+  {
+    // Case 34 — steps 1/3/5 use live app screens; 2 and 4 use real captures
+    // (used-state public pass, and the add-entry confirm state).
+    match: 'Creates An Account Later',
+    screens: ['', 'public-guest-used', '', 'add-entry-confirm', ''],
+  },
+  {
+    // Case 36 — the used pass and the post-claim confirmation are captures;
+    // the scanner, the resolved past entry, and the Passport are live screens.
+    match: 'Past Guest QR',
+    screens: ['public-guest-used', '', '', 'add-entry-past-added', ''],
   },
 ];
 
@@ -711,17 +342,198 @@ function getPurchaseIntentCapture(caseTitle: string, stepIdx: number) {
   return scenario?.screens[stepIdx] ?? null;
 }
 
-function PurchaseIntentCapture({ capture, title }: { capture: string; title: string }) {
+/**
+ * Captures taken at a desktop viewport. The case frame is a phone, so these are
+ * fitted inside it rather than cropped to fill it.
+ */
+const WIDE_CAPTURES = new Set(['add-entry-web']);
+
+function PurchaseIntentCapture({
+  capture,
+  title,
+  fit = WIDE_CAPTURES.has(capture) ? 'contain' : 'cover',
+}: {
+  capture: string;
+  title: string;
+  fit?: 'cover' | 'contain';
+}) {
   return (
     <div className="h-[606px] w-full overflow-hidden bg-[#f6f8fb]">
       <img
         src={`${PURCHASE_INTENT_CAPTURE_BASE}/${capture}.png`}
         alt={`PlanOut app screen for ${title}`}
-        className="h-full w-full object-cover object-top"
+        className={`h-full w-full object-top ${fit === 'contain' ? 'object-contain' : 'object-cover'}`}
         loading="lazy"
       />
     </div>
   );
+}
+
+/**
+ * Real app screens for the step kinds that recur across cases.
+ *
+ * Every entry here is a route the app actually serves, or a capture of a real
+ * screen. Steps that genuinely have no screen — an organizer editing a form, a
+ * deadline passing, printing a pass — fall through to the explicit
+ * "no screen in app for this step" panel instead of a drawn stand-in.
+ */
+const SHARED_STEP_SCREENS: Array<{
+  test: (title: string, desc: string) => boolean;
+  capture?: string;
+  route?: string;
+}> = [
+  // Payment ledger states, most specific first.
+  { test: (t, d) => /expired|timed out|released back/.test(t + d) && /payment|session|checkout/.test(t + d), route: '/settings/transactions/AAA-T8KZMW' },
+  { test: (t, d) => /pending|awaiting|not confirmed|offline payment|bank transfer/.test(t + d) && /payment|order created|locked/.test(t + d), route: '/settings/transactions/AAA-L4DJYC' },
+  { test: (t, d) => /payment (completes|confirms|is complete|successful)|payment confirms/.test(t + d), route: '/settings/transactions/AAA-QZCJU2' },
+
+  { test: (t) => /checkout|purchase/.test(t), capture: 'checkout-purchase' },
+  { test: (t, d) => /\bcart\b/.test(t + d), route: '/cart' },
+
+  // Account creation and sign-in.
+  { test: (t, d) => /sign up|sign in|signs in|makes an account|create.*account|activates/.test(t + d) && !/scan/.test(t), route: '/login' },
+
+  // Anything the system sends lands in the in-app notification list.
+  { test: (t, d) => /email|notification|notified|reminder/.test(t + d), route: '/notifications' },
+
+  // Organizer forms.
+  { test: (t, d) => /form|waiver|fill|register|participant data/.test(t + d), route: '/orders/tkt-003/form?returnTo=orders' },
+
+  // Buyer-side management surfaces.
+  { test: (t, d) => /add player|player count|player entries|roster/.test(t + d), route: '/orders/tkt-002' },
+  { test: (t, d) => /guest qr|app-less|temporary pass/.test(t + d), route: '/orders/tkt-010/entry/tkt-010-p2/guest-qr' },
+  { test: (t, d) => /open orders|from orders|in orders|order detail/.test(t + d), route: '/orders' },
+  { test: (t, d) => /browse|register again|event page/.test(t + d), route: '/events/1' },
+  { test: (t, d) => /passport/.test(t + d), route: '/passport' },
+];
+
+function getSharedStepScreen(step: { title: string; desc: string }) {
+  const title = step.title.toLowerCase();
+  const desc = step.desc.toLowerCase();
+  return SHARED_STEP_SCREENS.find((entry) => entry.test(title, desc)) || null;
+}
+
+/**
+ * Per-case step screens for the screen-state cases, indexed by step.
+ *
+ * These are the steps the keyword rules above cannot place, keyed by the case
+ * number in the title. A `capture:` value points at a real capture; anything
+ * else is a live route. `null` means the step has no screen in the app — a gate
+ * scan, an organizer edit, a deadline passing — and keeps the explicit
+ * "no screen in app for this step" panel.
+ */
+const CASE_STEP_SCREENS: Record<string, Array<string | null>> = {
+  // 8: Deadline missed → the released entry shows under Passport → Status updates.
+  '8': [null, null, '/passport/events', null, null],
+  // 12/13: the scan and the cancel both happen on the distribution screen now.
+  '12': [null, null, null, null],
+  '13': [null, '/orders/tkt-011/guest-manager', null, null],
+  // 14: after the gate scan the public pass switches to its used state.
+  '14': [null, null, '/guest-entry/GE-USED-4218', null],
+  // 15: sharing happens in the invite review sheet on the order.
+  '15': [null, 'capture:claim-email-edit', null, null, null],
+  // 21: the buyer shares from the distribution screen; the recipient picks an entry.
+  '21': ['/orders/tkt-011/guest-manager', '/order-share/tkt-011', null, null],
+  // 37-41: the add-entry and public-pass states each resolve to a real URL.
+  '37': [null, null, '/passport/add-entry', '/passport/add-entry'],
+  '38': [null, '/passport/add-entry?code=GE-USED-4218', '/passport/add-entry?code=GE-USED-4218', null],
+  '39': [null, '/passport/add-entry?code=GE-TEMP-4021&demoState=added', '/passport/add-entry?code=GE-TEMP-4021&demoState=added', null],
+  '40': [null, '/passport/add-entry?code=GE-REVOKED-4218', '/passport/add-entry?code=GE-REVOKED-4218', null],
+  '41': ['/guest-entry/GE-CANLAON-42K', null, '/guest-entry/GE-REVOKED-4218', null],
+  // 42: the diff screen is the answer to both the notice and the review step.
+  '42': [null, null, '/forms/tkt-011-p1/diff', null],
+  // 43: the launcher lives on the Passport page.
+  '43': ['/passport', '/passport', '/passport/add-entry', null],
+  // 44: the conflict only exists after a second account submits.
+  '44': [null, null, 'capture:invite-claim-conflict', null],
+  // 45-48: team player entries. The generic "form" rule would send these to the
+  // individual form, so each step names the team route it actually belongs to.
+  '45': [
+    '/orders/tkt-013',
+    '/orders/tkt-013/form?returnTo=order&participantId=p7&playerOnly=1',
+    '/orders/tkt-013/form?returnTo=order&participantId=p7&playerOnly=1',
+    null,
+  ],
+  '46': [
+    '/orders/tkt-014',
+    '/orders/tkt-014',
+    '/orders/tkt-013/form?returnTo=order&participantId=p1&playerOnly=1',
+    null,
+  ],
+  '47': [
+    '/orders/tkt-013',
+    '/orders/tkt-013',
+    '/orders/tkt-013/form?returnTo=order&participantId=p5&playerOnly=1',
+    null,
+  ],
+  '48': ['/orders/tkt-014', '/orders/tkt-014', '/orders/tkt-014', null],
+  // 49: the buyer arrives from the cart, then checkout opens on the details gate.
+  '49': [
+    '/cart',
+    'capture:checkout-participant-details',
+    'capture:checkout-participant-details',
+    null,
+  ],
+  // 50: the web surface is desktop-only, so every step uses the wide capture.
+  '50': [
+    '/guest-entry/GE-CANLAON-42K',
+    'capture:add-entry-web',
+    'capture:add-entry-web',
+    null,
+  ],
+  // 51: the overview card, then the restructured detail.
+  '51': ['/orders', '/orders/tkt-009', '/orders/tkt-009', null],
+};
+
+function getCaseStepScreen(caseTitle: string, stepIdx: number) {
+  const num = caseTitle.match(/Case\s+(\d+):/i)?.[1];
+  const value = num ? CASE_STEP_SCREENS[num]?.[stepIdx] : null;
+  if (!value) return null;
+  return value.startsWith('capture:')
+    ? { capture: value.slice('capture:'.length) }
+    : { route: value };
+}
+
+type StepScreenSource =
+  | { kind: 'capture'; capture: string }
+  | { kind: 'live'; route: string }
+  | { kind: 'case' }
+  | { kind: 'none' };
+
+/**
+ * One resolution order for every step viewport, shared by the case catalog and
+ * the flow diagram so both agree on which screen backs a step:
+ * per-case capture → per-case route → the case's own screen on the last step →
+ * per-case step screen → shared step screen → no screen in the app.
+ */
+function resolveStepScreen(
+  caseTitle: string,
+  stepIdx: number,
+  step: { title: string; desc: string },
+  stepsCount: number,
+): StepScreenSource {
+  const purchaseIntentCapture = getPurchaseIntentCapture(caseTitle, stepIdx);
+  if (purchaseIntentCapture) return { kind: 'capture', capture: purchaseIntentCapture };
+
+  const purchaseIntentRoute = getPurchaseIntentStepRoute(caseTitle, step.title);
+  if (purchaseIntentRoute) return { kind: 'live', route: purchaseIntentRoute };
+
+  // The last step shows the screen the case is actually about.
+  if (stepIdx === stepsCount - 1) return { kind: 'case' };
+
+  const screen = getCaseStepScreen(caseTitle, stepIdx) || getSharedStepScreen(step);
+  if (screen?.capture) return { kind: 'capture', capture: screen.capture };
+  if (screen?.route) return { kind: 'live', route: screen.route };
+
+  return { kind: 'none' };
+}
+
+/** Short label naming the evidence behind a step, shown on the flow diagram. */
+function describeStepScreen(source: StepScreenSource): string {
+  if (source.kind === 'live') return `Live · ${source.route}`;
+  if (source.kind === 'capture') return `Capture · ${source.capture}`;
+  if (source.kind === 'case') return 'Case screen';
+  return 'No app screen';
 }
 
 function getStepViewport(
@@ -731,66 +543,17 @@ function getStepViewport(
   stepsCount: number,
   finalViewport: () => React.ReactNode
 ): React.ReactNode {
-  const purchaseIntentCapture = getPurchaseIntentCapture(caseTitle, stepIdx);
-  if (purchaseIntentCapture) {
-    return <PurchaseIntentCapture capture={purchaseIntentCapture} title={step.title} />;
-  }
+  const source = resolveStepScreen(caseTitle, stepIdx, step, stepsCount);
 
-  const purchaseIntentRoute = getPurchaseIntentStepRoute(caseTitle, step.title);
-  if (purchaseIntentRoute) {
-    return <LiveAppScreen title={`Live app screen - ${step.title}`} path={purchaseIntentRoute} />;
+  if (source.kind === 'capture') {
+    return <PurchaseIntentCapture capture={source.capture} title={step.title} />;
   }
-
-  // Step 1 of timelines is usually "Checkout & Purchase"
-  if (step.title === 'Checkout & Purchase') {
-    let eventName = 'Canlaon Marathon 2026';
-    let category = '42K Full Marathon';
-    let price = 1500;
-    
-    if (caseTitle.includes('Team')) {
-      eventName = 'Apo Island Water Swim';
-      category = '4x500m Relay (Team)';
-      price = 4000;
-    } else if (caseTitle.includes('Pickleball') || caseTitle.includes('Multi')) {
-      eventName = 'VisMin Super Cup';
-      category = 'Pickleball / Basketball';
-      price = 2000;
-    } else if (caseTitle.includes('Aquathlon') || caseTitle.includes('Resubmit')) {
-      eventName = 'Aquathlon Dumaguete 2026';
-      category = 'Sprint Distance';
-      price = 1200;
-    }
-    return <WF_Checkout eventName={eventName} category={category} price={price} />;
+  if (source.kind === 'live') {
+    return <LiveAppScreen title={`Live app screen - ${step.title}`} path={source.route} />;
   }
-
-  // Final step renders the specific custom view
-  if (stepIdx === stepsCount - 1) {
+  if (source.kind === 'case') {
     return finalViewport();
   }
-
-  const lowerTitle = step.title.toLowerCase();
-  const lowerDesc = step.desc.toLowerCase();
-
-  // Reusable screen: Email View
-  if (lowerTitle.includes('email') || lowerTitle.includes('notification') || lowerDesc.includes('email') || lowerDesc.includes('notified')) {
-    return <WF_EmailView subject={step.title} body={step.desc} />;
-  }
-
-  // Reusable screen: Registration Form
-  if (lowerTitle.includes('register') || lowerTitle.includes('form') || lowerTitle.includes('waiver') || lowerTitle.includes('fill') || lowerDesc.includes('form') || lowerDesc.includes('waiver')) {
-    if (lowerTitle.includes('sign up') || lowerTitle.includes('account') || lowerDesc.includes('account')) {
-      return <WF_AuthStep desc={step.desc} />;
-    }
-    return <WF_FormFillStep title={step.title} description={step.desc} />;
-  }
-
-  // Reusable screen: Payment Status
-  if (lowerTitle.includes('payment') || lowerTitle.includes('created') || lowerTitle.includes('confirmed') || lowerDesc.includes('payment') || lowerDesc.includes('invoice')) {
-    const isPending = lowerTitle.includes('pending') || lowerDesc.includes('pending');
-    const isMultiple = caseTitle.includes('Team') || caseTitle.includes('Multi') || caseTitle.includes('Pickleball') || caseTitle.includes('Shared');
-    return <WF_PaymentStatusStep title={step.title} status={isPending ? 'pending' : 'success'} desc={step.desc} isMultiple={isMultiple} />;
-  }
-
   return <WF_DefaultScreen title={step.title} desc={step.desc} />;
 }
 
@@ -817,7 +580,7 @@ interface AccessPathProps {
 }
 
 interface CaseCatalogItem {
-  group: 'scenario' | 'single' | 'multiple' | 'team' | 'aggregate';
+  group: 'scenario' | 'pending' | 'ready' | 'eventPast' | 'exceptions' | 'overview';
   badgeText: string;
   badgeColor?: string;
   title: string;
@@ -1097,387 +860,6 @@ function CaseItemFrame({
 // Wireframe Viewport Renderers
 // ---------------------------------------------------------------------------
 
-/** Case 1: Passport Card Front */
-function WF_PassportFront() {
-  return (
-    <div className="flex items-center justify-center p-4 min-h-full bg-[#eef7f5] font-sans">
-      <div className="relative w-[230px] h-[310px] rounded-[24px] border border-[#ad885c] bg-gradient-to-b from-[#d8b68f] to-[#b28e65] shadow-lg p-2.5 overflow-hidden">
-        {/* Leather stitch line */}
-        <div className="absolute inset-1.5 rounded-[20px] border border-dashed border-[#8c6d48]/40 pointer-events-none" />
-
-        {/* Metal Card Sliding Up */}
-        <div className="absolute left-1/2 -translate-x-1/2 top-4 w-[190px] h-[225px] rounded-[20px] border border-white/70 bg-[linear-gradient(135deg,#fafafa_0%,#e4e4e7_25%,#a1a1aa_50%,#f4f4f5_75%,#fafafa_100%)] p-3 flex flex-col justify-between shadow-[0_12px_24px_rgba(0,0,0,0.25),inset_0_1px_1px_rgba(255,255,255,0.8)]">
-          <span className="font-mono text-[6.5px] font-extrabold tracking-[1.5px] text-[#3f3f46] uppercase text-center">Universal Pass</span>
-          
-          <div className="mx-auto flex h-[90px] w-[90px] items-center justify-center rounded-[16px] border border-white/55 bg-white/85 shadow-sm p-2">
-            <QrCode className="w-full h-full text-slate-800" />
-          </div>
-
-          <div className="text-center font-mono leading-none">
-            <p className="text-[8px] font-bold uppercase tracking-[0.5px] text-slate-900">Jessica Sanchez</p>
-            <p className="text-[7px] text-slate-600 tracking-[1.5px] mt-0.5">M-4019-92</p>
-          </div>
-        </div>
-
-        {/* Leather Pocket Front Lip */}
-        <div className="absolute bottom-2.5 left-2.5 right-2.5 h-[76px] rounded-[14px] bg-[linear-gradient(135deg,#bd9a72_0%,#9e7a52_100%)] border border-[#8a6842] shadow-[0_4px_10px_rgba(0,0,0,0.15)] flex flex-col items-center justify-center opacity-90">
-          <div className="absolute inset-1 rounded-[10px] border border-[#705230]/40 pointer-events-none" />
-          <span className="text-[8px] font-black tracking-widest text-[#5c4935] uppercase">PlanOut</span>
-          <span className="text-[5.5px] font-bold uppercase tracking-[2px] text-[#5c4935]/70 mt-0.5">Passport Holder</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Case 2: Passport Card Front Actions */
-function WF_PassportFrontActions() {
-  return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-3 bg-[#eef7f5] p-4 font-sans">
-      <div className="relative h-[310px] w-[230px] overflow-hidden rounded-[24px] border border-[#ad885c] bg-gradient-to-b from-[#d8b68f] to-[#b28e65] p-2.5 shadow-lg">
-        {/* Leather stitch line */}
-        <div className="pointer-events-none absolute inset-1.5 rounded-[20px] border border-dashed border-[#8c6d48]/40" />
-
-        {/* Metal Card Front */}
-        <div className="absolute left-1/2 top-4 flex h-[225px] w-[190px] -translate-x-1/2 flex-col justify-between rounded-[20px] border border-white/70 bg-[linear-gradient(135deg,#fafafa_0%,#e4e4e7_25%,#a1a1aa_50%,#f4f4f5_75%,#fafafa_100%)] p-3 shadow-[0_12px_24px_rgba(0,0,0,0.25),inset_0_1px_1px_rgba(255,255,255,0.8)]">
-          <span className="text-center font-mono text-[6.5px] font-extrabold uppercase tracking-[1.5px] text-[#3f3f46]">Universal Pass</span>
-          
-          <div className="mx-auto flex h-[90px] w-[90px] items-center justify-center rounded-[16px] border border-white/55 bg-white/85 p-2 shadow-sm">
-            <QrCode className="h-full w-full text-slate-800" />
-          </div>
-
-          <div className="text-center font-mono leading-none">
-            <p className="text-[8px] font-bold uppercase tracking-[0.5px] text-slate-900">Jessica Sanchez</p>
-            <p className="mt-0.5 text-[7px] tracking-[1.5px] text-slate-600">M-4019-92</p>
-          </div>
-        </div>
-
-        {/* Leather Pocket Front Lip */}
-        <div className="absolute bottom-2.5 left-2.5 right-2.5 flex h-[76px] flex-col items-center justify-center rounded-[14px] border border-[#8a6842] bg-[linear-gradient(135deg,#bd9a72_0%,#9e7a52_100%)] opacity-90 shadow-[0_4px_10px_rgba(0,0,0,0.15)]">
-          <div className="pointer-events-none absolute inset-1 rounded-[10px] border border-[#705230]/40" />
-          <span className="text-[8px] font-black tracking-widest text-[#5c4935] uppercase">PlanOut</span>
-          <span className="text-[5.5px] font-bold uppercase tracking-[2px] text-[#5c4935]/70 mt-0.5">Passport Holder</span>
-        </div>
-      </div>
-
-      <div className="grid w-full grid-cols-3 gap-1.5">
-        {[
-          { label: 'Events', color: 'bg-slate-100 text-slate-700', badge: 2 },
-          { label: 'Save', color: 'bg-slate-100 text-slate-700' },
-          { label: 'Reset QR', color: 'bg-slate-100 text-slate-700' },
-        ].map(({ label, color, badge }) => (
-          <div key={label} className={`relative flex flex-col items-center gap-0.5 rounded-xl border border-black/5 px-1 py-2 text-center shadow-sm ${color}`}>
-            <span className="text-[7px] font-extrabold leading-none">{label}</span>
-            {badge && (
-              <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[6px] font-black text-white">{badge}</span>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Case 3: Inline Form Confirmation */
-function WF_InlineForm() {
-  return (
-    <div className="bg-[#f8fafc] min-h-full flex flex-col p-4 gap-3 font-sans text-slate-800">
-      {/* Top Registration Complete banner */}
-      <div className="bg-white rounded-xl border border-slate-200 p-2.5 flex items-center gap-2 shadow-sm">
-        <div className="w-7 h-7 rounded-full bg-emerald-50 text-[#177564] flex items-center justify-center shrink-0">
-          <Check className="w-4 h-4" />
-        </div>
-        <div className="min-w-0">
-          <h4 className="text-[10px] font-bold text-slate-800 leading-none">Order Confirmed!</h4>
-          <p className="text-[8px] text-slate-400 mt-0.5 truncate">Confirmation email sent to jessica@email.com</p>
-        </div>
-      </div>
-
-      {/* Inline registration form card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col gap-3 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.12)]">
-        <div className="flex items-center gap-1">
-          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[7.5px] font-extrabold text-amber-700 uppercase tracking-wide">
-            <Lock className="w-2.5 h-2.5" />
-            Form Pending
-          </span>
-        </div>
-        <div>
-          <h3 className="text-[12px] font-bold text-slate-900 leading-tight">Complete registration</h3>
-          <p className="text-[9px] text-slate-500 mt-0.5 leading-normal">
-            Fill out the attendee details below to activate your passport and attach your ticket.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2.5">
-          <div className="grid grid-cols-2 gap-2">
-            <WireframeInput label="First Name" value="Jessica" />
-            <WireframeInput label="Last Name" value="Sanchez" />
-          </div>
-          <WireframeInput label="Email" value="jessica@email.com" />
-          <WireframeInput label="Contact" value="0917 123 4567" />
-          
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[8px] font-semibold text-slate-400 uppercase">Medical Clearance / Waiver</span>
-            <div className="border border-dashed border-slate-200 bg-slate-50 rounded-xl p-3 text-center flex flex-col items-center justify-center">
-              <Upload className="w-4 h-4 text-slate-400 mb-0.5" />
-              <span className="text-[9px] font-bold text-[#177564]">medical_clearance_sanchez.pdf</span>
-              <span className="text-[7.5px] text-slate-450 mt-0.5">Upload verified successfully</span>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2 border border-slate-100 bg-slate-50 rounded-lg p-2 mt-0.5">
-            <input type="checkbox" checked disabled className="rounded border-slate-300 text-[#177564] mt-0.5 shrink-0" />
-            <span className="text-[8px] text-slate-500 font-medium leading-normal">
-              I agree to the organizer's custom terms & liability waiver statement.
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-[#177564] text-white text-[11px] font-bold py-2 rounded-xl text-center select-none cursor-pointer mt-1 shadow-sm">
-          Submit & Activate Passport
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Case 4: FormTaskCard — Single Entry */
-function WF_FormTaskSingle() {
-  return (
-    <div className="p-4 bg-[#f8fafc] min-h-full flex flex-col justify-center font-sans">
-      <article className="bg-white rounded-[18px] border border-slate-200 p-4.5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] flex flex-col gap-4">
-        <div className="flex items-start gap-3.5">
-          <div className="h-13 w-13 shrink-0 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200/50 shadow-inner">
-            <Eye className="w-4.5 h-4.5 text-slate-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Single entry</span>
-            <h3 className="text-[14px] font-bold text-slate-900 mt-0.5 leading-tight truncate">Canlaon Marathon 2026</h3>
-            <p className="text-[12px] text-slate-500 mt-1 leading-normal">
-              Complete your participant details so this event appears as ready on your Passport.
-            </p>
-            <div className="mt-3 flex items-center gap-1.5 text-[11.5px] text-slate-500 font-semibold">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-              <span>42K Full Marathon</span>
-              <span className="text-slate-300">·</span>
-              <span>Deadline June 15, 2026</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex">
-          <div className="bg-[#177564] text-white text-[12px] font-bold h-9 px-5 rounded-full flex items-center justify-center gap-1.5 shadow-sm select-none cursor-pointer">
-            Complete form
-            <ChevronRight className="w-3.5 h-3.5" />
-          </div>
-        </div>
-      </article>
-    </div>
-  );
-}
-
-/** Case 5: Locked — Pending Payment */
-function WF_PendingPayment() {
-  return (
-    <div className="p-4 bg-[#f8fafc] min-h-full flex flex-col justify-center font-sans">
-      <article className="rounded-[18px] border border-slate-200 bg-white p-4.5 shadow-[0_2px_12px_rgba(0,0,0,0.01)]">
-        <div className="flex items-start gap-3">
-          <div className="h-13 w-13 shrink-0 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200/50 shadow-inner">
-            <Eye className="w-4.5 h-4.5 text-slate-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h2 className="truncate text-[14px] font-bold text-slate-900 leading-tight">Canlaon Marathon 2026</h2>
-                <p className="mt-1 text-[11.5px] font-semibold text-slate-500 leading-relaxed">
-                  June 27, 2026 - 42K Full Marathon
-                </p>
-              </div>
-            </div>
-            
-            <p className="mt-3 text-[12.5px] font-medium leading-relaxed text-amber-800">
-              Payment verification pending · Access ready once paid
-            </p>
-
-            <button
-              type="button"
-              disabled
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-slate-100 border border-slate-200 px-4 py-2 text-[11.5px] font-bold text-slate-400 cursor-not-allowed"
-            >
-              Awaiting payment
-            </button>
-          </div>
-        </div>
-      </article>
-    </div>
-  );
-}
-
-/** Case 6: Resubmit Required */
-function WF_ResubmitRequired() {
-  return (
-    <div className="p-4 bg-[#f8fafc] min-h-full flex flex-col justify-center font-sans">
-      <article className="rounded-[18px] border border-slate-200 bg-white p-4.5 shadow-[0_2px_12px_rgba(0,0,0,0.01)]">
-        <div className="flex items-start gap-3">
-          <div className="h-13 w-13 shrink-0 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200/50 shadow-inner">
-            <Eye className="w-4.5 h-4.5 text-slate-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-[14px] font-bold text-slate-900 leading-tight">Aquathlon Dumaguete 2026</h2>
-                <p className="mt-1 text-[11.5px] font-semibold text-slate-500 leading-relaxed">
-                  Aug 10, 2026 - Sprint Distance
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-orange-50 px-2 py-0.5 text-[9.5px] font-bold text-orange-700 border border-orange-100">
-                Form update required
-              </span>
-            </div>
-
-            <p className="mt-3 text-[12.5px] font-medium leading-relaxed text-slate-500">
-              Please review the updated form to keep this registration valid.
-            </p>
-
-            <button
-              type="button"
-              className="mt-4 inline-flex h-9 items-center justify-center rounded-full bg-orange-600 px-4.5 text-[11.5px] font-bold text-white transition-all hover:bg-orange-700 active:scale-[0.98] shadow-sm select-none"
-            >
-              Review form
-            </button>
-          </div>
-        </div>
-      </article>
-    </div>
-  );
-}
-
-/** Case 7: Attached & Ready */
-function WF_AttachedReady() {
-  return (
-    <div className="p-4 bg-[#f8fafc] min-h-full flex flex-col justify-center font-sans">
-      <article className="rounded-[18px] border border-slate-200 bg-white p-4.5 shadow-[0_2px_12px_rgba(0,0,0,0.01)]">
-        <div className="flex items-start gap-3">
-          <div className="h-13 w-13 shrink-0 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200/50 shadow-inner">
-            <Eye className="w-4.5 h-4.5 text-slate-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-[14px] font-bold text-slate-900 leading-tight">Canlaon Marathon 2026</h2>
-                <p className="mt-1 text-[11.5px] font-semibold text-slate-500 leading-relaxed">
-                  June 27, 2026 - 42K Full Marathon
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold text-[#177564] border border-emerald-100">
-                Ready
-              </span>
-            </div>
-          </div>
-        </div>
-      </article>
-    </div>
-  );
-}
-
-/** Case 8: Spot Released */
-function WF_SpotReleased() {
-  return (
-    <div className="p-4 bg-[#f8fafc] min-h-full flex flex-col justify-center font-sans">
-      <article className="rounded-[18px] border border-slate-200 bg-white p-4.5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] opacity-70">
-        <div className="flex items-start gap-3">
-          <div className="h-13 w-13 shrink-0 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200/50 shadow-inner">
-            <Eye className="w-4.5 h-4.5 text-slate-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-[14px] font-bold text-slate-500 leading-tight">Emerald Pickleball Cup</h2>
-                <p className="mt-1 text-[11.5px] font-semibold text-slate-400 leading-relaxed">
-                  July 5, 2026 - Singles
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[9.5px] font-bold text-slate-500 border border-slate-200">
-                Spot released
-              </span>
-            </div>
-            
-            <p className="mt-3 text-[12.5px] font-medium leading-relaxed text-slate-500">
-              Form deadline was June 20, 2026. Your spot was released back to inventory. No refund issued.
-            </p>
-
-            <button
-              type="button"
-              className="mt-4 inline-flex h-9 items-center justify-center rounded-full border border-slate-200 bg-white px-4.5 text-[11.5px] font-bold text-slate-650 hover:bg-slate-50 shadow-sm animate-none"
-            >
-              Browse event again
-            </button>
-          </div>
-        </div>
-      </article>
-    </div>
-  );
-}
-
-/** Case 9: Past Attended */
-function WF_PastAttended() {
-  return (
-    <div className="p-4 bg-[#f8fafc] min-h-full flex flex-col justify-center font-sans">
-      <article className="rounded-[18px] border border-slate-200 bg-white p-4.5 shadow-[0_2px_12px_rgba(0,0,0,0.01)]">
-        <div className="flex items-start gap-3">
-          <div className="h-13 w-13 shrink-0 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200/50 shadow-inner">
-            <Eye className="w-4.5 h-4.5 text-slate-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-[14px] font-bold text-slate-500 leading-tight">Negros Trail Ultra 2025</h2>
-                <p className="mt-1 text-[11.5px] font-semibold text-slate-400 leading-relaxed">
-                  Nov 15, 2025 - 50K Ultra
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[9.5px] font-bold text-slate-500 border border-slate-200">
-                Attended
-              </span>
-            </div>
-          </div>
-        </div>
-      </article>
-    </div>
-  );
-}
-
-/** Case 10: Past No-Show */
-function WF_PastNoShow() {
-  return (
-    <div className="p-4 bg-[#f8fafc] min-h-full flex flex-col justify-center font-sans">
-      <article className="rounded-[18px] border border-slate-200 bg-white p-4.5 shadow-[0_2px_12px_rgba(0,0,0,0.01)]">
-        <div className="flex items-start gap-3">
-          <div className="h-13 w-13 shrink-0 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200/50 shadow-inner">
-            <Eye className="w-4.5 h-4.5 text-slate-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-[14px] font-bold text-slate-500 leading-tight">Summer Fun Run 2025</h2>
-                <p className="mt-1 text-[11.5px] font-semibold text-slate-400 leading-relaxed">
-                  May 20, 2025 - 5K Run
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[9.5px] font-bold text-slate-500 border border-slate-200">
-                No-show
-              </span>
-            </div>
-            <p className="mt-3 text-[12.5px] font-medium leading-relaxed text-slate-500">
-              You were registered but not checked in on event day.
-            </p>
-          </div>
-        </div>
-      </article>
-    </div>
-  );
-}
-
-
 /** Case 11: Guest QR Active */
 function WF_GuestQRActive() {
   return (
@@ -1488,12 +870,17 @@ function WF_GuestQRActive() {
   );
 }
 
-/** Case 12: Guest QR Used */
+/**
+ * Case 12: a scanned Guest QR.
+ * The redesigned pass has no used state — it stays white and claimable — so the
+ * scan is only visible on the distribution screen. Reaching that needs a seeded
+ * scan, hence a capture rather than a live route.
+ */
 function WF_GuestQRUsed() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Guest QR used"
-      path="/orders/tkt-010/entry/tkt-010-p2/guest-qr?state=used"
+    <PurchaseIntentCapture
+      capture="guest-manager-scanned"
+      title="Guest slot marked used after the gate scan"
     />
   );
 }
@@ -1508,6 +895,16 @@ function WF_GuestQRRevoked() {
   );
 }
 
+/** Case 35: Guest QR Claimed into Passport (buyer view) — not a query-param preview state, so this uses a real capture. */
+function WF_GuestQRClaimed() {
+  return (
+    <PurchaseIntentCapture
+      capture="buyer-guest-qr-claimed"
+      title="Buyer's Guest QR screen after the guest claims it"
+    />
+  );
+}
+
 /** Case 14: Guest Web Page */
 function WF_PublicGuestPage() {
   return (
@@ -1518,12 +915,175 @@ function WF_PublicGuestPage() {
   );
 }
 
-/** Case 16: Guest Claim & Register */
+/**
+ * Case 15: Shared form link — the recipient's destination.
+ * '/ticket-claim/:ref' has no page of its own: it resolves the order and entry
+ * from its query and hands off to the standard participant form.
+ */
 function WF_GuestClaimRegister() {
   return (
     <LiveAppScreen
-      title="Live app screen - Ticket claim"
-      path="/ticket-claim/CLM-CANLAON-42K"
+      title="Live app screen - Shared form link destination"
+      path="/ticket-claim/CLM-CANLAON-42K?order=tkt-011&entry=tkt-011-p2"
+    />
+  );
+}
+
+/** Case 37: Camera-first add-entry scanner */
+function WF_AddEntryScanner() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Add-entry scanner"
+      path="/passport/add-entry"
+    />
+  );
+}
+
+/** Case 38: Add-entry resolved to a used pass (past event) */
+function WF_AddEntryPast() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Add a past event"
+      path="/passport/add-entry?code=GE-USED-4218"
+    />
+  );
+}
+
+/** Case 39: Add-entry blocked because the Guest QR was already claimed */
+function WF_AddEntryAlreadySaved() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Entry already saved"
+      path="/passport/add-entry?code=GE-TEMP-4021&demoState=added"
+    />
+  );
+}
+
+/** Case 40: Add-entry blocked because the Guest QR was revoked */
+function WF_AddEntryUnavailable() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Entry cannot be added"
+      path="/passport/add-entry?code=GE-REVOKED-4218"
+    />
+  );
+}
+
+/** Case 41: Public guest page with a dead reference */
+function WF_PublicGuestInvalid() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Guest QR no longer valid"
+      path="/guest-entry/GE-REVOKED-4218"
+    />
+  );
+}
+
+/**
+ * Case 50: the desktop web add-entry surface.
+ * The iframe is 390px wide, which is the mobile camera surface, so this uses a
+ * capture taken at a desktop viewport instead.
+ */
+function WF_AddEntryWeb() {
+  return (
+    <PurchaseIntentCapture
+      capture="add-entry-web"
+      title="Desktop web add-entry surface"
+      fit="contain"
+    />
+  );
+}
+
+/** Case 51: order-level identity with one grouped registration list */
+function WF_OrdersAdaptiveDetail() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Adaptive order detail"
+      path="/orders/tkt-009"
+    />
+  );
+}
+
+/** Case 49: the pre-checkout participant details gate */
+function WF_CheckoutParticipantDetails() {
+  return (
+    <PurchaseIntentCapture
+      capture="checkout-participant-details"
+      title="Participant details required before payment"
+    />
+  );
+}
+
+/** Case 45: team player form with the Passport / Guest QR ownership choice */
+function WF_TeamOwnerChoice() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Player entry ownership choice"
+      path="/orders/tkt-013/form?returnTo=order&participantId=p7&playerOnly=1"
+    />
+  );
+}
+
+/** Case 46: completed player form, read-only */
+function WF_TeamFormCompleted() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Completed player form details"
+      path="/orders/tkt-013/form?returnTo=order&participantId=p1&playerOnly=1"
+    />
+  );
+}
+
+/** Case 47: player invite sent, waiting, with a take-back */
+function WF_TeamInviteSent() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Player invite sent"
+      path="/orders/tkt-013/form?returnTo=order&participantId=p5&playerOnly=1"
+    />
+  );
+}
+
+/** Case 48: team order with every player resolved */
+function WF_TeamAllReady() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Team order fully resolved"
+      path="/orders/tkt-014"
+    />
+  );
+}
+
+/** Case 42: Organizer form version diff */
+function WF_FormDiffReview() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Form version diff"
+      path="/forms/tkt-011-p1/diff"
+    />
+  );
+}
+
+/** Case 43: Passport's "Add a past event" launcher */
+function WF_PassportPastLauncher() {
+  return (
+    <LiveAppScreen
+      title="Live app screen - Add a past event launcher"
+      path="/passport"
+      scrollToText="Add a past event"
+    />
+  );
+}
+
+/**
+ * Case 44: First-submit-wins conflict on a shared form link.
+ * Reaching this needs a submission from a second account, so it uses a capture.
+ */
+function WF_InviteClaimConflict() {
+  return (
+    <PurchaseIntentCapture
+      capture="invite-claim-conflict"
+      title="Shared form link already claimed by another account"
     />
   );
 }
@@ -1548,165 +1108,8 @@ function WF_MultiGuestManager() {
   );
 }
 
-/** Case 17: FormTaskCard — Multiple Entries */
-function WF_FormTaskMulti() {
-  return (
-    <div className="p-4 bg-[#f8fafc] min-h-full flex flex-col justify-center font-sans">
-      <article className="bg-white rounded-[18px] border border-slate-200 p-4.5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] flex flex-col gap-4">
-        <div className="flex items-start gap-3.5">
-          <div className="h-13 w-13 shrink-0 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200/50 shadow-inner">
-            <Eye className="w-4.5 h-4.5 text-slate-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Multiple entries</span>
-            <h3 className="text-[14px] font-bold text-slate-900 mt-0.5 leading-tight truncate">VisMin Super Cup Basketball</h3>
-            <p className="text-[12px] text-slate-500 mt-1 leading-normal">
-              Use this when one purchase covers more than one participant. Fill forms yourself or send links.
-            </p>
-            <div className="mt-3 flex items-center gap-1.5 text-[11.5px] text-slate-500 font-semibold">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-              <span>2 forms needed</span>
-              <span className="text-slate-300">·</span>
-              <span>Deadline July 1, 2026</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex">
-          <div className="bg-[#177564] text-white text-[12px] font-bold h-9 px-5 rounded-full flex items-center justify-center gap-1.5 shadow-sm select-none cursor-pointer">
-            Manage participant forms
-            <ChevronRight className="w-3.5 h-3.5" />
-          </div>
-        </div>
-      </article>
-    </div>
-  );
-}
-
-/** Case 18: Coach View → Roster Progress */
-function WF_TeamProgress() {
-  return (
-    <div className="p-4 bg-[#f8fafc] min-h-full flex flex-col justify-center font-sans">
-      <article className="rounded-[18px] border border-slate-200 bg-white p-4.5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] flex flex-col gap-3">
-        <div className="flex items-start gap-3">
-          <div className="h-13 w-13 shrink-0 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200/50 shadow-inner">
-            <Eye className="w-4.5 h-4.5 text-slate-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-[14px] font-bold text-slate-900 leading-tight">Apo Island Water Swim (Team)</h2>
-                <p className="mt-1 text-[11.5px] font-semibold text-slate-500 leading-relaxed">
-                  July 14, 2026 - 4x500m Relay
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[9.5px] font-bold text-amber-800 border border-amber-100">
-                Deadline July 1, 2026
-              </span>
-            </div>
-            
-            <div className="mt-3">
-              <p className="text-[11.5px] font-bold text-slate-700 mb-1">
-                2 of 4 player forms complete
-              </p>
-              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-[#177564]"
-                  style={{ width: '50%' }}
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="mt-4 inline-flex h-9 items-center justify-center rounded-full bg-[#177564] px-4.5 text-[11.5px] font-bold text-white transition-all hover:bg-[#115e50] active:scale-[0.98] shadow-sm select-none"
-            >
-              Complete team form
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </article>
-    </div>
-  );
-}
-
-/** Case 19: Coach View → Roster Slots */
-function WF_TeamRoster() {
-  const members = [
-    { name: 'Coach Marcus', role: 'Lead', status: 'attached' },
-    { name: 'Jessica Sanchez', role: 'Primary', status: 'attached' },
-    { name: 'Alvin Cheng', role: 'Member', status: 'attached' },
-    { name: 'Ramon Diaz', role: 'Member', status: 'pending' },
-    { name: '(Unassigned)', role: 'Slot 5', status: 'unassigned' },
-  ];
-  const colors: Record<string, string> = {
-    attached: 'bg-emerald-50 text-[#177564] border-emerald-100',
-    pending: 'bg-amber-50 text-amber-800 border-amber-100',
-    unassigned: 'bg-slate-100 text-slate-500 border-slate-200',
-  };
-
-  return (
-    <div className="p-4 bg-white min-h-full flex flex-col gap-3 font-sans text-slate-800">
-      <div className="mt-1 rounded-[14px] border border-slate-100 bg-slate-50/40 p-3.5 shadow-sm">
-        <div className="mb-3 flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-          Roster Members
-        </div>
-        <div className="flex flex-col gap-2.5">
-          {members.map((m, i) => (
-            <div key={i} className="flex items-center justify-between gap-3 border-b border-slate-50 pb-2 last:border-0 last:pb-0">
-              <div className="min-w-0">
-                <p className="truncate text-[12.5px] font-semibold text-slate-800 leading-none">{m.name}</p>
-                {m.role && (
-                  <p className="mt-1 text-[9.5px] font-medium text-slate-400 leading-none">{m.role}</p>
-                )}
-              </div>
-              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-semibold border ${colors[m.status]}`}>
-                {m.status}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Case 20: FormTaskCard — Team Entry */
-function WF_FormTaskTeam() {
-  return (
-    <div className="p-4 bg-[#f8fafc] min-h-full flex flex-col justify-center font-sans">
-      <article className="bg-white rounded-[18px] border border-slate-200 p-4.5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] flex flex-col gap-4">
-        <div className="flex items-start gap-3.5">
-          <div className="h-13 w-13 shrink-0 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center border border-slate-200/50 shadow-inner">
-            <Eye className="w-4.5 h-4.5 text-slate-400" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Team entry</span>
-            <h3 className="text-[14px] font-bold text-slate-900 mt-0.5 leading-tight truncate">Apo Island Water Swim (Team)</h3>
-            <p className="text-[12px] text-slate-500 mt-1 leading-normal">
-              2 roster forms still needed before this team can use Passport access.
-            </p>
-            <div className="mt-3 flex items-center gap-1.5 text-[11.5px] text-slate-500 font-semibold">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-              <span>2/4 complete</span>
-              <span className="text-slate-300">·</span>
-              <span>Deadline July 1, 2026</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex">
-          <div className="bg-[#177564] text-white text-[12px] font-bold h-9 px-5 rounded-full flex items-center justify-center gap-1.5 shadow-sm select-none cursor-pointer">
-            Manage team form
-            <ChevronRight className="w-3.5 h-3.5" />
-          </div>
-        </div>
-      </article>
-    </div>
-  );
-}
-
 /** Case 21: Lead Transfer */
-function WF_LeadTransfer() {
+function WF_GroupShareLive() {
   return (
     <LiveAppScreen
       title="Live app screen - Group claim links"
@@ -1729,282 +1132,314 @@ function WF_EventsOverview() {
 // Flow Step Definitions
 // ---------------------------------------------------------------------------
 
-/** Purchase-intent scenario: final "where you access it" summary screen */
-function WF_AccessSummary({
-  surface,
-  route,
-  rows,
-  note,
-}: {
-  surface: 'Orders' | 'Passport' | 'Guest web page' | 'Claim page' | 'Team' | 'Form';
-  route: string;
-  rows: Array<{ label: string; value: string; tone?: 'buyer' | 'recipient' | 'gate' }>;
-  note?: string;
-}) {
-  const surfaceMeta: Record<string, { tint: string }> = {
-    Orders: { tint: 'text-[#177564] bg-[#ecfdf8] border-[#177564]/25' },
-    Passport: { tint: 'text-[#177564] bg-[#ecfdf8] border-[#177564]/25' },
-    'Guest web page': { tint: 'text-amber-700 bg-amber-50 border-amber-200' },
-    'Claim page': { tint: 'text-pink-700 bg-pink-50 border-pink-200' },
-    Team: { tint: 'text-indigo-700 bg-indigo-50 border-indigo-200' },
-    Form: { tint: 'text-teal-700 bg-teal-50 border-teal-200' },
-  };
-  const toneMeta: Record<string, { color: string }> = {
-    buyer: { color: 'bg-[#177564]' },
-    recipient: { color: 'bg-pink-500' },
-    gate: { color: 'bg-slate-500' },
-  };
-  const meta = surfaceMeta[surface];
-
-  return (
-    <div className="bg-[#f8fafc] min-h-full flex flex-col p-4 gap-3 font-sans text-slate-800">
-      <div className="flex items-center border-b border-slate-200 pb-2 shrink-0">
-        <span className="text-[12px] font-bold text-slate-900">Where you access this</span>
-      </div>
-
-      {/* Surface chip + route */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-        <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${meta.tint}`}>
-            {surface}
-          </span>
-          <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wide">entry surface</span>
-        </div>
-        <div className="rounded-lg bg-slate-900 px-2.5 py-1.5 font-mono text-[10px] font-semibold text-teal-300 break-all">
-          {route}
-        </div>
-      </div>
-
-      {/* Access rows */}
-      <div className="flex flex-col gap-2">
-        {rows.map((r) => {
-          const tm = toneMeta[r.tone ?? 'buyer'];
-          return (
-            <div key={r.label} className="bg-white rounded-xl border border-slate-200 p-2.5 flex items-start gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-              <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${tm.color}`} />
-              <div className="min-w-0">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{r.label}</p>
-                <p className="text-[10.5px] font-semibold text-slate-700 leading-snug mt-0.5">{r.value}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {note && (
-        <div className="rounded-lg bg-teal-50 border border-teal-200 p-2 text-[9px] text-teal-800 leading-normal font-medium mt-auto">
-          {note}
-        </div>
-      )}
-    </div>
-  );
-}
-
 const FLOWS = {
   // ===== PURCHASE-INTENT SCENARIOS (who buys / who fills / who receives) =====
   scnSolo: [
-    { title: 'Checkout & Purchase', desc: 'Buyer buys one ticket for themselves and pays.' },
-    { title: 'Fill own form', desc: 'Buyer completes the organizer form for themselves — inline on the confirmation, or later from Orders or the Passport Events tab.' },
-    { title: 'Entry attaches', desc: 'The entry attaches to the buyer\'s own Universal Passport. No invites and no extra QRs are created.' },
-    { title: 'Access at the gate', desc: 'Buyer opens the Passport tab and shows their one Universal QR. Staff scan resolves this entry.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys one ticket for themselves. The buyer pays.' },
+    { title: 'Fill own form', desc: 'The buyer completes the organizer form. The form is available on the confirmation screen, or later from Orders.' },
+    { title: 'Entry attaches', desc: 'The entry attaches to the buyer\'s Passport. The app does not make invites or extra QR codes.' },
+    { title: 'Access at the gate', desc: 'The buyer opens the Passport tab and shows the Universal QR. The staff scans the QR to find the entry.' },
   ],
   scnGroupFillAll: [
-    { title: 'Open Orders', desc: 'Buyer starts from Orders after purchase and selects the order that contains their own entry plus friend slots.' },
-    { title: 'Manage guest QRs', desc: 'Buyer taps Manage guest QRs on the order to open the distribution surface for all guest slots.' },
-    { title: 'Choose per friend', desc: 'Buyer can generate an app-less Guest QR, or send a claim link if that friend should own the entry on their Passport.' },
-    { title: 'Generate guest QRs', desc: 'For app-less friends, buyer generates and shares Guest QR links. Friends need no PlanOut account.' },
-    { title: 'Send claim links', desc: 'For Passport friends, buyer sends a claim link. The friend signs in or creates an account, then the entry attaches to that Passport.' },
-    { title: 'Access surfaces', desc: 'Buyer manages guest QR status from Orders. Claimed entries move to the recipient Passport.' },
+    { title: 'Open Orders', desc: 'The buyer opens Orders after the purchase. The buyer selects the order that has their entry and the friend slots.' },
+    { title: 'Distribute Guest QRs', desc: 'The buyer opens the guest-distribution screen. This screen controls all the guest slots in one place, with a group-chat share option.' },
+    { title: 'Choose per friend', desc: 'For each friend, the buyer makes a Guest QR or sends a claim link. A claim link puts the entry on the friend\'s Passport.' },
+    { title: 'Generate guest QRs', desc: 'For app-less friends, the buyer makes and shares Guest QR links. These friends do not need a PlanOut account.' },
+    { title: 'Send claim links', desc: 'For Passport friends, the buyer sends a claim link. The friend signs in or makes an account. The entry then attaches to that Passport.' },
+    { title: 'Access surfaces', desc: 'The buyer can also manage each slot one at a time from the order detail. Claimed entries move to the recipient\'s Passport.' },
   ],
   scnGroupSendFriend: [
-    { title: 'Checkout & Purchase', desc: 'Buyer buys two tickets — one for themselves, one for a friend who should manage their own entry.' },
-    { title: 'Fill own form', desc: 'Buyer completes their own organizer form; their entry attaches to their Passport.' },
-    { title: 'Email — claim link sent', desc: 'From Orders, buyer copies the claim link and sends it to the friend via email or message. No live app screen exists for this action — it happens outside PlanOut.' },
-    { title: 'Friend registers', desc: 'Friend opens the link in their browser, which lands on /ticket-claim/:claimRef. They sign in or create a PlanOut account, then complete the organizer form.' },
-    { title: 'Access surfaces', desc: 'Buyer keeps their own entry on Passport; the friend\'s claimed entry attaches to the friend\'s Passport. No separate screen — outcome only.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys two tickets. One ticket is for the buyer. One ticket is for a friend who controls their own entry.' },
+    { title: 'Fill own form', desc: 'The buyer completes their own organizer form. The buyer\'s entry attaches to their Passport.' },
+    { title: 'Email — claim link sent', desc: 'The buyer copies the claim link from Orders. The buyer sends the link by email or message. This step occurs outside PlanOut.' },
+    { title: 'Friend registers', desc: 'The friend opens the link at /ticket-claim/:claimRef. The friend signs in or makes a PlanOut account. The friend then completes the organizer form.' },
+    { title: 'Access surfaces', desc: 'The buyer keeps their entry on their Passport. The friend\'s entry attaches to the friend\'s Passport.' },
   ],
   scnDependent: [
-    { title: 'Checkout & Purchase', desc: 'Buyer buys a ticket for someone who will not use a PlanOut account.' },
-    { title: 'Fill form on behalf', desc: 'Buyer opens Orders and completes all organizer-defined fields on the guest\'s behalf.' },
-    { title: 'Generate Guest QR', desc: 'Buyer taps Generate & send QR in Orders to create the app-less Guest QR — no app, no login, no account ever required.' },
-    { title: 'Print or send QR — external', desc: 'Buyer prints the Guest QR or sends the web link via SMS or messaging. No live app screen — this happens outside PlanOut.' },
-    { title: 'Access surfaces — outcome', desc: 'Buyer manages the Guest QR from Orders; the guest is scanned in directly at the gate. No Passport attachment.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys a ticket for a person who will not use a PlanOut account.' },
+    { title: 'Fill form on behalf', desc: 'The buyer opens Orders. The buyer completes all the organizer fields for the guest.' },
+    { title: 'Generate Guest QR', desc: 'The buyer taps Generate & send QR in Orders. This makes an app-less Guest QR. The guest does not need an app, a login, or an account.' },
+    { title: 'Print or send QR — external', desc: 'The buyer prints the Guest QR or sends the web link by SMS or message. This step occurs outside PlanOut.' },
+    { title: 'Access surfaces — outcome', desc: 'The buyer controls the Guest QR from Orders. The staff scans the guest in at the gate. The entry does not attach to a Passport.' },
   ],
   scnMixed: [
-    { title: 'Checkout & Purchase', desc: 'Buyer buys three tickets — self plus two others — in one order.' },
-    { title: 'Open FormTaskCard', desc: 'On the Passport Events tab, a "Multiple entries" task card shows the slots still needing action.' },
-    { title: 'Choose per slot', desc: 'Buyer picks a strategy per slot: fill own, send one friend a claim link that requires login/sign-up, send another a Guest QR with no account.' },
-    { title: 'Access surfaces', desc: 'Self on the buyer\'s Passport, the invited friend on their own Passport, the guest via Guest QR — all reachable from Orders.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys three tickets in one order. One ticket is for the buyer. Two tickets are for other persons.' },
+    { title: 'Open Orders', desc: 'The order shows a "Forms needed" label with the number of slots that need action.' },
+    { title: 'Choose per slot', desc: 'The buyer selects an option for each slot: complete the form, send a claim link (account necessary), or send a Guest QR (no account).' },
+    { title: 'Access surfaces', desc: 'The buyer\'s entry is on their Passport. The claimed entry is on the friend\'s Passport. The guest uses the Guest QR. Orders shows all three.' },
   ],
   scnGiftTransfer: [
-    { title: 'Checkout & Purchase', desc: 'Buyer buys a ticket purely for a friend and is not attending themselves.' },
-    { title: 'Email — form link sent', desc: 'From Orders, buyer copies the form/claim link and sends it to the friend via email or message. No live app screen — this action happens outside PlanOut.' },
-    { title: 'Friend registers & fills', desc: 'Friend opens the link, signs in or creates a PlanOut account, and completes the organizer form. Lands on /ticket-claim/:claimRef.' },
-    { title: 'Entry attaches — outcome', desc: 'After registration and form completion, the entry attaches to the friend\'s Passport. No separate screen — outcome only.' },
-    { title: 'Organizer transfer only', desc: 'If the form had already been filled or the wrong person owns it, the buyer must contact the organizer to request a transfer.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys a ticket for a friend. The buyer does not attend.' },
+    { title: 'Email — form link sent', desc: 'The buyer copies the form link from Orders. The buyer sends the link by email or message. This step occurs outside PlanOut.' },
+    { title: 'Friend registers & fills', desc: 'The friend opens the link at /ticket-claim/:claimRef. The friend signs in or makes an account. The friend completes the organizer form.' },
+    { title: 'Entry attaches — outcome', desc: 'After the friend completes the form, the entry attaches to the friend\'s Passport.' },
+    { title: 'Organizer transfer only', desc: 'If the form is already complete, only the organizer can transfer the entry. The buyer must contact the organizer.' },
   ],
   scnGiftGuestQR: [
-    { title: 'Checkout & Purchase', desc: 'Buyer buys access for someone else and is not attending themselves.' },
-    { title: 'Buyer fills form', desc: 'Buyer completes the organizer form on the recipient\'s behalf because the recipient will not log in or create a PlanOut account.' },
-    { title: 'Generate Guest QR', desc: 'Buyer generates the same Guest QR for adult friends, children, elderly relatives, dependents, or any app-less recipient.' },
-    { title: 'Share or print QR', desc: 'Buyer sends the Guest QR link or prints it for gate scanning.' },
-    { title: 'Access surfaces', desc: 'Buyer tracks the Guest QR from Orders. The recipient does not get Passport ownership.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys access for another person. The buyer does not attend.' },
+    { title: 'Buyer fills form', desc: 'The recipient does not use an account. Because of this, the buyer completes the organizer form for the recipient.' },
+    { title: 'Generate Guest QR', desc: 'The buyer makes the Guest QR. The same Guest QR applies to adult friends, children, elderly relatives, and dependents.' },
+    { title: 'Share or print QR', desc: 'The buyer sends the Guest QR link, or prints the QR for the gate scan.' },
+    { title: 'Access surfaces', desc: 'The buyer monitors the Guest QR from Orders. The recipient does not get Passport ownership.' },
   ],
   scnTeam: [
-    { title: 'Checkout & Purchase', desc: 'Buyer purchases one team registration with organizer-defined minimum and maximum player counts.' },
-    { title: 'Add players', desc: 'Buyer adds players in the team form; there is no separate roster-management screen.' },
-    { title: 'Choose access per player', desc: 'Buyer sends a claim link to account holders or completes the form and generates an app-less Guest QR.' },
-    { title: 'Players resolve access', desc: 'Claim recipients attach to their own Passport; app-less recipients use their Guest QR.' },
-    { title: 'Gate access', desc: 'Each player presents their own Passport or Guest QR.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys one team registration. The organizer sets the minimum and maximum player counts. This stays one purchase and one financial registration item.' },
+    { title: 'Size the roster', desc: 'The buyer adds player entries from the team order with "Add player", up to the organizer maximum, and can remove an extra slot back down to the organizer minimum. Only an unsent, unfilled slot can be removed. Adding a slot does not open a form.' },
+    { title: 'Choose access per player', desc: 'From the team order, the buyer sends a claim link, or completes the form and makes a Guest QR for each player.' },
+    { title: 'Players resolve access', desc: 'Players with claim links attach to their own Passports. App-less players use their Guest QRs.' },
+    { title: 'Gate access', desc: 'Each player shows their own Passport or Guest QR at the gate.' },
   ],
   scnLeadTransfer: [
-    { title: 'Guest QR shared', desc: 'Buyer completes the organizer form and shares an app-less Guest QR.' },
-    { title: 'Guest attends or keeps code', desc: 'The QR can be presented at the gate or kept for later account creation.' },
-    { title: 'Open add-entry flow', desc: 'Guest scans the QR or enters its code after signing in or creating an account.' },
-    { title: 'Confirm one-time claim', desc: 'The entry is reviewed and explicitly added to that Passport.' },
-    { title: 'Guest QR invalidated', desc: 'The Passport retains the entry and any prior check-in; the QR cannot be used or claimed again.' },
+    { title: 'Guest QR shared', desc: 'The buyer completes the organizer form. The buyer shares an app-less Guest QR.' },
+    { title: 'Guest attends or keeps code', desc: 'The guest can show the QR at the gate. The guest can also keep the code and make an account later.' },
+    { title: 'Open add-entry flow', desc: 'The guest signs in or makes an account, then opens the scanner from Passport and scans the QR, or uploads a saved photo of it.' },
+    { title: 'Claim once', desc: 'A recognized code is claimed on the spot and Passport confirms it with a toast. Opening a direct /passport/add-entry?code= link instead shows the review screen first, which is the recovery path for a shared link.' },
+    { title: 'Guest QR invalidated', desc: 'The Passport keeps the entry and the check-in record. The Guest QR becomes invalid. A second claim is not possible.' },
+  ],
+  scnPastPassClaim: [
+    { title: 'Guest QR used at the gate', desc: 'The guest shows the app-less Guest QR at the gate. The staff scans it. The pass records the check-in time and the gate, and the QR stops working for entry.' },
+    { title: 'Open the past-event scanner', desc: 'The guest signs in or makes an account later. On the Passport tab, the "Add a past event" card opens the in-app camera.' },
+    { title: 'Scan the used pass', desc: 'The guest scans the same Guest QR or uploads a saved photo of it. A used pass still resolves, because the check-in record is what makes it worth keeping.' },
+    { title: 'Confirm the past event', desc: 'A direct /passport/add-entry?code= link shows the review screen: the event, the participant, and the check-in stamp, stating that adding it keeps history only and creates no new gate QR. A camera scan skips this and claims outright.' },
+    { title: 'Passport keeps the history', desc: 'The event joins the Passport history for that account. The original Guest QR becomes permanently inactive, so no second Passport can claim the same check-in.' },
   ],
   cardFront: [
-    { title: 'Checkout & Purchase', desc: 'User adds a single entry ticket to their cart, completes checkout, and initiates registration.' },
-    { title: 'User Registers / Activates', desc: 'User completes registration. System provisions a Universal Passport.' },
-    { title: 'Welcome Email Sent', desc: 'System emails a welcome message containing their unique Passport Code and offline setup instructions.' },
-    { title: 'View Passport in App', desc: 'User accesses the card on their Passport tab. Shows dynamic QR code and personal stats.' },
+    { title: 'Checkout & Purchase', desc: 'The user puts one ticket in the cart. The user completes the checkout and starts the registration.' },
+    { title: 'User Registers / Activates', desc: 'The user completes the registration. The system makes a Universal Passport.' },
+    { title: 'Welcome Email Sent', desc: 'The system sends a welcome email. The email has the Passport Code and the offline instructions.' },
+    { title: 'View Passport in App', desc: 'The user opens the Passport tab. The card shows the dynamic QR on a white page, under the PlanOut Passport wordmark, with the holder name and passport code.' },
   ],
   cardFrontActions: [
-    { title: 'Checkout & Purchase', desc: 'User purchases a ticket on PlanOut and activates their Universal Passport.' },
-    { title: 'Open Passport Front', desc: 'Athlete opens the Passport tab and sees the active front card with the dynamic QR.' },
-    { title: 'Open Events', desc: 'Athlete taps Events from the front action row to review registrations and pending forms.' },
-    { title: 'Save or Regenerate QR', desc: 'Athlete can save the Passport or regenerate the QR directly from the front actions.' },
+    { title: 'Checkout & Purchase', desc: 'The user buys a ticket on PlanOut. The Universal Passport becomes active.' },
+    { title: 'Open Passport Front', desc: 'The user opens the Passport tab. The front card shows the dynamic QR as a premium tile that expands on tap.' },
+    { title: 'Open Events', desc: 'The user taps Events on the front action row. This shows the registrations and the forms that are not complete.' },
+    { title: 'Save or Regenerate QR', desc: 'The user can save the Passport or make a new QR from the front actions.' },
   ],
   inlineForm: [
-    { title: 'Checkout & Purchase', desc: 'User adds exactly 1 ticket to cart and starts checkout.' },
-    { title: 'Payment Completes', desc: 'Single ticket payment captures successfully. Confirmation page loads.' },
-    { title: 'Form Pending Warning', desc: 'Because the cart contains exactly 1 ticket, the organizer\'s dynamic registration form is embedded directly inline.' },
-    { title: 'Email Sent', desc: 'A custom form pending reminder email is fired to the user\'s inbox.' },
-    { title: 'Fill & Submit Inline', desc: 'User reviews prefilled name/email, completes organizer custom fields, and clicks submit.' },
+    { title: 'Checkout & Purchase', desc: 'The user puts one ticket in the cart and starts the checkout.' },
+    { title: 'Payment Completes', desc: 'The payment is successful. The confirmation screen opens.' },
+    { title: 'Form Pending Warning', desc: 'The order has only one ticket. Because of this, the confirmation screen shows the organizer form.' },
+    { title: 'Email Sent', desc: 'The system sends a reminder email about the form.' },
+    { title: 'Fill & Submit Inline', desc: 'The user examines the name and email fields. The user completes the organizer fields and submits the form.' },
   ],
   formTaskSingle: [
-    { title: 'Checkout & Purchase', desc: 'User purchases a single ticket with details to be completed post-checkout.' },
-    { title: 'Navigate to Passport Events', desc: 'User opens the Events Attending tab from their Passport card actions.' },
-    { title: 'View FormTaskCard', desc: 'System displays a "Single entry" task card with event name, deadline, and category.' },
-    { title: 'Complete Form', desc: 'User taps "Complete form" to open the participant form page.' },
+    { title: 'Checkout & Purchase', desc: 'The user buys one ticket. The organizer form is not complete at this point.' },
+    { title: 'Open Orders', desc: 'The order shows a "Forms needed" label. A floating "Finish Forms" pill on other pages also opens Orders.' },
+    { title: 'View pending row', desc: 'The order detail shows "Forms still needed — participant form required" for the entry.' },
+    { title: 'Complete Form', desc: 'The user taps "Complete forms". The participant form opens.' },
   ],
   pendingPayment: [
-    { title: 'Checkout & Purchase', desc: 'User completes checkout but selects offline payment (e.g. bank transfer).' },
-    { title: 'Order Created', desc: 'User completes checkout but payment is not yet confirmed.' },
-    { title: 'Locked State Displays', desc: 'Passport shows the event row in locked state with "Awaiting payment" disabled button.' },
-    { title: 'Payment Confirms', desc: 'Once payment is verified, the row transitions to pending_form or attached status.' },
+    { title: 'Checkout & Purchase', desc: 'The user completes the checkout with an offline payment, for example a bank transfer.' },
+    { title: 'Order Created', desc: 'The system makes the order. The payment is not confirmed at this point.' },
+    { title: 'Locked State Displays', desc: 'Settings → Transactions shows the record as Pending: "Awaiting Payment — your order is reserved". The timeline stops before Confirmation.' },
+    { title: 'Payment Confirms', desc: 'The system confirms the payment. The order then unlocks the forms and the Passport access.' },
   ],
   resubmitRequired: [
-    { title: 'Checkout & Purchase', desc: 'User purchases a ticket, completes participant details, and submits organizer-defined forms.' },
-    { title: 'Organizer Updates Form', desc: 'Event organizer modifies the participant form requirements after initial submission.' },
-    { title: 'Resubmit Notification', desc: 'System sends a notification that the form needs to be reviewed and resubmitted.' },
-    { title: 'Review & Resubmit', desc: 'User taps "Review form" to open the updated form and re-sign. CTA label comes from formTaskDetails() when entryStatus is resubmit_required.' },
+    { title: 'Checkout & Purchase', desc: 'The user buys a ticket, completes the participant data, and submits the organizer form.' },
+    { title: 'Organizer Updates Form', desc: 'The organizer changes the form requirements after the first submission.' },
+    { title: 'Resubmit Notification', desc: 'The system sends a notification about the change. The entry in Orders shows "Review changes".' },
+    { title: 'Review & Resubmit', desc: 'The form-diff screen shows each field as Unchanged, Updated, New, or Removed. The user then taps "Review and resubmit form".' },
   ],
   attached: [
-    { title: 'Checkout & Purchase', desc: 'User purchases a ticket and completes all participant details inline or post-checkout.' },
-    { title: 'All Requirements Met', desc: 'Payment received, participant forms submitted, and organizer-defined requirements verified.' },
-    { title: 'Ready Notification Sent', desc: 'System emails a confirmation showing all custom forms and registration details are verified.' },
-    { title: 'Passport Renders Green', desc: 'Passport displays a green event card indicating "Ready" with zero pending tasks.' },
+    { title: 'Checkout & Purchase', desc: 'The user buys a ticket. The user completes all the participant data during or after the checkout.' },
+    { title: 'All Requirements Met', desc: 'The payment is complete. The forms are complete. The organizer requirements are satisfied.' },
+    { title: 'Ready Notification Sent', desc: 'The system sends a confirmation email. The email shows that all the forms and data are complete.' },
+    { title: 'Passport Renders Green', desc: 'The Passport shows a green event card with the "Ready" label. There are no open tasks.' },
   ],
   spotReleased: [
-    { title: 'Checkout & Purchase', desc: 'User purchases a ticket with post-checkout forms pending and a set deadline.' },
-    { title: 'Deadline Passes', desc: 'The form submission deadline expires without the participant completing their required forms.' },
-    { title: 'Spot Auto-Released', desc: 'System releases the slot back to event inventory. No refund is issued.' },
-    { title: 'Notification Sent', desc: 'User is notified via email and in-app that their spot was released.' },
-    { title: 'Browse Again Option', desc: 'User can browse the event to re-register if spots are still available.' },
+    { title: 'Checkout & Purchase', desc: 'The user buys a ticket. The form is not complete and has a deadline.' },
+    { title: 'Deadline Passes', desc: 'The deadline passes. The form is not complete at that time.' },
+    { title: 'Spot Auto-Released', desc: 'The system releases the slot to the event inventory. The system does not give a refund.' },
+    { title: 'Notification Sent', desc: 'The system tells the user by email and in the app that the slot is released.' },
+    { title: 'Browse Again Option', desc: 'The user can open the event page and register again if slots are available.' },
   ],
   pastAttended: [
-    { title: 'Checkout & Purchase', desc: 'User purchases ticket, completes details, payment clears, and ticket is attached.' },
-    { title: 'Scanned & Authenticated', desc: 'Staff scans QR. System marks attendance status as "Attended" and logs time.' },
-    { title: 'Check-In Confirmed Email', desc: 'System instantly sends check-in confirmation email with athlete bib details.' },
-    { title: 'Passport Updates State', desc: 'Active ticket moves to Past Events section with a green checkmark check-in log.' },
+    { title: 'Checkout & Purchase', desc: 'The user buys a ticket and completes the data. The payment is complete. The entry attaches.' },
+    { title: 'Scanned & Authenticated', desc: 'The staff scans the QR. The system records the "Attended" status and the time.' },
+    { title: 'Check-In Confirmed Email', desc: 'The system sends a check-in confirmation email with the bib data.' },
+    { title: 'Passport Updates State', desc: 'The entry moves to the Past events section with a check-in record.' },
   ],
   pastNoShow: [
-    { title: 'Checkout & Purchase', desc: 'User purchases ticket, completes details, and ticket is successfully attached.' },
-    { title: 'Absent on Event Day', desc: 'Registered participant does not check in at the gate before the deadline.' },
-    { title: 'Database Tagged No-Show', desc: 'Unscanned tickets are tagged as "No-Show". Active QR is permanently disabled.' },
-    { title: 'No-Show Alert Email', desc: 'System emails the user expressing regrets and offering options.' },
+    { title: 'Checkout & Purchase', desc: 'The user buys a ticket and completes the data. The entry attaches.' },
+    { title: 'Absent on Event Day', desc: 'The participant does not check in at the gate before the deadline.' },
+    { title: 'Database Tagged No-Show', desc: 'The system sets the entry to "No-show". The QR becomes permanently unserviceable.' },
+    { title: 'No-Show Alert Email', desc: 'The system sends an email to the user with the no-show status and the available options.' },
   ],
   guestActive: [
-    { title: 'Checkout & Purchase', desc: 'Buyer purchases entries for others, completes checkout, and selects "No, they\'re going without me".' },
-    { title: 'Separate QR Generated', desc: 'Buyer elects to send guest QR. Ticket moves to Guest Sharing management panel.' },
-    { title: 'Guest Receives Link', desc: 'System emails the guest their Guest Entry QR link. Status is marked as "Active".' },
-    { title: 'Manager Shows Active', desc: 'Buyer\'s Guest QR Controller shows "Active" with a one-time use warning.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys entries for other persons. The buyer completes the checkout and selects "No, they\'re going without me".' },
+    { title: 'Separate QR Generated', desc: 'The buyer selects the Guest QR option. The entry moves to the guest management panel.' },
+    { title: 'Guest Receives Link', desc: 'The system sends the Guest QR link to the guest by email. The status changes to "Active".' },
+    { title: 'Pass Shows The Credential', desc: 'The "Guest access pass" screen shows one perforated ticket: attendee, event, QR, reference, gate, and validity. Share Guest QR is the primary action and Regenerate QR replaces the code in place.' },
   ],
   guestUsed: [
-    { title: 'Checkout & Purchase', desc: 'Buyer purchases entries for others and generates + shares Guest QR link.' },
-    { title: 'Gate Scan Complete', desc: 'Guest arrives separately, presents QR. Staff scans check-in, setting status to "Used".' },
-    { title: 'Buyer Notified', desc: 'System automatically emails the buyer: "Your guest has checked in!".' },
-    { title: 'Manager Shows Used', desc: 'Buyer\'s Guest QR Controller shows "Used" and the exact gate scan timestamp.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys entries for other persons. The buyer makes and shares the Guest QR link.' },
+    { title: 'Gate Scan Complete', desc: 'The guest shows the pass at the gate. The staff scans it. The code is spent for entry.' },
+    { title: 'Buyer Notified', desc: 'The system sends an email to the buyer: "Your guest has checked in!".' },
+    { title: 'Slot Shows Used', desc: 'The distribution screen marks the slot "Used" and reads "Scanned <time> · still claimable once". The pass itself stays white, because the past event can still join one Passport.' },
   ],
   guestRevoked: [
-    { title: 'Checkout & Purchase', desc: 'Buyer purchases entries for others, generates Guest QR, and shares with guest.' },
-    { title: 'Buyer Click Revoke', desc: 'Buyer clicks "Revoke" on the guest manager screen.' },
-    { title: 'Guest Notified', desc: 'System automatically emails the guest informing them their ticket was cancelled.' },
-    { title: 'Manager Shows Revoked', desc: 'Buyer\'s Guest QR Controller displays the ticket as revoked and inactive.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys entries for other persons. The buyer makes and shares the Guest QR.' },
+    { title: 'Buyer Click Revoke', desc: 'The buyer cancels the pass from the guest slot on the distribution screen.' },
+    { title: 'Guest Notified', desc: 'The system sends an email to the guest. The email says that the ticket is cancelled.' },
+    { title: 'Pass Shows Revoked', desc: 'The pass turns muted and carries a rotated "REVOKED" stamp over the QR. The code no longer works and cannot be claimed.' },
+  ],
+  guestClaimed: [
+    { title: 'Checkout & Purchase', desc: 'The buyer buys entries for other persons. The buyer makes and shares the Guest QR.' },
+    { title: 'Guest Signs In', desc: 'The guest decides to make a PlanOut account. The guest signs in and opens the scanner from the Passport tab, then scans the same Guest QR or uploads a saved photo of it.' },
+    { title: 'Guest Confirms Claim', desc: 'The guest reviews the entry and taps "Add to my Passport". The claim happens one time only.' },
+    { title: 'Manager Shows Claimed', desc: 'The buyer\'s Guest QR screen shows a "Claimed" label and a "CLAIMED" mark over the QR. The QR cannot be shared, scanned, or claimed again.' },
   ],
   publicGuestPage: [
-    { title: 'Checkout & Purchase', desc: 'Buyer purchases entries for others, generates Guest QR, and shares link.' },
-    { title: 'Open Web Viewport', desc: 'Guest clicks link, loading the public `/guest-entry` page in their mobile browser (no login required).' },
-    { title: 'Check-In scanned', desc: 'Guest shows the web QR at the gate. Staff scans it, changing status in database to "Used".' },
-    { title: 'Sign Up Call to Action', desc: 'Page presents a banner: "Get your own PlanOut Passport" to convert guest.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys entries for other persons. The buyer makes the Guest QR and shares the link.' },
+    { title: 'Open Web Viewport', desc: 'The guest opens the link in a browser. The public guest page opens. A login is not necessary.' },
+    { title: 'Check-In scanned', desc: 'The guest shows the web QR at the gate. The staff scans the QR. The status changes to "Used".' },
+    { title: 'Sign Up Call to Action', desc: 'The page shows a banner: "Get your own PlanOut Passport".' },
   ],
   guestClaimRegister: [
-    { title: 'Checkout & Purchase', desc: 'Buyer purchases ticket for guest and initiates a ticket transfer via email.' },
-    { title: 'Buyer Shares Ticket', desc: 'Buyer enters guest\'s email address on their Orders dashboard and triggers a share action.' },
-    { title: 'Claim Email Received', desc: 'Guest receives a secure claim link. The email does not match an account automatically.' },
-    { title: 'Login or Register', desc: 'Guest clicks the link, signs into an existing account or creates a new one, and completes the organizer form.' },
-    { title: 'Passport Bound', desc: 'The ticket binds to the Passport for the authenticated account and appears in that account dashboard.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys a ticket for another person. The buyer sends that person the form link instead of filling the form.' },
+    { title: 'Buyer Shares Ticket', desc: 'The buyer uses Send link or Copy link on the order. Both produce the same /ticket-claim/:ref link with the order and entry attached.' },
+    { title: 'Claim Email Received', desc: 'The recipient receives the link by email or chat. The invited email is informational only, because a link can be forwarded.' },
+    { title: 'Login or Register', desc: 'The link has no claim page of its own. A signed-out recipient gets the normal login screen with the form as the return destination, then lands on the standard participant form.' },
+    { title: 'Passport Bound', desc: 'Submitting the form claims the entry for the account that submitted it. Opening the link reserves nothing.' },
+  ],
+  addEntryScanner: [
+    { title: 'Guest QR received', desc: 'The person holds an app-less Guest QR, either as a link or as a printed code.' },
+    { title: 'Sign in first', desc: 'The add-entry screen needs an account, because the entry has to land on a specific Passport.' },
+    { title: 'Open the scanner', desc: 'Passport → Add a past event → Scan event QR opens the full-screen camera surface. The route is canonical: ?scan=1 always means the focused scanner, with no stale result behind it.' },
+    { title: 'Claim on a good scan', desc: 'A recognized, eligible code is claimed immediately and the app returns to Passport with an "Entry added to Passport" toast. A missing, revoked, or already-claimed code stays in the scanner with a specific error toast. "Upload QR" and the sample code cover a blocked camera.' },
+  ],
+  addEntryPast: [
+    { title: 'Pass already used', desc: 'The Guest QR was scanned at the gate. The pass carries a check-in time and a gate.' },
+    { title: 'Resolve the code', desc: 'The scanner or the manual code opens the resolved-entry state at ?code=.' },
+    { title: 'Review the past event', desc: 'The screen shows the event, the participant, the access gate, and the check-in stamp.' },
+    { title: 'Confirm history only', desc: 'The copy states that adding it keeps the past event in Passport history and does not create a new gate QR.' },
+  ],
+  addEntryAlreadySaved: [
+    { title: 'Entry already claimed', desc: 'The same Guest QR was already added to a Passport. A Guest QR may become Passport history exactly once.' },
+    { title: 'Reopen the code', desc: 'The holder scans the code again, or opens its ?code= link, from the same account or a different one.' },
+    { title: 'Blocked with a reason', desc: 'The screen shows an "Added" status and states that the entry is already saved. There is no second claim action.' },
+    { title: 'Route to the record', desc: 'View Passport takes the owner to the entry. Scan another Guest QR restarts the scanner for a different code.' },
+  ],
+  addEntryUnavailable: [
+    { title: 'Buyer revokes the QR', desc: 'The buyer revokes the Guest QR from Orders before anybody claims it.' },
+    { title: 'Holder tries to claim', desc: 'The holder scans the code, or opens its ?code= link, on the add-entry screen.' },
+    { title: 'Claim refused', desc: 'The screen shows an "Unavailable" status and states that the Guest QR was revoked before it could be added.' },
+    { title: 'Return path only', desc: 'The actions are Return to Passport and Scan another Guest QR. Recovery is the buyer resending a new QR.' },
+  ],
+  publicGuestInvalid: [
+    { title: 'Link shared outside the app', desc: 'The public /guest-entry/:ref page needs no login, so the link is the credential.' },
+    { title: 'Buyer revokes or the ref is wrong', desc: 'The buyer revokes the pass from Orders, or the recipient opens a mistyped or expired reference.' },
+    { title: 'Public page explains', desc: 'A revoked pass reads "This entry QR is no longer valid" and names the buyer to contact. An unknown reference reads "Entry QR not found".' },
+    { title: 'No self-service recovery', desc: 'The page offers no claim or retry action. The buyer has to generate and resend a new Guest QR.' },
+  ],
+  formDiffReview: [
+    { title: 'Form already submitted', desc: 'The participant completed and submitted the organizer form.' },
+    { title: 'Organizer edits the form', desc: 'The organizer changes the requirements after that submission, which raises the form version.' },
+    { title: 'Review changes', desc: 'Orders shows "Review changes" on the entry. The link opens the version diff at /forms/:entryId/diff.' },
+    { title: 'Field-level diff', desc: 'Each field is labelled Unchanged, Updated, New field, or Removed, with previous data pre-filled, then the participant resubmits.' },
+  ],
+  passportPastLauncher: [
+    { title: 'Open Passport', desc: 'The account holder opens the Passport tab.' },
+    { title: 'Find the add-pass sheet', desc: 'Below the Passport card sits one compact Wallet-style sheet: a circular scan symbol, the heading "Add a past event", and one line — "Save an event you attended to your Passport."' },
+    { title: 'One action row', desc: '"Scan event QR" is the single full-width action, with "Camera or saved QR photo" as metadata inside the row rather than a separate paragraph. There is no empty-state sentence: the action is the zero-state guidance.' },
+    { title: 'History appears when it exists', desc: 'A "Past events" list renders only once entries have been claimed, separated by one subtle divider, each a compact pass row with an "Added" status.' },
+  ],
+  addEntryWeb: [
+    { title: 'Guest QR arrives on a computer', desc: 'The pass reaches the holder as an emailed link or a saved image, and they open Passport in a desktop browser.' },
+    { title: 'The web surface replaces the camera', desc: 'At 768px and above, /passport/add-entry renders a light web entry surface titled "Add a Guest QR to Passport". It never calls for camera access, mounts no video element, and shows no camera-flip control.' },
+    { title: 'Upload the saved photo', desc: 'One action — "Upload QR photo" — takes an image of the pass from the computer. The page states plainly that the image stays on the device; decoding happens locally through the same jsQR path as the phone.' },
+    { title: 'Same claim rules after decoding', desc: 'A decoded reference joins the existing ?code= resolution, so eligible, revoked, and already-claimed records behave exactly as they do on a phone. Below 768px the camera-first scanner is untouched.' },
+  ],
+  ordersAdaptiveDetail: [
+    { title: 'Open an order', desc: 'Orders lists photo-led cards carrying the status label, purchase date, event title, quantity, and amount.' },
+    { title: 'The order is the identity', desc: 'Order Details leads with the order, not its first event: a status label, the purchase date, the reference, and a truthful title — a multi-event purchase reads "3-event order" with its item count and total.' },
+    { title: 'One registration list', desc: 'Every entry lives in a single continuous Registration surface with subtle dividers instead of a stack of separate cards. The heading carries the aggregate pending-form state and the bulk controls, "Send all" and "Copy all".' },
+    { title: 'Status then action per event', desc: 'Inside the list each event keeps its own identity, its registration status, and its most important action, with recovery and sharing actions visually secondary.' },
+  ],
+  checkoutParticipantDetails: [
+    { title: 'Organizer requires details first', desc: 'When the organizer asks for participant details before payment, checkout opens on the details gate instead of the payment summary.' },
+    { title: 'Work through the slots', desc: 'The header counts the slots, for example "1/3", and a switcher moves between them. Each slot is either filled by the buyer or handed over with "Invite via Email".' },
+    { title: 'Choose who each entry is for', desc: 'Buyer-filled slots ask "This entry is for": "For me" attaches to the buyer\'s Passport, "For someone else" produces a buyer-filled Guest QR. This is the same question the Orders and team player forms ask.' },
+    { title: 'Save now or defer', desc: '"Save details and continue" keeps the slot and moves on. "Fill up later" defers every remaining slot to after payment, and checkout says the details stay attached to the order.' },
+  ],
+  teamOwnerChoice: [
+    { title: 'Open a player entry', desc: 'From the team order, the buyer opens a player row that still needs a form.' },
+    { title: 'Choose who the entry is for', desc: 'The form opens with "This entry is for": "For me" attaches to the buyer\'s own Passport, "For someone else" produces a buyer-filled Guest QR.' },
+    { title: 'One Passport entry per account', desc: 'Once the order already has a Passport entry for the buyer, "For me" is locked and the screen explains that additional player entries use Guest QR or claim links.' },
+    { title: 'The choice is recorded', desc: 'Submitting stores the selected ownership path with the completed form, so the order row and the gate credential agree.' },
+  ],
+  teamFormCompleted: [
+    { title: 'Player form submitted', desc: 'A player entry is complete, either filled by the buyer or claimed and submitted by the recipient.' },
+    { title: 'Open it from the order', desc: 'The team row shows "View form" and opens the same player form route in read-only mode.' },
+    { title: 'Read-only details', desc: 'The screen is titled "Form details" and shows a "Completed" state with the recorded name and email instead of editable fields.' },
+    { title: 'Access stays where it was assigned', desc: 'Reading the form does not change ownership. A Passport player keeps their Passport entry, a buyer-filled player keeps their Guest QR.' },
+  ],
+  teamInviteSent: [
+    { title: 'Buyer sends a player link', desc: 'The buyer sends a claim link to a player from the team order.' },
+    { title: 'The row shows the sent state', desc: 'The order row shows the recipient and a Revoke action. A saved address is never shown as sent until the invite actually goes out.' },
+    { title: 'Form details shows the wait', desc: 'Opening that player shows "Invitation Sent", the recipient address, "Change Email", and "Waiting for participant to complete form…".' },
+    { title: 'The buyer can take it back', desc: 'Revoke on the order row, or "I\'ll fill this out myself instead" on the form, returns the entry to buyer-filled mode. The old link stops working.' },
+  ],
+  teamAllReady: [
+    { title: 'Every player resolved', desc: 'All player entries have a completed form and an assigned access path.' },
+    { title: 'The order reads Full', desc: 'The team card shows "Players 6 of 6 ready" with a "Full" marker, so no slot is waiting.' },
+    { title: 'Rows name their owner', desc: 'Passport players show the recorded owner, and the buyer\'s own row is labeled "You". Buyer-managed players keep their Guest QR.' },
+    { title: 'Actions become read and show', desc: 'The pending actions are gone. Each row keeps "View form", and buyer-managed players keep "View QR".' },
+  ],
+  inviteClaimConflict: [
+    { title: 'Link reaches two people', desc: 'A shared form link can be forwarded or reposted, so more than one account can open the same entry.' },
+    { title: 'First submission wins', desc: 'Opening the link reserves nothing. The first completed submission owns the entry and its Passport.' },
+    { title: 'Later submit refused', desc: 'A second account submitting the same entry stays on the standard form and gets an inline notice naming the account that completed it first.' },
+    { title: 'Answers are preserved', desc: 'The typed answers stay on screen and are never attached to the other Passport. The invite submit action is replaced by "Copy my answers", so the entry cannot be overwritten. The same panel covers a claim link the buyer unsent before it was accepted.' },
   ],
   temporaryGuestQR: [
-    { title: 'Checkout & Purchase', desc: 'Buyer purchases entries for someone who will not use a PlanOut account.' },
-    { title: 'Buyer Fills Form', desc: 'Buyer clicks "Fill Form on Behalf" on their Orders dashboard, completing all organizer-defined fields for the guest.' },
-    { title: 'Generate Guest QR', desc: 'Buyer clicks "Generate & send QR" to instantly create a direct admission QR token.' },
-    { title: 'Print or SMS link', desc: 'Buyer prints a physical QR page or sends the Guest QR web link to the guest\'s phone.' },
-    { title: 'Direct gate scan', desc: 'Guest scans in directly at the venue gate; no PlanOut app or login required.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys entries for a person who will not use a PlanOut account.' },
+    { title: 'Buyer Fills Form', desc: 'The buyer taps "Fill Form on Behalf" in Orders. The buyer completes all the organizer fields for the guest.' },
+    { title: 'Generate Guest QR', desc: 'The buyer taps "Generate & send QR". The system makes the Guest QR.' },
+    { title: 'Print or SMS link', desc: 'The buyer prints the Guest QR or sends the web link to the guest\'s telephone.' },
+    { title: 'Direct gate scan', desc: 'The staff scans the guest in at the gate. The guest does not need the app or a login.' },
   ],
   multiGuestManager: [
-    { title: 'Checkout & Purchase', desc: 'Buyer purchases multiple tickets for people they are not attending with — managing all entries entirely on behalf of others.' },
-    { title: 'Fill All Forms', desc: 'Buyer fills organizer-defined fields for every participant slot from their Orders dashboard. No invites sent; buyer owns all data.' },
-    { title: 'Individual QRs Generated', desc: 'A unique Guest Entry QR is generated per participant slot. Each QR is independently shareable and revocable from the buyer\'s panel.' },
-    { title: 'Distribute QRs', desc: 'Buyer shares each QR individually via link or email — directly to each guest\'s phone. Guests open the web page with no app or account needed.' },
-    { title: 'Multi-Guest Manager', desc: 'Buyer\'s Guest Entry Manager shows all participant QR statuses (Active, Used, Revoked) with per-person share and revoke controls.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys many tickets for other persons. The buyer does not attend. The buyer controls all the entries.' },
+    { title: 'Fill All Forms', desc: 'The buyer completes the organizer fields for each slot from Orders. The buyer does not send invites.' },
+    { title: 'Individual QRs Generated', desc: 'The system makes one Guest QR for each slot. The buyer can share or revoke each QR separately.' },
+    { title: 'Distribute QRs', desc: 'The buyer sends each QR by link or email. The guests open the web page. The guests do not need an app or an account.' },
+    { title: 'Multi-Guest Manager', desc: 'The guest management screen shows the status of each QR: Active, Used, or Revoked. The buyer can share or revoke each one.' },
   ],
   formTaskMulti: [
-    { title: 'Checkout & Purchase', desc: 'Buyer purchases tickets covering multiple participants in a single order.' },
-    { title: 'View FormTaskCard', desc: 'System shows a "Multiple entries" task card with the count of forms still needed.' },
-    { title: 'Manage Forms', desc: 'User taps "Manage participant forms" to fill forms themselves or send invite links.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys tickets for more than one participant in one order.' },
+    { title: 'Open Orders', desc: 'The order shows a "Forms needed" label with the number of open forms.' },
+    { title: 'Manage Forms', desc: 'The group participant form shows the progress of each slot. The buyer completes each slot or sends a claim link.' },
   ],
   teamProgress: [
-    { title: 'Checkout & Purchase', desc: 'Captain/Coach selects a team package, completes payment, and starts checkout.' },
-    { title: 'Team Package Purchased', desc: 'Captain/Coach registers a team. Slots are reserved but locked until roster details are complete.' },
-    { title: 'Monitor Progress Bar', desc: 'Captain Passport displays a live progress dashboard showing completed vs pending roster slots.' },
-    { title: 'Team QR Unlocks', desc: 'Once all slots are Claimed & forms completed, the team ticket transitions to "Ready" status.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer selects a team package. The buyer pays and completes the checkout.' },
+    { title: 'Team Package Purchased', desc: 'The buyer registers a team. The slots stay locked until the player forms are complete.' },
+    { title: 'Monitor Player Access', desc: 'The team order shows each player entry and whether it has a Guest QR, Passport access, a claim link in progress, or still needs setup.' },
+    { title: 'Save Per-Player Paths', desc: 'From each player row in Orders, the buyer completes details for a Guest QR or sends a claim link. There is no team-wide Passport or gate credential.' },
   ],
   teamRosterList: [
-    { title: 'Checkout & Purchase', desc: 'Coach purchases a team package and opens the team dashboard.' },
-    { title: 'Invite Roster Members', desc: 'Captain inputs member emails in the Roster Panel. System sends an email invite to each member.' },
-    { title: 'Invitees Complete Forms', desc: 'Invitees receive email, click link, and fill out the custom registration forms configured by the organizer.' },
-    { title: 'Roster Updates Live', desc: 'Roster list displays checkmarks next to claim slots as custom forms are completed.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys a team package. The buyer opens the team order from Orders.' },
+    { title: 'Fill Or Send Per Player', desc: 'For each player row in the order, the buyer completes the form for an app-less Guest QR or sends a claim link.' },
+    { title: 'Players Complete Forms', desc: 'Players with claim links sign in or make an account. They complete the organizer form. Their entries attach to their own Passports.' },
+    { title: 'Player Access Updates Live', desc: 'The player entries show Guest QR ready, Passport access, claim link sent, or entry setup needed.' },
   ],
   formTaskTeam: [
-    { title: 'Checkout & Purchase', desc: 'Team captain purchases a team package with details to be completed post-checkout.' },
-    { title: 'Navigate to Passport Events', desc: 'Team captain opens the Events Attending tab.' },
-    { title: 'View FormTaskCard', desc: 'System shows a "Team entry" task card with roster completion count and deadline.' },
-    { title: 'Manage Team Form', desc: 'Captain taps "Manage team form" to view roster, send invites, or fill forms.' },
+    { title: 'Checkout & Purchase', desc: 'The buyer buys a team package. The player forms are not complete at this point.' },
+    { title: 'Open Orders', desc: 'The team order shows one consolidated registration item, with its own price, for the whole team.' },
+    { title: 'View Player Entries Card', desc: 'A "Player entries" card shows "X of Y player entries set up" and keeps each player action in the order.' },
+    { title: 'Set Player Access', desc: 'Each player row offers Complete form, send/copy form link, or Open Guest QR as that player becomes ready.' },
   ],
   groupShare: [
-    { title: 'Buyer shares once', desc: 'Buyer sends a group link containing the available individual claim links.' },
-    { title: 'Recipient chooses entry', desc: 'Each recipient selects the entry intended for them.' },
-    { title: 'Login or Register', desc: 'Recipient signs in or creates an account, then continues directly to the organizer form.' },
-    { title: 'Entry attached', desc: 'Submitting the form attaches the individual entry to that Passport.' },
+    { title: 'Buyer shares once', desc: 'The buyer sends one group link. The link has the available claim links.' },
+    { title: 'Recipient chooses entry', desc: 'Each recipient selects their own entry.' },
+    { title: 'Login or Register', desc: 'The recipient signs in or makes an account. The organizer form then opens.' },
+    { title: 'Entry attached', desc: 'The recipient submits the form. The entry attaches to that Passport.' },
   ],
   eventsOverview: [
-    { title: 'Checkout & Purchase', desc: 'Athlete registers/purchases entries for multiple events on PlanOut.' },
-    { title: 'Open Events Attending', desc: 'User taps "Events" from the Passport front actions to see all registrations.' },
-    { title: 'View Pages', desc: 'Page shows 4 sections: Forms needed, Ready for access, Status updates, Past events.' },
-    { title: 'Act on Entries', desc: 'User can complete forms, browse released events, or review past attendance records.' },
+    { title: 'Checkout & Purchase', desc: 'The user buys entries for more than one event on PlanOut.' },
+    { title: 'Open Events Attending', desc: 'The user taps "Events" on the Passport front actions. All the registrations show.' },
+    { title: 'View Pages', desc: 'The page shows four sections: Forms needed, Ready for access, Status updates, and Past events.' },
+    { title: 'Act on Entries', desc: 'The user can complete forms, look for released events, or examine the past attendance records.' },
   ],
 };
 
@@ -2228,22 +1663,22 @@ const EMAIL_CATALOG = {
     ctaText: 'Open Web QR',
   },
   rosterInvite: {
-    subject: 'Join the Apo Island team roster',
+    subject: 'Claim your Apo Island player entry',
     toName: 'Daniel Vance',
     toEmail: 'daniel@email.com',
-    headline: 'You have been added to a team roster',
+    headline: 'You have a player entry to claim',
     paragraphs: [
-      'Coach Marcus added you as a participant for Apo Island Water Swim.',
-      'Accept the roster invitation, verify your details, and complete the organizer form to activate your team entry.',
-      'After completion, the team access will resolve through your PlanOut Passport.',
+      'Marcus Reyes purchased a player entry for you in Apo Island Water Swim and sent you this claim link.',
+      'Sign in or create a PlanOut account, verify your details, and complete the organizer form.',
+      'After completion, this entry attaches to your own PlanOut Passport for gate access.',
     ],
     details: {
       'Team': 'Apo Island Water Swim',
-      'Team Captain': 'Coach Marcus',
+      'Added By': 'Marcus Reyes (buyer)',
       'Category': '4x500m Relay',
       'Form Deadline': 'July 1, 2026',
     },
-    ctaText: 'Accept Invite & Complete Form',
+    ctaText: 'Open Claim Link & Complete Form',
   },
 };
 
@@ -2330,100 +1765,70 @@ export function PassportCasesPage() {
       badgeText: 'Solo · Self',
       badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
       title: 'Case 24: Buyer Buys For Himself & Attends',
-      subtitle: 'The simplest case. One person buys one ticket, fills their own organizer form, and attends. The entry attaches to their own Universal Passport — no invites and no separate QRs. Screen states: see Cases 1–7.',
+      subtitle: 'This is the most simple case. One person buys one ticket and attends. The buyer completes their own organizer form. The entry attaches to the buyer\'s Passport. There are no invites and no extra QR codes. For the screen states, see Cases 1–7.',
       timelineSteps: FLOWS.scnSolo,
       emailTemplates: [EMAIL_CATALOG.welcome],
       accessPath: {
-        origin: 'Passport tab (also reachable from Orders)',
+        origin: 'Passport tab (also available from Orders)',
         route: '/passport',
         backTarget: 'Home',
         steps: [
-          'Buyer completes checkout and fills their own form (inline, or later).',
-          'Buyer opens the Passport tab from the bottom navigation.',
-          'The entry shows on their Universal Passport once the form is complete.',
-          'At the gate the buyer shows their one Universal Passport QR.',
+          'The buyer completes the checkout. The buyer completes their own form.',
+          'The buyer opens the Passport tab from the bottom navigation.',
+          'The entry shows on the Passport when the form is complete.',
+          'At the gate, the buyer shows their Universal Passport QR.',
         ],
       },
-      renderViewport: () => (
-        <WF_AccessSummary
-          surface="Passport"
-          route="/passport"
-          rows={[
-            { label: 'Buyer', value: 'Fills own form; entry attaches to their Universal Passport.', tone: 'buyer' },
-            { label: 'Gate QR', value: "Buyer's Universal Passport QR.", tone: 'gate' },
-          ]}
-          note="Also reachable from Orders → the ticket, or Passport → Events."
-        />
-      ),
+      renderViewport: () => <LiveAppScreen title="Solo buyer outcome - Passport" path="/passport" />,
     },
     {
       group: 'scenario',
       badgeText: 'Group · Fills all',
       badgeColor: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
       title: 'Case 25: Buyer Buys For Self + Friends, Fills Every Form',
-      subtitle: 'Buyer buys several tickets and completes every participant form themselves. Their own entry sits on their Passport; each friend can either receive an app-less Guest QR or a claim link if they should add the entry to their own Passport. Screen states: see Case 23.',
+      subtitle: 'The buyer buys more than one ticket. The buyer completes all the participant forms. The buyer\'s entry stays on their Passport. Each friend gets an app-less Guest QR, or a claim link that puts the entry on the friend\'s Passport. A dedicated screen distributes all the guest slots at once, with a group-chat share option; each slot can also be managed on its own from the order detail. For the screen states, see Case 23.',
       timelineSteps: FLOWS.scnGroupFillAll,
       emailTemplates: [EMAIL_CATALOG.guestLink, EMAIL_CATALOG.guestClaim],
       accessPath: {
-        origin: 'Orders → order-level Manage guest QRs',
-        route: '/orders/:orderId/guest-manager',
+        origin: 'Direct link, or per-slot from the order detail (Orders does not currently link to the distribution screen)',
+        route: '/orders/:orderId/guest-manager, or /orders/:orderId for each slot one at a time',
         backTarget: 'Orders list or order detail',
         steps: [
-          'Buyer opens Orders after purchase and selects the matching multi-entry order.',
-          'Buyer taps Manage guest QRs on the order.',
-          'For each friend, buyer either generates a Guest QR or copies a claim link.',
-          'Guest QR friends show the web QR; claim-link friends sign in or create an account so the entry lands on their Passport.',
+          'The buyer opens Orders after the purchase. The buyer selects the multi-entry order.',
+          'From the order detail, the buyer manages each friend\'s slot on its own row.',
+          'For each friend, the buyer taps Generate & send QR, or copies that row\'s claim link.',
+          'Guest QR friends show the web QR. Claim-link friends sign in or make an account. Their entries attach to their Passports.',
         ],
       },
-      renderViewport: () => (
-        <WF_AccessSummary
-          surface="Orders"
-          route="/orders/:orderId/guest-manager"
-          rows={[
-            { label: 'Buyer', value: 'Fills all forms; chooses Guest QR or claim link per friend from Orders.', tone: 'buyer' },
-            { label: 'Friends', value: 'Guest QR = no account. Claim link = sign in/create account and attach to Passport.', tone: 'recipient' },
-            { label: 'Gate QR', value: 'Guest QR friends show web QR. Claimed friends show Passport QR.', tone: 'gate' },
-          ]}
-        />
-      ),
+      renderViewport: () => <LiveAppScreen title="Buyer-managed guest distribution outcome" path="/orders/tkt-011/guest-manager" />,
     },
     {
       group: 'scenario',
       badgeText: 'Group · Claim Form',
       badgeColor: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
       title: 'Case 26: Buyer Fills Own, Sends The Form To A Friend',
-      subtitle: 'Buyer completes their own form, then sends the friend a claim/register link for the friend\'s slot. The friend signs in or creates a PlanOut account, fills the organizer form, and the entry attaches to their own Passport. Screen states: see Case 15.',
+      subtitle: 'The buyer completes their own form. The buyer then sends a claim link for the friend\'s slot. The friend signs in or makes a PlanOut account. The friend completes the organizer form. The entry attaches to the friend\'s Passport. For the screen states, see Case 15.',
       timelineSteps: FLOWS.scnGroupSendFriend,
       emailTemplates: [EMAIL_CATALOG.guestClaim],
       accessPath: {
-        origin: 'Orders → send form / claim link',
+        origin: 'Orders → send the claim link',
         route: '/ticket-claim/:claimRef',
         backTarget: 'Order detail or claim email',
         steps: [
-          'Buyer completes their own form (entry on their Passport).',
-          'Buyer opens Orders and sends the friend a claim/register link.',
-          'Friend opens the link, signs in or creates a PlanOut account, and fills the organizer form.',
+          'The buyer completes their own form. The buyer\'s entry attaches to their Passport.',
+          'The buyer opens Orders and sends the claim link to the friend.',
+          'The friend opens the link. The friend signs in or makes an account. The friend completes the organizer form.',
           'The friend shows their own Passport QR at the gate.',
         ],
       },
-      renderViewport: () => (
-        <WF_AccessSummary
-          surface="Passport"
-          route="/ticket-claim/:claimRef"
-          rows={[
-            { label: 'Buyer', value: 'Own entry on Passport; sends the friend a form/claim link from Orders.', tone: 'buyer' },
-            { label: 'Friend', value: 'Signs in or creates an account, fills the form, and receives the entry on Passport.', tone: 'recipient' },
-            { label: 'Gate QR', value: 'Buyer: Passport QR · Friend: Passport QR.', tone: 'gate' },
-          ]}
-        />
-      ),
+      renderViewport: () => <LiveAppScreen title="Buyer entry ready, claim link sent" path="/orders/tkt-011" />,
     },
     {
       group: 'scenario',
       badgeText: 'Guest QR',
       badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
       title: 'Case 28: Buyer Buys For A Dependent (Child / Elderly, No Account)',
-      subtitle: 'For a participant who will not use a PlanOut account. The buyer fills every field on their behalf and generates a Guest QR — no app, no login, no Passport attachment. Screen states: see Case 16.',
+      subtitle: 'This case is for a participant who will not use a PlanOut account. The buyer completes all the fields for the guest. The buyer makes a Guest QR. The guest does not need an app, a login, or a Passport. For the screen states, see Case 16.',
       timelineSteps: FLOWS.scnDependent,
       emailTemplates: [EMAIL_CATALOG.temporaryQR],
       accessPath: {
@@ -2431,92 +1836,62 @@ export function PassportCasesPage() {
         route: '/orders/:orderId/entry/:entryId/guest-qr',
         backTarget: 'Order detail',
         steps: [
-          'Buyer fills the required forms on behalf of the guest.',
-          'Buyer opens Orders and taps Generate & send QR on the guest row.',
-          'Buyer prints the Guest QR or sends the web link to a phone.',
-          'The guest is scanned in directly at the gate.',
+          'The buyer completes the necessary forms for the guest.',
+          'The buyer opens Orders. The buyer taps Generate & send QR on the guest row.',
+          'The buyer prints the Guest QR or sends the web link to a telephone.',
+          'The staff scans the guest in at the gate.',
         ],
       },
-      renderViewport: () => (
-        <WF_AccessSummary
-          surface="Orders"
-          route="/orders/:orderId/entry/:entryId/guest-qr"
-          rows={[
-            { label: 'Buyer', value: 'Fills form on behalf; manages the Guest QR from Orders.', tone: 'buyer' },
-            { label: 'Guest', value: 'No account ever — carries the printed or web Guest QR.', tone: 'recipient' },
-            { label: 'Gate QR', value: 'Scanned in directly via the Guest QR.', tone: 'gate' },
-          ]}
-        />
-      ),
+      renderViewport: () => <LiveAppScreen title="Dependent Guest QR outcome" path="/orders/tkt-010/entry/tkt-010-p2/guest-qr" />,
     },
     {
       group: 'scenario',
       badgeText: 'Group · Mixed',
       badgeColor: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
       title: 'Case 29: Mixed Order — Self + Invite + Guest QR',
-      subtitle: 'The realistic family-and-friends order: one purchase, several slots, a different strategy per slot. Buyer fills their own, invites one friend to claim (account), and sends another a Guest QR (no account). Screen states: see Case 17.',
+      subtitle: 'This is the usual family-and-friends order. There is one purchase and more than one slot. The buyer completes their own form. The buyer sends one friend a claim link (account necessary). The buyer sends one guest a Guest QR (no account). For the screen states, see Case 17.',
       timelineSteps: FLOWS.scnMixed,
       emailTemplates: [],
       accessPath: {
-        origin: 'Passport → Events → participant form',
-        route: '/passport/events → /orders/:ticketId/form',
-        backTarget: 'Passport Events',
+        origin: 'Orders → order → participant form',
+        route: '/orders/:orderId → /orders/:ticketId/form',
+        backTarget: 'Orders',
         steps: [
-          'Buyer opens the Passport Events tab and finds the Multiple-entries task card.',
-          'Buyer opens the participant form for the order.',
-          'Per slot, buyer fills own, invites a friend to claim, or sends a Guest QR.',
-          'Each slot then resolves on the right surface (Passport or Guest QR).',
+          'The buyer opens Orders. The order shows a "Forms needed" label for the multi-entry order.',
+          'The buyer opens the participant form for the order.',
+          'For each slot, the buyer completes the form, sends a claim link, or sends a Guest QR.',
+          'Each slot then goes to the correct surface: the Passport or the Guest QR.',
         ],
       },
-      renderViewport: () => (
-        <WF_AccessSummary
-          surface="Passport"
-          route="/passport/events → /orders/:ticketId/form"
-          rows={[
-            { label: 'Buyer', value: 'Self on own Passport; picks invite or Guest QR per other slot.', tone: 'buyer' },
-            { label: 'Others', value: 'Invited friend: own Passport · Guest: web QR.', tone: 'recipient' },
-            { label: 'Gate QR', value: 'Mixed — Passport QRs and Guest QRs together.', tone: 'gate' },
-          ]}
-        />
-      ),
+      renderViewport: () => <LiveAppScreen title="Mixed order outcome" path="/orders/tkt-011" />,
     },
     {
       group: 'scenario',
       badgeText: 'Gift · Form Link',
       badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
       title: 'Case 30: Buyer Does Not Attend — Sends Form To Friend',
-      subtitle: 'Buyer purchases purely as a gift and is not attending, but the participant form is still unfilled. The buyer sends the form link to the friend; the friend logs in or creates an account, completes the organizer form, and the entry attaches to that Passport. This is not a buyer-side transfer. If the form was already filled or ownership needs to change later, only the organizer can handle that transfer when contacted. Screen states: use the current form fill-up screen.',
+      subtitle: 'The buyer buys the ticket as a gift and does not attend. The participant form is not complete. The buyer sends the form link to the friend. The friend signs in or makes an account and completes the organizer form. The entry attaches to that Passport. This is not a transfer by the buyer. If the form is already complete, only the organizer can transfer the entry. For the screen states, use the current form screen.',
       timelineSteps: FLOWS.scnGiftTransfer,
       emailTemplates: [EMAIL_CATALOG.guestClaim],
       accessPath: {
-        origin: 'Orders → send form link',
+        origin: 'Orders → send the form link',
         route: '/orders/:ticketId/form',
         backTarget: 'Orders list',
         steps: [
-          'Buyer opens Orders while the participant form is still unfilled.',
-          'Buyer sends the form link to the friend.',
-          'Friend logs in or creates an account and completes the organizer form.',
-          'Entry attaches to the friend\'s Passport after the form is submitted.',
+          'The buyer opens Orders while the participant form is not complete.',
+          'The buyer sends the form link to the friend.',
+          'The friend signs in or makes an account. The friend completes the organizer form.',
+          'The entry attaches to the friend\'s Passport after the form is submitted.',
         ],
       },
-      renderViewport: () => (
-        <WF_AccessSummary
-          surface="Form"
-          route="/orders/:ticketId/form"
-          rows={[
-            { label: 'Buyer', value: 'Not attending; sends the unfilled organizer form link from Orders.', tone: 'buyer' },
-            { label: 'Friend', value: 'Logs in or creates account, fills the form, and receives the entry on Passport.', tone: 'recipient' },
-            { label: 'Gate QR', value: 'Friend shows their own Passport QR.', tone: 'gate' },
-          ]}
-        />
-      ),
+      renderViewport: () => <LiveAppScreen title="Gifted entry, form link sent" path="/orders/tkt-012" />,
     },
     {
       group: 'scenario',
       badgeText: 'Gift · App-less',
       badgeColor: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
       title: 'Case 31: Buyer Does Not Attend — Fills Form & Sends App-less Pass',
-      subtitle: 'Buyer buys access for someone else who will not use a PlanOut account. Because the recipient is not logging in, the buyer must complete the organizer form on their behalf first, then send a Guest QR. Adult friends, children, elderly relatives, and dependents all use the same app-less Guest QR. The pass stays managed from the buyer\'s Orders and does not attach to the recipient\'s Passport. Screen states: see Cases 11–16.',
+      subtitle: 'The buyer buys access for a person who will not use a PlanOut account. The recipient does not sign in. Because of this, the buyer completes the organizer form first. The buyer then sends a Guest QR. Adult friends, children, elderly relatives, and dependents use the same app-less Guest QR. The buyer controls the pass from Orders. The pass does not attach to the recipient\'s Passport. For the screen states, see Cases 11–16.',
       timelineSteps: FLOWS.scnGiftGuestQR,
       emailTemplates: [EMAIL_CATALOG.guestLink, EMAIL_CATALOG.temporaryQR],
       accessPath: {
@@ -2524,94 +1899,86 @@ export function PassportCasesPage() {
         route: '/orders/:orderId/entry/:entryId/guest-qr',
         backTarget: 'Order detail',
         steps: [
-          'Buyer opens Orders and completes the organizer form on behalf of the recipient.',
-          'Buyer generates a Guest QR for the filled slot.',
-          'Recipient opens the Guest QR link or printout — no account.',
-          'Recipient shows the web QR at the gate; buyer tracks its state in Orders.',
+          'The buyer opens Orders. The buyer completes the organizer form for the recipient.',
+          'The buyer makes a Guest QR for the completed slot.',
+          'The recipient opens the Guest QR link or the printed QR. The recipient does not need an account.',
+          'The recipient shows the web QR at the gate. The buyer monitors the QR status in Orders.',
         ],
       },
-      renderViewport: () => (
-        <WF_AccessSummary
-          surface="Orders"
-          route="/orders/:orderId/entry/:entryId/app-less-pass"
-          rows={[
-            { label: 'Buyer', value: 'Not attending; fills the organizer form on behalf of the recipient, then sends the Guest QR.', tone: 'buyer' },
-            { label: 'Recipients', value: 'Adult guest, child, elderly relative, or dependent: same Guest QR. No Passport ownership.', tone: 'recipient' },
-            { label: 'Gate QR', value: 'Recipient shows the app-less web QR or printout.', tone: 'gate' },
-          ]}
-        />
-      ),
+      renderViewport: () => <LiveAppScreen title="App-less pass outcome" path="/orders/tkt-010/entry/tkt-010-p2/guest-qr" />,
     },
     {
       group: 'scenario',
       badgeText: 'Team · Individual access',
       badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
       title: 'Case 33: Team Purchase — Players Resolve Individually',
-      subtitle: 'One team registration with organizer-defined player limits. The buyer adds players in the team form; each player receives Passport access through a claim link or an app-less Guest QR. There is no team lead or roster-management surface.',
+      subtitle: 'This is one team purchase with multiple player entries. The buyer adds player entries from the order, up to the organizer maximum, then each player gets access through a claim link or an app-less Guest QR. There is no team-wide Passport or gate credential, and the team stays one financial registration item.',
       timelineSteps: FLOWS.scnTeam,
       emailTemplates: [EMAIL_CATALOG.rosterInvite],
       accessPath: {
-        origin: 'Orders → team participant form',
-        route: '/orders/:ticketId/form → /passport',
+        origin: 'Checkout → Orders → team order',
+        route: '/orders/:ticketId → /passport',
         backTarget: 'Orders list',
         steps: [
-          'Buyer opens the team form and adds players within the organizer minimum and maximum.',
-          'For each player, buyer completes the form for an app-less Guest QR or sends a claim link.',
-          'Claim-link recipients sign in or create an account and complete their own organizer form.',
-          'At the gate, each person uses their own Passport or Guest QR.',
+          'From the team order, the buyer sizes the roster: "Add player" up to the organizer maximum, and remove an unsent extra slot down to the minimum.',
+          'From the team order, the buyer completes the form for a Guest QR, or sends a claim link for each player.',
+          'Claim-link players sign in or make an account. They complete their own organizer form.',
+          'At the gate, each player uses their own Passport or Guest QR.',
         ],
       },
-      renderViewport: () => (
-        <WF_AccessSummary
-          surface="Team"
-          route="/orders/:ticketId/form → /passport"
-          rows={[
-            { label: 'Buyer', value: 'Adds players in the team form; chooses a claim link or Guest QR per player.', tone: 'buyer' },
-            { label: 'Players', value: 'Account holders claim into their own Passport; app-less players receive a Guest QR.', tone: 'recipient' },
-            { label: 'Gate QR', value: 'Each player shows their own Passport or Guest QR.', tone: 'gate' },
-          ]}
-        />
-      ),
+      renderViewport: () => <LiveAppScreen title="Team order player access outcome" path="/orders/tkt-013" />,
     },
     {
       group: 'scenario',
       badgeText: 'Guest QR · Later claim',
       badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
       title: 'Case 34: Guest QR Holder Creates An Account Later',
-      subtitle: 'A person used an app-less Guest QR, then later creates a PlanOut account. They scan the Guest QR or enter its code, confirm the entry, and add it to their Passport exactly once.',
+      subtitle: 'A person used an app-less Guest QR. The person makes a PlanOut account later. The person signs in, then scans the Guest QR with the in-app camera or uploads a saved photo of it. A recognized code is claimed immediately and Passport confirms it with a toast. This is possible one time only.',
       timelineSteps: FLOWS.scnLeadTransfer,
       emailTemplates: [],
       accessPath: {
-        origin: 'Guest QR link or Passport → Add code',
-        route: '/passport/add-entry',
+        origin: 'Guest QR link, or Passport → Add a past event → Scan event QR',
+        route: '/passport/add-entry?scan=1 (a shared ?code= link opens the review state instead)',
         backTarget: 'Passport',
         steps: [
-          'Guest scans the shared Guest QR or opens Add code in Passport.',
-          'They sign in or create an account, then review the entry.',
-          'They confirm Add to my Passport.',
-          'The Guest QR is invalidated; a second claim is blocked.',
+          'The guest signs in or makes an account first. The add-entry screen needs an account.',
+          'The guest opens the scanner from Passport and scans the pass, or uploads a saved photo of it.',
+          'The guest examines the entry and taps Add to my Passport.',
+          'The Guest QR becomes invalid. A second claim is not possible.',
         ],
       },
-      renderViewport: () => (
-        <WF_AccessSummary
-          surface="Team"
-          route="/passport/add-entry"
-          rows={[
-            { label: 'Guest', value: 'Uses the Guest QR or code after deciding to create an account.', tone: 'recipient' },
-            { label: 'Passport', value: 'Receives the entry and preserves a prior check-in, if any.', tone: 'buyer' },
-            { label: 'Guest QR', value: 'Permanently invalid after the one-time claim.', tone: 'gate' },
-          ]}
-        />
-      ),
+      renderViewport: () => <LiveAppScreen title="Claimed entry on the Passport" path="/passport" />,
+    },
+    {
+      group: 'scenario',
+      badgeText: 'Guest QR · Past pass',
+      badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+      title: 'Case 36: Guest Adds A Used Past Guest QR To Passport',
+      subtitle: 'The app-less pass was already scanned at the gate, so it is spent for entry. The holder can still bring the event into a Passport as history. The guest signs in, scans or types the same code, and confirms. The Passport keeps the event and the check-in stamp, no new gate QR is issued, and the pass cannot be claimed a second time.',
+      timelineSteps: FLOWS.scnPastPassClaim,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Passport → Add a past event → Scan event QR (also from the used public pass page)',
+        route: '/passport/add-entry → /passport/add-entry?code=GE-USED-4218',
+        backTarget: 'Passport',
+        steps: [
+          'The guest shows the Guest QR at the gate. The staff scan records the check-in time and the gate.',
+          'The guest signs in or makes an account, because the entry has to land on a specific Passport.',
+          'The guest scans the used pass or uploads its image. The used public pass page also offers "Add past event to Passport".',
+          'The confirm screen shows the check-in stamp and states that this keeps history only, with no new gate QR.',
+          'The event joins Passport history. The Guest QR becomes permanently inactive, so a second Passport cannot claim it.',
+        ],
+      },
+      renderViewport: () => <LiveAppScreen title="Past event kept in Passport history" path="/passport" />,
     },
 
     // ===== GROUP A: INDIVIDUAL (SINGLE PERSON, SINGLE TICKET) =====
     {
-      group: 'single',
+      group: 'ready',
       badgeText: 'Individual Passport',
       badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
       title: 'Case 1: Universal Passport Card (Front)',
-      subtitle: 'The primary entry card holding the dynamic QR check-in token. Shows the textured metal front side with the unique dynamic QR, passport code, and athlete metadata.',
+      subtitle: 'This is the main entry card and it holds the dynamic QR check-in token. The front carries the UNIVERSAL PASS eyebrow, the holder name, the passport code, and the QR, stamped with the PlanOut Passport wordmark. The whole Passport route family sits on one continuous white surface, and the QR is presented as a premium tile — crisp square modules, a deliberate quiet zone, a white-and-mint frame — that expands on tap without changing its payload.',
       timelineSteps: FLOWS.cardFront,
       emailTemplates: [EMAIL_CATALOG.welcome],
       accessPath: {
@@ -2619,20 +1986,20 @@ export function PassportCasesPage() {
         route: '/passport',
         backTarget: 'Home',
         steps: [
-          'Buyer completes checkout and activates their Passport.',
-          'Buyer taps Passport in the bottom navigation.',
-          'The Universal Passport card renders with the dynamic QR.',
-          'The same card is shown at the gate for check-in.',
+          'The buyer completes the checkout. The Passport becomes active.',
+          'The buyer taps Passport in the bottom navigation.',
+          'The Universal Passport card shows the dynamic QR.',
+          'The buyer shows the same card at the gate for the check-in.',
         ],
       },
-      renderViewport: () => <WF_PassportFront />,
+      renderViewport: () => <LiveAppScreen title="Universal Passport card" path="/passport" />,
     },
     {
-      group: 'single',
+      group: 'ready',
       badgeText: 'Front Actions',
       badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
       title: 'Case 2: Universal Passport Card — Front Actions',
-      subtitle: 'There is no Passport card back state. Events, Save, and Regenerate QR are front-accessible actions from the Passport card surface.',
+      subtitle: 'The Passport card has no back side: Events, Save, and Reset QR all sit on the front, alongside the QR itself, which expands in place. The expanded QR reuses the same tile language rather than introducing a second visual system, and Reset QR changes the payload without changing any of this geometry.',
       timelineSteps: FLOWS.cardFrontActions,
       emailTemplates: [],
       accessPath: {
@@ -2640,20 +2007,20 @@ export function PassportCasesPage() {
         route: '/passport',
         backTarget: 'Home',
         steps: [
-          'Buyer opens the Passport tab and sees the front card.',
-          'The front action row exposes Events, Save, and Regenerate QR.',
-          'Buyer taps Events to jump to Passport Events, or Save / Regenerate in place.',
-          'No separate screen — all actions live on the Passport front.',
+          'The buyer opens the Passport tab and sees the front card.',
+          'The front action row has the Events, Save, and Reset QR actions.',
+          'The buyer taps Events to open Passport Events, or uses Save or Reset QR on the card.',
+          'There is no different screen. All the actions are on the Passport front.',
         ],
       },
-      renderViewport: () => <WF_PassportFrontActions />,
+      renderViewport: () => <LiveAppScreen title="Passport front actions" path="/passport" />,
     },
     {
-      group: 'single',
+      group: 'pending',
       badgeText: 'Inline Dynamic Form',
       badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
       title: 'Case 3: Checkout Confirmation → Inline Form Pending',
-      subtitle: 'The checkout confirmation screen when a user purchases exactly 1 event. The organizer\'s dynamic registration fields are embedded directly inline on the confirmation page to eliminate friction.',
+      subtitle: 'This is the checkout confirmation for an order with one event. The banner counts the forms that still need attention, and the organizer form opens inline so the buyer never leaves the confirmation. The inline form carries the same ownership question as everywhere else — "For me" attaches to the buyer\'s Passport, "For someone else" produces a buyer-filled Guest QR — and the confirmation states the choice plainly: a claim link for their Passport, or a buyer-filled app-less Guest QR. "Do this later" keeps the work on the order.',
       timelineSteps: FLOWS.inlineForm,
       emailTemplates: [EMAIL_CATALOG.formRequired],
       accessPath: {
@@ -2661,83 +2028,92 @@ export function PassportCasesPage() {
         route: '/checkout (confirmation state)',
         backTarget: 'Orders or Passport',
         steps: [
-          'Buyer checks out exactly one ticket and pays.',
-          'The confirmation screen embeds the organizer form inline.',
-          'Buyer fills and submits without leaving the confirmation.',
+          'The buyer completes the checkout with one ticket and pays.',
+          'The confirmation screen shows the organizer form.',
+          'The buyer completes and submits the form on the same screen.',
           'The entry then attaches to the buyer\'s Passport.',
         ],
       },
-      renderViewport: () => <WF_InlineForm />,
+      renderViewport: () => (
+        <PurchaseIntentCapture
+          capture="checkout-confirmation-form"
+          title="Inline form on the checkout confirmation"
+        />
+      ),
     },
     {
-      group: 'single',
-      badgeText: 'FormTaskCard · Single',
+      group: 'pending',
+      badgeText: 'Form Pending · Single',
       badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-      title: 'Case 4: FormTaskCard — Single Entry Pending',
-      subtitle: 'The task card shown on the Passport Events page for a single-entry ticket with forms still pending. Displays "Single entry" eyebrow, event name, category, deadline, and a "Complete form" CTA.',
+      title: 'Case 4: Single Entry — Form Still Pending',
+      subtitle: 'This is a single ticket with an organizer form that is not complete. The item shows in Orders. The order detail shows "Forms still needed — participant form required" and a "Complete forms" button. A floating "Finish Forms" pill also appears on most other pages and opens Orders.',
       timelineSteps: FLOWS.formTaskSingle,
       emailTemplates: [EMAIL_CATALOG.formRequired],
       accessPath: {
-        origin: 'Passport → Events (also reachable from Orders)',
-        route: '/passport/events → /orders/:ticketId/form',
-        backTarget: 'Passport Events',
+        origin: 'Orders → order detail (also reachable from the floating "Finish Forms" pill)',
+        route: '/orders/:orderId → /orders/:ticketId/form',
+        backTarget: 'Orders list',
         steps: [
-          'Buyer opens Passport → Events from the front actions.',
-          'A "Single entry" task card shows the event, category, and deadline.',
-          'Buyer taps Complete form to open the participant form.',
-          'On submit the entry attaches to the buyer\'s Passport.',
+          'The buyer opens Orders and selects the order with the "Forms needed" label.',
+          'The open row shows "Forms still needed — participant form required".',
+          'The buyer taps Complete forms. The participant form opens.',
+          'The buyer submits the form. The entry attaches to the buyer\'s Passport.',
         ],
       },
-      renderViewport: () => <WF_FormTaskSingle />,
+      renderViewport: () => <LiveAppScreen title="Order detail with pending form" path="/orders/tkt-003" />,
     },
     {
-      group: 'single',
+      group: 'pending',
       badgeText: 'Pending Payment',
       badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
       title: 'Case 5: Locked — Pending Payment Verification',
-      subtitle: 'The locked event row when payment has not yet been confirmed (e.g. bank transfer pending). The "Awaiting payment" button is disabled. Row transitions to pending_form or attached once payment clears.',
+      subtitle: 'The payment is not confirmed, for example a bank transfer. The transaction record shows "Awaiting Payment — your order is reserved". The timeline stops before Confirmation. The forms and the Passport access unlock after the payment.',
       timelineSteps: FLOWS.pendingPayment,
       emailTemplates: [],
       accessPath: {
-        origin: 'Orders (also shown on Passport)',
-        route: '/orders',
-        backTarget: 'Home',
+        origin: 'Settings → Transactions → pending record',
+        route: '/settings/transactions/:txnId',
+        backTarget: 'Transactions ledger',
         steps: [
-          'Buyer checks out with an offline / pending payment method.',
-          'The order appears in Orders with an "Awaiting payment" locked row.',
-          'The button stays disabled until the payment clears.',
-          'Once verified the row moves to pending_form or attached.',
+          'The buyer completes the checkout with an offline payment.',
+          'The transaction shows in Settings → Transactions as Pending.',
+          'The timeline stays at "Awaiting Payment" until the payment is confirmed.',
+          'After the confirmation, the order unlocks the forms and the Passport access.',
         ],
       },
-      renderViewport: () => <WF_PendingPayment />,
+      renderViewport: () => (
+        <LiveAppScreen title="Awaiting payment ledger" path="/settings/transactions/AAA-L4DJYC" />
+      ),
     },
     {
-      group: 'single',
+      group: 'exceptions',
       badgeText: 'Resubmit Required',
       badgeColor: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
       title: 'Case 6: Form Update Required — Resubmission Needed',
-      subtitle: 'Shown when an organizer updates form requirements after initial submission. Displays an orange "Form update required" badge and a "Review form" CTA — matching the real app\'s resubmit label from formTaskDetails().',
+      subtitle: 'The organizer changes the form requirements after the first submission. The form-diff screen shows each field as Unchanged, Updated, New, or Removed. The screen keeps the user\'s data. The user then taps "Review and resubmit form".',
       timelineSteps: FLOWS.resubmitRequired,
       emailTemplates: [EMAIL_CATALOG.resubmitRequired],
       accessPath: {
-        origin: 'Passport → Events (after organizer update)',
-        route: '/passport/events → /orders/:ticketId/form',
-        backTarget: 'Passport Events',
+        origin: 'Orders → "Review changes" on the flagged entry',
+        route: '/forms/:entryId/diff → /orders/:ticketId/form',
+        backTarget: 'Orders',
         steps: [
-          'Organizer updates the form after the buyer already submitted.',
-          'A "Form update required" card appears on Passport → Events.',
-          'Buyer taps Review form to open the updated form.',
-          'On re-submit the entry returns to attached.',
+          'The organizer changes the form after the buyer\'s submission.',
+          'The entry in Orders shows "Review changes".',
+          'The diff screen shows the changes between form v1 and form v2.',
+          'The buyer taps "Review and resubmit form". After the submission, the entry attaches again.',
         ],
       },
-      renderViewport: () => <WF_ResubmitRequired />,
+      renderViewport: () => (
+        <LiveAppScreen title="Form update diff" path="/forms/resubmit-aquathlon/diff" />
+      ),
     },
     {
-      group: 'single',
+      group: 'ready',
       badgeText: 'Ready · Attached',
       badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
       title: 'Case 7: Custom Form Submitted → Attached & Access Ready',
-      subtitle: 'The standard green-path event card on the Passport once all registration details are completed. Shows the emerald "Ready" badge indicating organizer-configured fields and payment are verified.',
+      subtitle: 'This is the usual good result. All the registration data is complete. The Passport shows the event card with the green "Ready" label. The forms and the payment are complete.',
       timelineSteps: FLOWS.attached,
       emailTemplates: [EMAIL_CATALOG.ticketReady],
       accessPath: {
@@ -2745,20 +2121,22 @@ export function PassportCasesPage() {
         route: '/passport',
         backTarget: 'Home',
         steps: [
-          'Buyer completes payment and all organizer forms.',
-          'The event card turns green ("Ready") on the Passport.',
-          'No pending tasks remain for that entry.',
-          'Buyer shows the Universal Passport QR at the gate.',
+          'The buyer completes the payment and all the organizer forms.',
+          'The event card on the Passport becomes green with the "Ready" label.',
+          'There are no open tasks for the entry.',
+          'The buyer shows the Universal Passport QR at the gate.',
         ],
       },
-      renderViewport: () => <WF_AttachedReady />,
+      renderViewport: () => (
+        <LiveAppScreen title="Ready for access entries" path="/passport/events" />
+      ),
     },
     {
-      group: 'single',
+      group: 'exceptions',
       badgeText: 'Spot Released',
       badgeColor: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
       title: 'Case 8: Deadline Missed → Spot Released',
-      subtitle: 'Shown when the form deadline passes without submission. The row is faded with a "Spot released" badge. User can browse the event again to re-register if slots remain.',
+      subtitle: 'The form deadline passed without a submission. The row shows a "Spot released" label. The user can open the event again and register if slots are available.',
       timelineSteps: FLOWS.spotReleased,
       emailTemplates: [EMAIL_CATALOG.spotReleased],
       accessPath: {
@@ -2766,20 +2144,22 @@ export function PassportCasesPage() {
         route: '/passport/events',
         backTarget: 'Passport',
         steps: [
-          'Buyer misses the form deadline for a pending entry.',
-          'The row fades with a "Spot released" badge under Status updates.',
-          'Buyer opens Passport → Events to see the released state.',
-          'Buyer can browse the event again to re-register if slots remain.',
+          'The form deadline passes and the form is not complete.',
+          'The row shows a "Spot released" label in the Status updates section.',
+          'The buyer opens Passport → Events to see the released state.',
+          'The buyer can open the event again and register if slots are available.',
         ],
       },
-      renderViewport: () => <WF_SpotReleased />,
+      renderViewport: () => (
+        <LiveAppScreen title="Spot released status update" path="/passport/events" scrollToText="Status updates" />
+      ),
     },
     {
-      group: 'single',
+      group: 'eventPast',
       badgeText: 'Attended History',
       badgeColor: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
       title: 'Case 9: Event Completed → Checked-In & Attended Log',
-      subtitle: 'Logs completed check-in history for events the athlete successfully scanned into at the gate. Shows "Attended" or "Completed" badge.',
+      subtitle: 'This is the check-in history for events where the staff scanned the user at the gate. The entry shows an "Attended" or "Completed" label.',
       timelineSteps: FLOWS.pastAttended,
       emailTemplates: [EMAIL_CATALOG.checkinSuccess],
       accessPath: {
@@ -2787,20 +2167,22 @@ export function PassportCasesPage() {
         route: '/passport/events',
         backTarget: 'Passport',
         steps: [
-          'Buyer is scanned in at the gate on event day.',
-          'The entry moves to the Past events section with an "Attended" log.',
-          'Buyer opens Passport → Events to review attendance history.',
-          'No further action is required.',
+          'The staff scans the buyer in at the gate on the event day.',
+          'The entry moves to the Past events section with an "Attended" record.',
+          'The buyer opens Passport → Events to see the attendance history.',
+          'No more action is necessary.',
         ],
       },
-      renderViewport: () => <WF_PastAttended />,
+      renderViewport: () => (
+        <LiveAppScreen title="Past events attended log" path="/passport/events" scrollToText="Past events" />
+      ),
     },
     {
-      group: 'single',
+      group: 'eventPast',
       badgeText: 'No-Show History',
       badgeColor: 'bg-red-500/10 text-red-400 border-red-500/20',
       title: 'Case 10: Event Completed → Missed No-Show Log',
-      subtitle: 'Highlights registered tickets that were never scanned on event day. Shows a "No-show" badge with the message "You were registered but not checked in on event day."',
+      subtitle: 'This shows the tickets that were not scanned on the event day. The entry shows a "No-show" label and this message: "You were registered but not checked in on event day."',
       timelineSteps: FLOWS.pastNoShow,
       emailTemplates: [EMAIL_CATALOG.noShow],
       accessPath: {
@@ -2808,23 +2190,25 @@ export function PassportCasesPage() {
         route: '/passport/events',
         backTarget: 'Passport',
         steps: [
-          'Buyer is registered but never scans in on event day.',
-          'The entry is tagged "No-show" and the QR is disabled.',
-          'Buyer opens Passport → Events to see the no-show log.',
-          'No re-entry is possible for that ticket.',
+          'The buyer is registered but does not check in on the event day.',
+          'The system sets the entry to "No-show". The QR becomes unserviceable.',
+          'The buyer opens Passport → Events to see the no-show record.',
+          'Entry with that ticket is not possible again.',
         ],
       },
-      renderViewport: () => <WF_PastNoShow />,
+      renderViewport: () => (
+        <LiveAppScreen title="Past events no-show log" path="/passport/events" scrollToText="Past events" />
+      ),
     },
 
     // ===== GROUP B: GUEST SHARING (MULTIPLE PEOPLE, MULTIPLE TICKETS) =====
 
     {
-      group: 'multiple',
+      group: 'ready',
       badgeText: 'Buyer Guest Manager',
       badgeColor: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
       title: 'Case 11: Shared Ticket → Guest QR Active',
-      subtitle: 'The buyer\'s dashboard view for a shared Guest QR in active state. Shows the QR code, ref number, "Active" badge, one-time use warning, and Share/Revoke actions.',
+      subtitle: 'This is the buyer\'s view of an active Guest QR, redesigned as a credential rather than a form. The screen is titled "Guest access pass": one dark green perforated ticket carries the attendee name, the event and category, the scannable QR on white, the entry reference, the gate and time, and the validity date. "Share Guest QR" is the only filled action, with "Regenerate QR" below it — the pass replaces itself in place instead of offering a separate resend.',
       timelineSteps: FLOWS.guestActive,
       emailTemplates: [EMAIL_CATALOG.guestLink],
       accessPath: {
@@ -2832,41 +2216,41 @@ export function PassportCasesPage() {
         route: '/orders/tkt-010/entry/tkt-010-p2/guest-qr',
         backTarget: 'Previous app screen, normally the order detail',
         steps: [
-          'Buyer completes checkout for an entry assigned to someone else.',
-          'Buyer opens Orders from the bottom navigation.',
-          'Buyer opens the order that contains the guest participant.',
-          'Buyer taps the guest QR action on that participant row.',
+          'The buyer completes the checkout for an entry for a different person.',
+          'The buyer opens Orders from the bottom navigation.',
+          'The buyer opens the order that has the guest participant.',
+          'The buyer taps the Guest QR action on the participant row.',
         ],
       },
       renderViewport: () => <WF_GuestQRActive />,
     },
     {
-      group: 'multiple',
+      group: 'eventPast',
       badgeText: 'Buyer Guest Manager',
       badgeColor: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
-      title: 'Case 12: Shared Ticket → Guest Checked-In (Used QR)',
-      subtitle: 'The buyer\'s dashboard view showing that the guest has scanned in at the gate. Shows the exact entry gate name and checked-in timestamp. QR is consumed.',
+      title: 'Case 12: Shared Ticket → Guest Checked-In At The Gate',
+      subtitle: 'The pass itself does not change after a scan: it stays white and claimable, because a spent Guest QR can still become Passport history exactly once. The scan surfaces on the distribution screen instead, where the slot turns to "Used" and reads "Scanned <time> · still claimable once" beside the reference. The buyer keeps the Passport-option note and the share actions on that slot.',
       timelineSteps: FLOWS.guestUsed,
       emailTemplates: [EMAIL_CATALOG.guestCheckedIn],
       accessPath: {
-        origin: 'Orders → order detail → guest entry after scan',
-        route: '/orders/tkt-010/entry/tkt-010-p2/guest-qr?state=used',
+        origin: 'Orders → order detail → Manage guest QRs, after the gate scan',
+        route: '/orders/:orderId/guest-manager (the scanned slot)',
         backTarget: 'Previous app screen, normally the order detail',
         steps: [
-          'Buyer generated and shared a guest QR from Orders.',
-          'Guest presents the public QR at the gate.',
-          'Staff scan marks the guest QR as used.',
-          'Buyer reopens the guest QR from Orders and sees the scanned state.',
+          'The buyer makes and shares a Guest QR from Orders.',
+          'The guest shows the public pass at the gate and the staff scans it.',
+          'The distribution screen marks that slot "Used" with the scan time and gate.',
+          'The pass stays claimable once, so the guest can still add the past event to a Passport.',
         ],
       },
       renderViewport: () => <WF_GuestQRUsed />,
     },
     {
-      group: 'multiple',
+      group: 'exceptions',
       badgeText: 'Buyer Guest Manager',
       badgeColor: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
       title: 'Case 13: Shared Ticket → Guest QR Revoked',
-      subtitle: 'The buyer\'s dashboard view when a shared guest ticket has been cancelled. Shows a red "Revoked" badge, disabled QR, and option to generate a new one.',
+      subtitle: 'This is the buyer\'s view after a shared Guest QR is cancelled. The pass keeps its ticket shape but turns muted, with a rotated "REVOKED" stamp over the QR so the state is unmistakable at a glance. The code no longer works at the gate and the holder cannot claim it. The buyer generates a fresh pass to recover.',
       timelineSteps: FLOWS.guestRevoked,
       emailTemplates: [EMAIL_CATALOG.guestRevoked],
       accessPath: {
@@ -2874,20 +2258,41 @@ export function PassportCasesPage() {
         route: '/orders/tkt-010/entry/tkt-010-p2/guest-qr?state=revoked',
         backTarget: 'Previous app screen, normally the order detail',
         steps: [
-          'Buyer opens Orders and selects the relevant order.',
-          'Buyer opens the guest QR for the participant slot.',
-          'Buyer taps Revoke and confirms the cancellation.',
-          'The same guest QR screen updates into the revoked state.',
+          'The buyer opens Orders and selects the applicable order.',
+          'The buyer opens the Guest QR for the participant slot.',
+          'The buyer cancels the pass, either from the slot or from the pass itself.',
+          'The pass shows the REVOKED stamp. A new Guest QR has to be generated.',
         ],
       },
       renderViewport: () => <WF_GuestQRRevoked />,
     },
     {
-      group: 'multiple',
+      group: 'ready',
+      badgeText: 'Buyer Guest Manager',
+      badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+      title: 'Case 35: Shared Ticket → Guest QR Claimed Into Passport',
+      subtitle: 'The guest decides to make a PlanOut account and adds the Guest QR to their own Passport. The buyer\'s pass keeps its ticket shape but turns indigo-tinted with a rotated "CLAIMED" stamp over the QR, and an explanatory panel below reads "Guest QR claimed — this entry now belongs to a Passport." The code cannot be shared, scanned, or claimed again.',
+      timelineSteps: FLOWS.guestClaimed,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Orders → order detail → guest entry (buyer side)',
+        route: '/orders/tkt-010/entry/tkt-010-p2/guest-qr',
+        backTarget: 'Previous app screen, normally the order detail',
+        steps: [
+          'The guest signs in or makes an account, then scans the Guest QR from the Passport add-pass sheet.',
+          'The guest reviews the entry and taps "Add to my Passport".',
+          'The Guest QR becomes permanently claimed. A second claim is not possible.',
+          'The buyer opens the Guest QR from Orders and sees the claimed state.',
+        ],
+      },
+      renderViewport: () => <WF_GuestQRClaimed />,
+    },
+    {
+      group: 'ready',
       badgeText: 'Guest Web Page',
       badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
       title: 'Case 14: Non-User Guest Landing Page View',
-      subtitle: 'The unauthenticated mobile webpage opened by a guest. Shows ticket details, check-in status, gate QR code, and a "Sign up free" CTA to convert to a PlanOut user.',
+      subtitle: 'This is the public web page that the guest opens. A login is not necessary. The page shows the ticket data, the check-in status, the gate QR code, and a "Sign up free" button.',
       timelineSteps: FLOWS.publicGuestPage,
       emailTemplates: [EMAIL_CATALOG.guestLink],
       accessPath: {
@@ -2895,41 +2300,41 @@ export function PassportCasesPage() {
         route: '/guest-entry/GE-CANLAON-42K',
         backTarget: 'Browser history, usually the message or email source',
         steps: [
-          'Buyer shares the guest QR link from Orders.',
-          'Guest receives the link outside the app.',
-          'Guest opens the link in a mobile browser with no login required.',
-          'Guest shows the web QR at the gate.',
+          'The buyer shares the Guest QR link from Orders.',
+          'The guest receives the link outside the app.',
+          'The guest opens the link in a browser. A login is not necessary.',
+          'The guest shows the web QR at the gate.',
         ],
       },
       renderViewport: () => <WF_PublicGuestPage />,
     },
     {
-      group: 'multiple',
+      group: 'ready',
       badgeText: 'Guest Claim & Register',
       badgeColor: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
-      title: 'Case 15: Guest Ticket Transfer → Claim & Register Account',
-      subtitle: 'Full ticket ownership transfer — buyer sends another person a claim link by email. The email does not match an account by itself. Recipient must log in or create a PlanOut account from the link, fill the organizer form, and have the entry bind to that authenticated Passport. This is a permanent transfer, not a Guest QR — the buyer loses access to that slot entirely.',
+      title: 'Case 15: Shared Form Link → Login Gate & Standard Form',
+      subtitle: 'A shared form link has no claim page of its own. The link carries the order and the entry, so a signed-out recipient gets the normal login or create-account screen with the form as the return destination, and a signed-in recipient goes straight to the standard participant form. The account that submits the form owns the entry on its Passport. This is a permanent transfer of that slot, not a Guest QR.',
       timelineSteps: FLOWS.guestClaimRegister,
       emailTemplates: [EMAIL_CATALOG.guestClaim],
       accessPath: {
-        origin: 'Ticket claim link sent to recipient email',
-        route: '/ticket-claim/CLM-CANLAON-42K',
-        backTarget: 'Browser history, usually the claim email or previous page',
+        origin: 'Shared form link from the order (Send link, Copy link, or a bulk email)',
+        route: '/ticket-claim/:ref?order=&entry= → /login (if signed out) → /orders/:ticketId/form?invite=1',
+        backTarget: 'Browser history, usually the email or chat the link came from',
         steps: [
-          'Buyer starts a ticket transfer for a participant slot.',
-          'Recipient receives a claim link by email.',
-          'Recipient opens the claim page and logs in or creates an account.',
-          'Recipient completes the organizer form so the entry binds to that Passport.',
+          'The buyer uses Send link or Copy link on the entry. Both build the same /ticket-claim link with the order and entry attached.',
+          'The recipient opens the link. Without both parameters the route falls back to Orders, so the link is the whole credential.',
+          'A signed-out recipient sees the standard login screen and returns to the form after authenticating. No claim-specific page appears.',
+          'The recipient completes the standard participant form. The submission, not the invited email, decides which Passport owns the entry.',
         ],
       },
       renderViewport: () => <WF_GuestClaimRegister />,
     },
     {
-      group: 'multiple',
+      group: 'ready',
       badgeText: 'Guest QR',
       badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
       title: 'Case 16: Guest QR (No Account Flow)',
-      subtitle: 'App-less entry pass for anyone who will not use a PlanOut account. Buyer fills all organizer-defined fields on their behalf. A Guest QR is generated; no app, no login, no account required, and it does not attach to any Passport.',
+      subtitle: 'This is an app-less entry pass for a person who will not use a PlanOut account. The buyer completes all the organizer fields for that person, and the completed buyer-filled form is what produces the pass. An app, a login, or an account is not necessary, and the pass does not attach to a Passport. The pass keeps the green ticket credential treatment, deliberately separate from the metal Passport card, so a shared guest pass never reads as Passport ownership.',
       timelineSteps: FLOWS.temporaryGuestQR,
       emailTemplates: [EMAIL_CATALOG.temporaryQR],
       accessPath: {
@@ -2937,53 +2342,55 @@ export function PassportCasesPage() {
         route: '/orders/tkt-010/entry/tkt-010-p2/guest-qr',
         backTarget: 'Previous app screen, normally the order detail',
         steps: [
-          'Buyer fills the required forms on behalf of the guest.',
-          'Buyer opens Orders and selects the matching order.',
-          'Buyer taps Generate & send QR on the guest participant row.',
-          'Buyer opens, copies, prints, or sends the Guest QR.',
+          'The buyer completes the necessary forms for the guest.',
+          'The buyer opens Orders and selects the applicable order.',
+          'The buyer taps Generate & send QR on the guest participant row.',
+          'The buyer opens, copies, prints, or sends the Guest QR.',
         ],
       },
       renderViewport: () => <WF_TemporaryGuestQR />,
     },
     {
-      group: 'multiple',
-      badgeText: 'FormTaskCard · Multiple',
+      group: 'pending',
+      badgeText: 'Form Pending · Multiple',
       badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-      title: 'Case 17: FormTaskCard — Multiple Entries Pending',
-      subtitle: 'The task card shown on the Passport Events page when one purchase covers multiple participants. For each slot, buyer can either invite the participant (claim flow — account required) or fill the form themselves (Guest QR — no account needed). Mixed strategies across slots are supported. Card shows aggregate pending count.',
+      title: 'Case 17: Group Entry — Multiple Participant Forms Pending',
+      subtitle: 'One purchase includes more than one participant. The group participant form shows the progress of each slot: completed or sent. For each slot, the buyer completes the form or sends a claim link. Different options for different slots are permitted.',
       timelineSteps: FLOWS.formTaskMulti,
       emailTemplates: [],
       accessPath: {
-        origin: 'Passport → Events (also reachable from Orders)',
-        route: '/passport/events → /orders/:ticketId/form',
-        backTarget: 'Passport Events',
+        origin: 'Orders → order → Complete forms',
+        route: '/orders/:ticketId/form',
+        backTarget: 'Orders',
         steps: [
-          'Buyer opens Passport → Events after a multi-participant order.',
-          'A "Multiple entries" card shows the count of forms still needed.',
-          'Buyer opens the participant form to manage all slots.',
-          'Per slot the buyer fills own, invites (claim), or sends a Guest QR.',
+          'The buyer opens Orders after a multi-participant purchase.',
+          'The order shows a "Forms needed" label with the number of open forms.',
+          'The buyer opens the group participant form to control all the slots.',
+          'For each slot, the buyer completes the form or sends a claim link.',
         ],
       },
-      renderViewport: () => <WF_FormTaskMulti />,
+      renderViewport: () => (
+        <LiveAppScreen title="Group participant form" path="/orders/tkt-011/form?returnTo=orders" />
+      ),
     },
 
     {
-      group: 'multiple',
+      group: 'ready',
       badgeText: 'Multi-Guest Manager',
       badgeColor: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
       title: 'Case 23: Multi-Guest Order — Buyer Fills All, Distributes QRs',
-      subtitle: 'Buyer purchases multiple tickets and fills all organizer forms themselves (no invites). A unique Guest Entry QR is generated per slot. Buyer distributes each QR independently. The Guest Entry Manager panel shows per-guest share status, used/active state, and revocation controls. No PlanOut account required for any guest.',
+      subtitle: 'The buyer buys more than one ticket. The buyer completes all the organizer forms and does not send invites. The system makes one Guest QR for each slot. The buyer sends each QR separately. This screen shows the status of every guest slot in one place, with share and revoke controls and a group-chat share option. The guests do not need PlanOut accounts. Orders does not currently link to this screen — reach it by direct link, or manage each slot on its own from the order detail.',
       timelineSteps: FLOWS.multiGuestManager,
       emailTemplates: [],
       accessPath: {
-        origin: 'Orders → order-level Manage guest QRs',
+        origin: 'Direct link (Orders order detail manages each slot on its own instead)',
         route: '/orders/tkt-008/guest-manager',
         backTarget: 'Previous app screen, normally the order detail or Orders list',
         steps: [
-          'Buyer checks out multiple participant entries for other people.',
-          'Buyer completes the participant forms for each guest slot.',
-          'Buyer opens Orders and taps Manage guest QRs on the order.',
-          'Buyer generates, opens, copies, marks used, or revokes each guest QR independently.',
+          'The buyer completes the checkout for entries for other persons.',
+          'The buyer completes the participant form for each guest slot.',
+          'The buyer opens this screen directly, or manages each guest row from the order detail.',
+          'The buyer can make, open, copy, or revoke each Guest QR separately.',
         ],
       },
       renderViewport: () => <WF_MultiGuestManager />,
@@ -2991,74 +2398,79 @@ export function PassportCasesPage() {
 
     // ===== GROUP C: TEAM (MULTIPLE PEOPLE, SINGLE TICKET) =====
     {
-      group: 'team',
+      group: 'pending',
       badgeText: 'Team Progress',
       badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-      title: 'Case 18: Coach View → Roster Progress Bar',
-      subtitle: 'The progress indicator shown to team buyers/coaches. Shows at a glance how many roster members have completed their required forms before the team ticket is valid.',
+      title: 'Case 18: Team Order → Player Access',
+      subtitle: 'The team order lists the purchased player entries. For each player row, the buyer completes details for an app-less Guest QR or sends a claim link for that player\'s Passport.',
       timelineSteps: FLOWS.teamProgress,
       emailTemplates: [],
       accessPath: {
-        origin: 'Passport (team card) / Orders',
-        route: '/passport',
-        backTarget: 'Home',
+        origin: 'Orders → team order',
+        route: '/orders/:ticketId',
+        backTarget: 'Orders',
         steps: [
-          'Coach buys a team package; slots are reserved but locked.',
-          'The team card on the Passport shows a live roster progress bar.',
-          'Coach watches completed-vs-pending member forms update.',
-          'Once every slot is complete the team ticket turns Ready.',
+          'The buyer buys a team package. The slots stay locked.',
+          'The team order lists the purchased player entries.',
+          'The buyer uses each player row to complete the form or send/copy a claim link.',
+          'Each player resolves to their own access credential.',
         ],
       },
-      renderViewport: () => <WF_TeamProgress />,
+      renderViewport: () => (
+        <LiveAppScreen title="Team order player access" path="/orders/tkt-013" />
+      ),
     },
     {
-      group: 'team',
-      badgeText: 'Roster Statuses',
+      group: 'pending',
+      badgeText: 'Player Access Statuses',
       badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-      title: 'Case 19: Coach View → Roster Slots List',
-      subtitle: 'Displays roster entries with status dots: Complete (green), Pending (amber invite sent, form unsubmitted), or Open (unassigned slot).',
+      title: 'Case 19: Team Order → Player Rows',
+      subtitle: 'The player rows in Orders show Guest QR ready, Passport access, claim link sent, or entry setup needed. The buyer chooses how each player receives their entry.',
       timelineSteps: FLOWS.teamRosterList,
       emailTemplates: [EMAIL_CATALOG.rosterInvite],
       accessPath: {
-        origin: 'Orders → team participant form',
-        route: '/orders/:ticketId/form',
+        origin: 'Orders → team order',
+        route: '/orders/:ticketId',
         backTarget: 'Orders list',
         steps: [
-          'Coach opens the team form from the order in Orders.',
-          'The roster panel lists slots as Complete, Pending, or Open.',
-          'Coach inputs member emails; the system sends invites.',
-          'Status dots update live as members complete their forms.',
+          'The buyer opens the team order in Orders.',
+          'The player rows show the current entry setup.',
+          'The buyer completes details or sends/copies a claim link per player.',
+          'Passport ownership belongs to the player who claims it.',
         ],
       },
-      renderViewport: () => <WF_TeamRoster />,
+      renderViewport: () => (
+        <LiveAppScreen title="Team order player entries" path="/orders/tkt-013" />
+      ),
     },
     {
-      group: 'team',
-      badgeText: 'FormTaskCard · Team',
+      group: 'pending',
+      badgeText: 'Form Pending · Team',
       badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-      title: 'Case 20: FormTaskCard — Team Entry Pending',
-      subtitle: 'The task card shown on the Passport Events page for a team ticket. Displays "Team entry" eyebrow, roster completion count (e.g. "2/4 complete"), and "Manage team form" CTA.',
+      title: 'Case 20: Team Order — Player Entries Pending',
+      subtitle: 'The team order detail shows one consolidated registration item for the whole team, with one price. A "Player entries" card shows "X of Y player entries set up" with the actions for each player row.',
       timelineSteps: FLOWS.formTaskTeam,
       emailTemplates: [],
       accessPath: {
-        origin: 'Passport → Events (also reachable from Orders)',
-        route: '/passport/events → /orders/:ticketId/form',
-        backTarget: 'Passport Events',
+        origin: 'Orders → team order detail',
+        route: '/orders/:orderId',
+        backTarget: 'Orders list',
         steps: [
-          'Coach opens Passport → Events after buying a team package.',
-          'A "Team entry" card shows the roster completion count and deadline.',
-          'Coach taps Manage team form to open the roster.',
-          'Coach sends invites or fills member forms from there.',
+          'The buyer opens Orders after the team purchase.',
+          'The team order shows one consolidated registration item and a "Player entries" card.',
+          'The buyer uses each player row to complete details or send/copy a claim link.',
         ],
       },
-      renderViewport: () => <WF_FormTaskTeam />,
+      renderViewport: () => (
+        <LiveAppScreen title="Team order with player entries pending" path="/orders/tkt-013" />
+      ),
     },
     {
-      group: 'team',
+      group: 'ready',
       badgeText: 'Group Claim Links',
       badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
       title: 'Case 21: Group Chat Claim Links — Recipient Selection',
-      subtitle: 'Buyer shares one group-chat link. Each recipient chooses their individual entry, signs in or creates an account, and continues directly to the organizer form.',
+      subtitle: 'The buyer shares one group-chat link. Each recipient selects their own entry. The recipient signs in or makes an account. The organizer form then opens.',
       timelineSteps: FLOWS.groupShare,
       emailTemplates: [],
       accessPath: {
@@ -3066,22 +2478,22 @@ export function PassportCasesPage() {
         route: '/order-share/:orderId',
         backTarget: 'Group chat / Orders',
         steps: [
-          'Buyer opens the shared group link for the order.',
-          'Recipient selects their own entry and opens the individual claim link.',
-          'Recipient logs in or creates an account without onboarding interruption.',
-          'After acceptance, the team moves to that Passport.',
+          'The buyer opens the shared group link for the order.',
+          'The recipient selects their own entry and opens the claim link.',
+          'The recipient signs in or makes an account. There is no onboarding stop.',
+          'The recipient completes the organizer form. The entry attaches to that Passport.',
         ],
       },
-      renderViewport: () => <WF_LeadTransfer />,
+      renderViewport: () => <WF_GroupShareLive />,
     },
 
     // ===== GROUP D: AGGREGATE VIEW =====
     {
-      group: 'aggregate',
+      group: 'overview',
       badgeText: 'Events Page',
       badgeColor: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
       title: 'Case 22: Passport Events Attending — Aggregate Overview',
-      subtitle: 'The full Events Attending page showing all registrations organized into sections: "Forms needed" (FormTaskCards), "Ready for access" (attached rows), "Status updates" (released rows), and "Past events".',
+      subtitle: 'This is the full Events Attending page. The page shows all the registrations in three sections: "Ready for access", "Status updates", and "Past events".',
       timelineSteps: FLOWS.eventsOverview,
       emailTemplates: [],
       accessPath: {
@@ -3089,13 +2501,332 @@ export function PassportCasesPage() {
         route: '/passport/events',
         backTarget: 'Passport',
         steps: [
-          'Buyer taps Events from the Passport front actions.',
-          'The page aggregates every registration across all tickets.',
-          'Sections: Forms needed, Ready for access, Status updates, Past events.',
-          'Buyer acts on any entry directly from this one screen.',
+          'The buyer taps Events on the Passport front actions.',
+          'The page shows all the registrations for all the tickets.',
+          'The sections are: Ready for access, Status updates, and Past events.',
+          'The buyer can do the tasks for each entry from this one screen.',
         ],
       },
       renderViewport: () => <WF_EventsOverview />,
+    },
+
+    // ===== GROUP F: ADD A PAST EVENT TO PASSPORT (RECIPIENT-SIDE CLAIMING) =====
+    {
+      group: 'overview',
+      badgeText: 'Passport Launcher',
+      badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+      title: 'Case 43: Passport → Add A Past Event Launcher',
+      subtitle: 'This is the Wallet-style add-pass sheet below the Passport card, and it starts every recipient-side claim. One compact surface: a circular scan symbol, the heading "Add a past event", and one line of explanation. "Scan event QR" is the single full-width action row, with "Camera or saved QR photo" as metadata inside it. The old empty-state sentence is gone — the action is the zero-state guidance — and a "Past events" list appears below a divider only once something has been claimed.',
+      timelineSteps: FLOWS.passportPastLauncher,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Passport tab (bottom navigation), below the Passport card',
+        route: '/passport → /passport/add-entry',
+        backTarget: 'Passport',
+        steps: [
+          'The account holder opens the Passport tab.',
+          'The Wallet-style "Add a past event" sheet sits below the Passport card.',
+          '"Scan event QR" is the one action row; the camera-or-photo detail lives inside it.',
+          'A "Past events" list appears below a divider only once entries have been claimed.',
+        ],
+      },
+      renderViewport: () => <WF_PassportPastLauncher />,
+    },
+    {
+      group: 'ready',
+      badgeText: 'Camera-first Scanner',
+      badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+      title: 'Case 37: Add To Passport → Camera-First Guest QR Scanner',
+      subtitle: 'On a phone the add-entry route opens straight into a full-screen dark scan surface, so claiming an app-less pass is one focused task. The top row keeps close and camera-flip controls; the tray below offers "Upload QR" for a saved photo and a sample code. The route is canonical — the scanner never renders behind a stale result — and a good scan claims the entry outright rather than stopping at a confirmation screen.',
+      timelineSteps: FLOWS.addEntryScanner,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Passport → Add a past event → Scan event QR',
+        route: '/passport/add-entry?scan=1 (the bare path opens the same scanner on mobile)',
+        backTarget: 'Passport',
+        steps: [
+          'The holder signs in first. The add-entry screen needs an account.',
+          'The scanner opens directly, with no intermediate card and no stale result behind it.',
+          'A recognized, eligible code is claimed at once, then Passport confirms it with a toast.',
+          'Upload QR and the sample code cover a blocked camera or an unreadable print.',
+        ],
+      },
+      renderViewport: () => <WF_AddEntryScanner />,
+    },
+    {
+      group: 'eventPast',
+      badgeText: 'Past Event Claim',
+      badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+      title: 'Case 38: Add To Passport → Past Event Review & Confirm',
+      subtitle: 'This is the resolved-entry state for a Guest QR that was already scanned at the gate. The screen shows the event, the participant, the access gate, and the check-in stamp, and it states plainly that adding this keeps the past event in Passport history and will not create a new gate QR. The action reads "Add past event to Passport".',
+      timelineSteps: FLOWS.addEntryPast,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Add-entry scanner, a typed code, or the used public pass page',
+        route: '/passport/add-entry?code=GE-USED-4218',
+        backTarget: 'Passport',
+        steps: [
+          'The Guest QR was scanned at the gate, so it carries a check-in time and a gate.',
+          'The scanner or the manual code resolves the entry at ?code=.',
+          'The screen shows the check-in stamp with the event and participant details.',
+          'Confirming adds history only. The Guest QR does not become a working gate QR again.',
+        ],
+      },
+      renderViewport: () => <WF_AddEntryPast />,
+    },
+    {
+      group: 'exceptions',
+      badgeText: 'One-Time Claim Guard',
+      badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+      title: 'Case 39: Add To Passport → Entry Already Saved',
+      subtitle: 'A Guest QR may become Passport history exactly once. When the same code is opened again, the add-entry screen shows an "Added" status and states that the entry is already saved. There is no second claim action: the options are View Passport and Scan another Guest QR.',
+      timelineSteps: FLOWS.addEntryAlreadySaved,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Add-entry scanner or a typed code, reopened after a successful claim',
+        route: '/passport/add-entry?code=GE-TEMP-4021&demoState=added',
+        backTarget: 'Passport',
+        steps: [
+          'The Guest QR was already added to a Passport.',
+          'The holder scans or types the same code again.',
+          'The screen shows the "Added" status and refuses a second claim.',
+          'View Passport opens the saved record. Scan another Guest QR restarts the scanner.',
+        ],
+      },
+      renderViewport: () => <WF_AddEntryAlreadySaved />,
+    },
+    {
+      group: 'exceptions',
+      badgeText: 'Revoked Before Claim',
+      badgeColor: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+      title: 'Case 40: Add To Passport → Guest QR Revoked Before Claim',
+      subtitle: 'The buyer revoked the Guest QR before anybody claimed it. The add-entry screen shows an "Unavailable" status and states that the pass was revoked before it could be added. The only actions are Return to Passport and Scan another Guest QR. Recovery is the buyer issuing a new Guest QR.',
+      timelineSteps: FLOWS.addEntryUnavailable,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Add-entry scanner or a typed code, after the buyer revoked the pass',
+        route: '/passport/add-entry?code=GE-REVOKED-4218',
+        backTarget: 'Passport',
+        steps: [
+          'The buyer revokes the Guest QR from Orders.',
+          'The holder scans the code, or opens its ?code= link, on the add-entry screen.',
+          'The screen shows "Unavailable" and names the reason.',
+          'There is no self-service recovery. The buyer has to send a new Guest QR.',
+        ],
+      },
+      renderViewport: () => <WF_AddEntryUnavailable />,
+    },
+    {
+      group: 'exceptions',
+      badgeText: 'Guest Web Page',
+      badgeColor: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+      title: 'Case 41: Public Guest Page → Link No Longer Valid',
+      subtitle: 'The public guest page needs no login, so the link itself is the credential. A revoked pass reads "This entry QR is no longer valid" and names the buyer to contact. An unknown reference reads "Entry QR not found" and asks the buyer to resend. Neither state offers a claim or retry action.',
+      timelineSteps: FLOWS.publicGuestInvalid,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Shared guest link from SMS, email, or chat',
+        route: '/guest-entry/GE-REVOKED-4218 (unknown references render the not-found state)',
+        backTarget: 'Browser history, usually the message the link came from',
+        steps: [
+          'The buyer shares the public guest link. No login is needed to open it.',
+          'The buyer revokes the pass, or the reference is mistyped or unknown.',
+          'The page explains the state and names the buyer to contact.',
+          'The recipient cannot recover the pass. The buyer generates and resends a new one.',
+        ],
+      },
+      renderViewport: () => <WF_PublicGuestInvalid />,
+    },
+    {
+      group: 'exceptions',
+      badgeText: 'Shared Link Conflict',
+      badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      title: 'Case 44: Shared Form Link → Already Claimed By Another Account',
+      subtitle: 'A shared form link can be forwarded, so two accounts can open the same entry. Opening it reserves nothing: the first completed submission owns the entry. A later account stays on the standard form and gets an inline notice naming the account that finished first. The typed answers stay on screen and are never attached to the other Passport, and the invite submit action is replaced by "Copy my answers".',
+      timelineSteps: FLOWS.inviteClaimConflict,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'A shared form link opened by a second account',
+        route: '/orders/:ticketId/form?invite=1 (submission refused)',
+        backTarget: 'Browser history, usually the email or chat the link came from',
+        steps: [
+          'The same form link reaches more than one person.',
+          'The first account to submit the form claims the entry for its Passport.',
+          'The second account submits and stays on the form with an inline conflict notice.',
+          'The answers remain visible and unattached. "Copy my answers" replaces the invite submit action.',
+        ],
+      },
+      renderViewport: () => <WF_InviteClaimConflict />,
+    },
+    {
+      group: 'exceptions',
+      badgeText: 'Form Version Diff',
+      badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      title: 'Case 42: Form Update → Version Diff Review',
+      subtitle: 'This is the screen behind "Review changes" in Orders. When the organizer edits a form after a submission, the diff lists every field as Unchanged, Updated, New field, or Removed, with the previous answers pre-filled, so the participant can see exactly what changed before resubmitting.',
+      timelineSteps: FLOWS.formDiffReview,
+      emailTemplates: [EMAIL_CATALOG.formRequired],
+      accessPath: {
+        origin: 'Orders → order detail → Review changes on the affected entry',
+        route: '/forms/:entryId/diff',
+        backTarget: 'Orders',
+        steps: [
+          'The participant already submitted the organizer form.',
+          'The organizer changes the requirements, which raises the form version.',
+          'Orders shows "Review changes" on that entry and links to the diff.',
+          'The diff labels each field, keeps the previous answers, and leads to a resubmission.',
+        ],
+      },
+      renderViewport: () => <WF_FormDiffReview />,
+    },
+
+    // ===== GROUP G: TEAM PLAYER ENTRIES (OWNERSHIP, INVITES, COMPLETION) =====
+    {
+      group: 'pending',
+      badgeText: 'Player Ownership Choice',
+      badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+      title: 'Case 45: Team Player Form → Passport Or Guest QR Ownership',
+      subtitle: 'A player entry starts by asking who it is for. "For me" attaches the entry to the buyer\'s own Passport; "For someone else" keeps it buyer-filled and produces a Guest QR. Because one account can hold only one Passport entry per order, "For me" locks once the buyer already has one, and the screen says so: additional player entries use Guest QR or claim links. The submitted choice is recorded with the form. Checkout and the confirmation form ask this same question, so ownership reads identically wherever a buyer fills a form.',
+      timelineSteps: FLOWS.teamOwnerChoice,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Orders → team order → a player row that needs a form',
+        route: '/orders/:ticketId/form?returnTo=order&participantId=:pid&playerOnly=1',
+        backTarget: 'The team order',
+        steps: [
+          'The buyer opens a player row that still needs a form.',
+          'The form asks who the entry is for before any participant fields.',
+          '"For me" is disabled when the order already holds a Passport entry for the buyer.',
+          'Submitting records the ownership path, so the row and the gate credential agree.',
+        ],
+      },
+      renderViewport: () => <WF_TeamOwnerChoice />,
+    },
+    {
+      group: 'ready',
+      badgeText: 'Completed Player Form',
+      badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+      title: 'Case 46: Team Player Form → Completed Form Details',
+      subtitle: 'Once a player entry is complete, the same route opens read-only as "Form details": a Completed state with the recorded name and email instead of editable fields. This is what "View form" on a resolved team row opens, for both buyer-filled players and players who claimed the entry themselves. Reading it changes no ownership.',
+      timelineSteps: FLOWS.teamFormCompleted,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Orders → team order → View form on a resolved player row',
+        route: '/orders/:ticketId/form?returnTo=order&participantId=:pid&playerOnly=1',
+        backTarget: 'The team order',
+        steps: [
+          'The player entry is already complete.',
+          'The team row shows View form instead of a fill action.',
+          'The form route opens in read-only mode, titled "Form details".',
+          'The recorded participant details are shown; ownership is untouched.',
+        ],
+      },
+      renderViewport: () => <WF_TeamFormCompleted />,
+    },
+    {
+      group: 'pending',
+      badgeText: 'Player Invite Sent',
+      badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      title: 'Case 47: Team Player Form → Invite Sent, Waiting, Or Taken Back',
+      subtitle: 'When a player has been sent a claim link, the form shows "Invitation Sent" with the recipient address, a "Change Email" action, and "Waiting for participant to complete form…". The buyer can take the entry back — "I\'ll fill this out myself instead" here, or Revoke on the order row without opening the form at all — which returns it to buyer-filled mode and stops the old link from working. A saved address is never displayed as sent until the invite actually goes out.',
+      timelineSteps: FLOWS.teamInviteSent,
+      emailTemplates: [EMAIL_CATALOG.rosterInvite],
+      accessPath: {
+        origin: 'Orders → team order → an invited player row',
+        route: '/orders/:ticketId/form?returnTo=order&participantId=:pid&playerOnly=1',
+        backTarget: 'The team order',
+        steps: [
+          'The buyer sends a claim link to a player from the team order.',
+          'The row shows the recipient with a Revoke action; unsent rows stay blank.',
+          'Opening the player shows the sent state and the wait, with Change Email.',
+          'Taking the entry back returns it to buyer-filled mode and invalidates the link.',
+        ],
+      },
+      renderViewport: () => <WF_TeamInviteSent />,
+    },
+    {
+      group: 'ready',
+      badgeText: 'Team Fully Resolved',
+      badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+      title: 'Case 48: Team Order → Every Player Resolved',
+      subtitle: 'This is a team order with nothing left to chase: the card reads "Players 6 of 6 ready" with a "Full" marker. Passport players show the recorded owner, and the buyer\'s own row is labeled "You". Buyer-managed players keep their Guest QR. The pending actions are gone — each row keeps "View form", and buyer-managed rows keep "View QR".',
+      timelineSteps: FLOWS.teamAllReady,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Orders → a fully resolved team order',
+        route: '/orders/tkt-014',
+        backTarget: 'Orders list',
+        steps: [
+          'Every player entry has a completed form and an assigned access path.',
+          'The team card reads "Players 6 of 6 ready" and is marked Full.',
+          'Each row names its owner; the buyer\'s own row reads "You".',
+          'Rows expose View form, and buyer-managed players also expose View QR.',
+        ],
+      },
+      renderViewport: () => <WF_TeamAllReady />,
+    },
+    {
+      group: 'pending',
+      badgeText: 'Before Payment',
+      badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      title: 'Case 49: Checkout → Participant Details Before Payment',
+      subtitle: 'When the organizer requires details before payment, checkout opens on a details gate rather than the payment summary. A counted switcher ("1/3") walks the slots; each is filled by the buyer or handed over with "Invite via Email". Buyer-filled slots ask the same ownership question as Orders — "For me" attaches to the buyer\'s Passport, "For someone else" produces a buyer-filled Guest QR. "Fill up later" defers the rest to after payment without losing them.',
+      timelineSteps: FLOWS.checkoutParticipantDetails,
+      emailTemplates: [EMAIL_CATALOG.formRequired],
+      accessPath: {
+        origin: 'Checkout, when an item requires forms before payment',
+        route: '/checkout (participant details gate)',
+        backTarget: 'Cart',
+        steps: [
+          'An item in the order requires participant details before checkout.',
+          'Checkout opens on the details gate with a counted slot switcher.',
+          'Each buyer-filled slot chooses Passport ownership or a buyer-filled Guest QR.',
+          '"Fill up later" defers the remaining slots; they stay attached to the order.',
+        ],
+      },
+      renderViewport: () => <WF_CheckoutParticipantDetails />,
+    },
+    {
+      group: 'ready',
+      badgeText: 'Web Add-Entry',
+      badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+      title: 'Case 50: Add To Passport → Desktop Web Surface',
+      subtitle: 'At 768px and above the add-entry route stops being a camera. It renders a light web surface titled "Add a Guest QR to Passport" that never requests camera access or mounts a video element, and offers one path: upload a saved photo of the pass, decoded locally through the same jsQR code as the phone. Below 768px the camera-first scanner is unchanged. Everything after decoding — eligible, revoked, already-claimed — behaves identically.',
+      timelineSteps: FLOWS.addEntryWeb,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Passport → Add a past event, on a desktop browser',
+        route: '/passport/add-entry at a viewport of 768px or wider',
+        backTarget: 'Passport',
+        steps: [
+          'The holder opens Passport on a computer rather than a phone.',
+          'The add-entry route renders the web surface, with no camera involved.',
+          '"Upload QR photo" takes a saved image; the page states it stays on the device.',
+          'The decoded reference rejoins the normal ?code= resolution and claim rules.',
+        ],
+      },
+      renderViewport: () => <WF_AddEntryWeb />,
+    },
+    {
+      group: 'overview',
+      badgeText: 'Adaptive Order Detail',
+      badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+      title: 'Case 51: Order Details → Order Identity & Grouped Registration',
+      subtitle: 'Order Details leads with the order rather than its first event, so a multi-event purchase is never misrepresented: the header carries the status label, purchase date, reference, and a truthful title such as "3-event order" with its item count and total. Below it, every entry sits in one continuous Registration surface separated by subtle dividers instead of a stack of cards, with the aggregate pending-form state and the bulk "Send all" and "Copy all" controls in its heading.',
+      timelineSteps: FLOWS.ordersAdaptiveDetail,
+      emailTemplates: [],
+      accessPath: {
+        origin: 'Orders → an order card',
+        route: '/orders/:orderId',
+        backTarget: 'Orders list',
+        steps: [
+          'Orders lists photo-led cards with the status label, date, title, quantity, and amount.',
+          'The detail header keeps the order as the identity, not the first event.',
+          'One registration list holds every entry, with bulk sharing in its heading.',
+          'Each event inside the list keeps its own status and primary action.',
+        ],
+      },
+      renderViewport: () => <WF_OrdersAdaptiveDetail />,
     },
   ];
 
@@ -3144,7 +2875,7 @@ export function PassportCasesPage() {
 
   const viewTabs: Array<{ id: 'purchase' | 'catalog' | 'diagram'; label: string }> = [
     { id: 'purchase', label: 'Purchase Intent' },
-    { id: 'catalog', label: 'Audit Catalog' },
+    { id: 'catalog', label: 'Screen States' },
     { id: 'diagram', label: 'Flow Diagram' },
   ];
 
@@ -3209,7 +2940,7 @@ export function PassportCasesPage() {
                     <div>
                       <h2 className="text-xl font-semibold tracking-tight">Purchase Intent Cases</h2>
                       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-                        Consolidated by buyer intent, starting at Purchase Intent 1. These are ordered by who buys, who fills the form, who receives access, and what they show at the gate. The original global case numbers are kept only as audit references.
+                        These cases are grouped by buyer intent. The sequence starts at Purchase Intent 1. The order shows who buys, who completes the form, who gets access, and what they show at the gate. The global case numbers stay only as audit references.
                       </p>
                     </div>
                     <div className="rounded-md border bg-muted/40 px-4 py-3 text-right">
@@ -3253,18 +2984,19 @@ export function PassportCasesPage() {
               <CardContent className="p-6">
                 <div className="flex flex-col gap-5">
                   <div className="flex items-center justify-between border-b pb-4">
-                    <h2 className="text-sm font-medium">Flow Index</h2>
+                    <h2 className="text-sm font-medium">State Index</h2>
                     <span className="text-xs text-muted-foreground">
-                      Click any case to scroll & highlight
+                      Click a case to go to it
                     </span>
                   </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                   {[
-                    { group: 'single', label: 'Individual Flows' },
-                    { group: 'multiple', label: 'Guest Sharing' },
-                    { group: 'team', label: 'Team Entries' },
-                    { group: 'aggregate', label: 'Aggregate View' },
+                    { group: 'pending', label: 'Pending & Setup' },
+                    { group: 'ready', label: 'Ready & Distribution' },
+                    { group: 'eventPast', label: 'Event Day & Past' },
+                    { group: 'exceptions', label: 'Exceptions & Updates' },
+                    { group: 'overview', label: 'Overview' },
                   ].map((section) => (
                     <div key={section.group} className="flex flex-col gap-3 border-l pl-4">
                       <div className="text-xs font-medium text-foreground">
@@ -3318,7 +3050,7 @@ export function PassportCasesPage() {
                         { scenario: 'Ticket transfer (claim)', fills: 'Recipient fills own form', account: 'Yes — must create account first', qr: "Recipient's Passport QR", cases: '15' },
                         { scenario: 'Buyer fills for adult guest', fills: 'Buyer fills on their behalf', account: 'No — Guest QR issued', qr: 'Guest QR (web link)', cases: '23' },
                         { scenario: 'Buyer fills for dependent', fills: 'Buyer fills on their behalf', account: 'No — Guest QR issued', qr: 'Guest QR (web or printout)', cases: '16' },
-                        { scenario: 'Team roster member', fills: 'Member fills own form', account: 'Yes — account required first', qr: "Member's Passport QR", cases: '18–21' },
+                        { scenario: 'Team player entry', fills: 'Player fills own form', account: 'Yes — account required first', qr: "Player's Passport QR", cases: '18–21' },
                         { scenario: 'Buyer attends with friends', fills: "Buyer's choice per slot", account: 'Per-slot — mixed OK', qr: 'Invite → Passport QR, or fill → Guest QR', cases: '17' },
                       ].map((row) => (
                         <TableRow key={row.scenario}>
@@ -3336,133 +3068,70 @@ export function PassportCasesPage() {
             </Card>
 
             <div className="flex flex-col gap-8">
-              {/* Group A: Single Person Single Ticket */}
-              <div className="flex flex-col gap-6 mt-6">
-                <div className="flex flex-col gap-1 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <h2 className="text-lg font-semibold tracking-tight">A. Individual Flows</h2>
-                    <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium text-muted-foreground">10 cases</span>
+              {/* Lifecycle sections: pending -> ready -> event day -> exceptions -> overview */}
+              {([
+                {
+                  group: 'pending',
+                  title: 'A. Pending & Setup',
+                  blurb: 'These states occur after the purchase and before access is ready. The forms are not complete, or the payment is not confirmed.',
+                },
+                {
+                  group: 'ready',
+                  title: 'B. Ready & Distribution',
+                  blurb: 'The entries are complete and access is ready. These states show the Passport card and the ways to give access to other persons: Guest QRs, claim links, and the group share link.',
+                },
+                {
+                  group: 'eventPast',
+                  title: 'C. Event Day & Past',
+                  blurb: 'These states occur at the gate and after the event: the check-in scan, the attended history, and the no-show record.',
+                },
+                {
+                  group: 'exceptions',
+                  title: 'D. Exceptions & Updates',
+                  blurb: 'These states are not on the usual path. The organizer changes a form, a deadline passes, or the buyer revokes a Guest QR.',
+                },
+                {
+                  group: 'overview',
+                  title: 'E. Overview',
+                  blurb: 'The Events Attending page shows all the registrations in one place.',
+                },
+              ] as const).map((section) => {
+                const sectionCases = CASES_LIST.filter(c => c.group === section.group);
+                return (
+                  <div key={section.group} className="flex flex-col gap-6 mt-6">
+                    <div className="flex flex-col gap-1 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <h2 className="text-lg font-semibold tracking-tight">{section.title}</h2>
+                        <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                          {sectionCases.length} {sectionCases.length === 1 ? 'case' : 'cases'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{section.blurb}</p>
+                    </div>
+                    <div className="flex flex-col gap-6">
+                      {sectionCases.map((item) => {
+                        const { id } = parseTitle(item.title);
+                        return (
+                          <CaseItemFrame
+                            key={item.title}
+                            id={id}
+                            badgeText={item.badgeText}
+                            badgeColor={item.badgeColor}
+                            title={item.title}
+                            subtitle={item.subtitle}
+                            timelineSteps={item.timelineSteps}
+                            emailTemplates={item.emailTemplates}
+                            accessPath={item.accessPath}
+                            renderViewport={(stepIdx) =>
+                              getStepViewport(item.title, stepIdx, item.timelineSteps[stepIdx], item.timelineSteps.length, item.renderViewport)
+                            }
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">Single buyer, single ticket. Covers the full personal passport lifecycle — checkout to gate access — plus form states, QR rotation, and re-entry.</p>
-                </div>
-                <div className="flex flex-col gap-6">
-                  {CASES_LIST.filter(c => c.group === 'single').map((item) => {
-                    const { id } = parseTitle(item.title);
-                    return (
-                      <CaseItemFrame
-                        key={item.title}
-                        id={id}
-                        badgeText={item.badgeText}
-                        badgeColor={item.badgeColor}
-                        title={item.title}
-                        subtitle={item.subtitle}
-                        timelineSteps={item.timelineSteps}
-                        emailTemplates={item.emailTemplates}
-                        accessPath={item.accessPath}
-                        renderViewport={(stepIdx) =>
-                          getStepViewport(item.title, stepIdx, item.timelineSteps[stepIdx], item.timelineSteps.length, item.renderViewport)
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Group B: Multiple People Multiple Tickets */}
-              <div className="flex flex-col gap-6 mt-6">
-                <div className="flex flex-col gap-1 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <h2 className="text-lg font-semibold tracking-tight">B. Guest Sharing</h2>
-                    <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium text-muted-foreground">8 cases</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">Multiple tickets, multiple people. Covers all flows where the buyer manages others — ticket transfers, Guest QRs, and multi-guest distribution.</p>
-                </div>
-                <div className="flex flex-col gap-6">
-                  {CASES_LIST.filter(c => c.group === 'multiple').map((item) => {
-                    const { id } = parseTitle(item.title);
-                    return (
-                      <CaseItemFrame
-                        key={item.title}
-                        id={id}
-                        badgeText={item.badgeText}
-                        badgeColor={item.badgeColor}
-                        title={item.title}
-                        subtitle={item.subtitle}
-                        timelineSteps={item.timelineSteps}
-                        emailTemplates={item.emailTemplates}
-                        accessPath={item.accessPath}
-                        renderViewport={(stepIdx) =>
-                          getStepViewport(item.title, stepIdx, item.timelineSteps[stepIdx], item.timelineSteps.length, item.renderViewport)
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Group C: Team */}
-              <div className="flex flex-col gap-6 mt-6">
-                <div className="flex flex-col gap-1 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <h2 className="text-lg font-semibold tracking-tight">C. Team Entries</h2>
-                    <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium text-muted-foreground">4 cases</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">One team purchase with individual player entries. Players complete their own forms from invite links; Passport ownership requires login or account creation from the claim flow. Covers player progress and individual distribution paths.</p>
-                </div>
-                <div className="flex flex-col gap-6">
-                  {CASES_LIST.filter(c => c.group === 'team').map((item) => {
-                    const { id } = parseTitle(item.title);
-                    return (
-                      <CaseItemFrame
-                        key={item.title}
-                        id={id}
-                        badgeText={item.badgeText}
-                        badgeColor={item.badgeColor}
-                        title={item.title}
-                        subtitle={item.subtitle}
-                        timelineSteps={item.timelineSteps}
-                        emailTemplates={item.emailTemplates}
-                        accessPath={item.accessPath}
-                        renderViewport={(stepIdx) =>
-                          getStepViewport(item.title, stepIdx, item.timelineSteps[stepIdx], item.timelineSteps.length, item.renderViewport)
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Group D: Aggregate */}
-              <div className="flex flex-col gap-6 mt-6">
-                <div className="flex flex-col gap-1 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <h2 className="text-lg font-semibold tracking-tight">D. Aggregate View</h2>
-                    <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium text-muted-foreground">1 case</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">The Passport Events Attending page — a unified view of all registrations across tickets, form states, and entry statuses, organized into actionable sections.</p>
-                </div>
-                <div className="flex flex-col gap-6">
-                  {CASES_LIST.filter(c => c.group === 'aggregate').map((item) => {
-                    const { id } = parseTitle(item.title);
-                    return (
-                      <CaseItemFrame
-                        key={item.title}
-                        id={id}
-                        badgeText={item.badgeText}
-                        badgeColor={item.badgeColor}
-                        title={item.title}
-                        subtitle={item.subtitle}
-                        timelineSteps={item.timelineSteps}
-                        emailTemplates={item.emailTemplates}
-                        accessPath={item.accessPath}
-                        renderViewport={(stepIdx) =>
-                          getStepViewport(item.title, stepIdx, item.timelineSteps[stepIdx], item.timelineSteps.length, item.renderViewport)
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              </div>
+                );
+              })}
             </div>
           </>
         ) : (
@@ -3471,19 +3140,20 @@ export function PassportCasesPage() {
             <div className="rounded-xl border bg-card p-6 flex flex-col gap-2">
               <h2 className="text-sm font-medium">State Flow Diagram</h2>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
-                Below are the horizontal flow diagrams showing the step-by-step user journey and state transitions for each case. Click any step node card in a flow to open the matching app screen preview where available, plus associated email alert templates. Use the filters below to narrow down by registration context.
+                Each row is one case. The row shows the steps of the user journey from left to right. Click a step to open the app screen and the related email template. Every step names its screen source: a live app route, a capture of a state that needs an interaction to reach, the screen the case itself documents, or no app screen for steps that happen at the gate or on the organizer's side. Use the filters below to show one lifecycle stage: pending, ready, event day, exceptions, or the overview.
               </p>
             </div>
 
             {/* Filter Pills */}
             <div className="flex flex-wrap gap-2 pb-2">
               {[
-                { id: 'all', label: 'All Cases (34)' },
+                { id: 'all', label: `All Cases (${CASES_LIST.length})` },
                 { id: 'scenario', label: `Purchase Intent (${purchaseIntentCount})` },
-                { id: 'single', label: 'Individual Flows (10)' },
-                { id: 'multiple', label: 'Guest Sharing (8)' },
-                { id: 'team', label: 'Team Entries (4)' },
-                { id: 'aggregate', label: 'Aggregate Overview (1)' },
+                { id: 'pending', label: `Pending & Setup (${CASES_LIST.filter(c => c.group === 'pending').length})` },
+                { id: 'ready', label: `Ready & Distribution (${CASES_LIST.filter(c => c.group === 'ready').length})` },
+                { id: 'eventPast', label: `Event Day & Past (${CASES_LIST.filter(c => c.group === 'eventPast').length})` },
+                { id: 'exceptions', label: `Exceptions & Updates (${CASES_LIST.filter(c => c.group === 'exceptions').length})` },
+                { id: 'overview', label: `Overview (${CASES_LIST.filter(c => c.group === 'overview').length})` },
               ].map((pill) => (
                 <button
                   key={pill.id}
@@ -3540,6 +3210,12 @@ export function PassportCasesPage() {
                         <div className="flex items-center gap-3 md:gap-4 pr-4 pl-1">
                           {item.timelineSteps.map((step: any, idx: number) => {
                             const stepType = getStepType(step.title, step.desc);
+                            const screenSource = resolveStepScreen(
+                              item.title,
+                              idx,
+                              step,
+                              item.timelineSteps.length,
+                            );
 
                             return (
                               <React.Fragment key={idx}>
@@ -3570,8 +3246,15 @@ export function PassportCasesPage() {
                                   </p>
 
                                   <div className="border-t pt-2 mt-1">
-                                    <span className="text-[10px] font-medium text-foreground">
-                                      View screen
+                                    <span
+                                      className={`block truncate font-mono text-[10px] ${
+                                        screenSource.kind === 'none'
+                                          ? 'text-muted-foreground/70'
+                                          : 'text-foreground'
+                                      }`}
+                                      title={describeStepScreen(screenSource)}
+                                    >
+                                      {describeStepScreen(screenSource)}
                                     </span>
                                   </div>
                                 </div>
