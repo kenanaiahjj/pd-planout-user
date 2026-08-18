@@ -39,11 +39,6 @@ const participantFormSource = fs.readFileSync(
   new URL('../src/app/pages/ParticipantFormPage.tsx', import.meta.url),
   'utf8',
 );
-const iosKeyboardSource = fs.readFileSync(
-  new URL('../src/app/components/IOSKeyboard.tsx', import.meta.url),
-  'utf8',
-);
-
 test('Orders exposes individual form email and copy actions', () => {
   assert.match(ordersSource, /Send link/);
   assert.match(ordersSource, /Copy link/);
@@ -219,13 +214,6 @@ test('individual Orders invites persist through the shared registration state', 
   assert.match(ordersSource, /onShare=\{\(recipient\) => sendRegistrationInvite/);
   assert.match(ordersSource, /!hasTeamRegistration[\s\S]*onShareEntries=\{/);
   assert.match(ordersSource, /\^\(\?:Participant\|Guest\) \\d\+/);
-});
-
-test('the simulated keyboard Done key dismisses single-line inputs', () => {
-  assert.match(
-    iosKeyboardSource,
-    /key === 'return'[\s\S]*el\.tagName === 'TEXTAREA'[\s\S]*else \{[\s\S]*el\.blur\(\)/,
-  );
 });
 
 test('participant forms persist completion and invite changes before returning to Orders', () => {

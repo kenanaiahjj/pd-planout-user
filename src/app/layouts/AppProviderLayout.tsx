@@ -1,7 +1,7 @@
 /**
  * @file AppProviderLayout.tsx
- * @description Root route layout that renders global utilities (Toaster,
- * IOSKeyboard) alongside the router Outlet.
+ * @description Root route layout that renders the global Toaster alongside
+ * the router Outlet.
  *
  * AppProvider now lives in App.tsx above the router, so this layout
  * no longer wraps children in a provider — it's just a passthrough
@@ -10,7 +10,6 @@
 
 import React from 'react';
 import { Outlet, useRouteError, isRouteErrorResponse } from 'react-router';
-import { IOSKeyboard } from '@/app/components/IOSKeyboard';
 import { Toaster } from 'sonner';
 
 // ---------------------------------------------------------------------------
@@ -50,9 +49,6 @@ export function AppProviderLayout() {
   return (
     <>
       <Outlet />
-      {/* iOS keyboard simulation for desktop mobile previews only.
-          Real touch devices keep their native keyboard. */}
-      <IOSKeyboard />
       <Toaster
         position="top-center"
         toastOptions={{
