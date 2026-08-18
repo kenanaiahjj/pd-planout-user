@@ -344,23 +344,23 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
           </div>
         </div>
 
-        {/* brandGradient={{ from: '#28b99e', to: '#177564' }} bg-gradient-to-r from-[#28b99e] to-[#177564] */}
         <PrimaryButton
           onClick={handleContinue}
           disabled={isSubmitting || !identifier.trim()}
           fullWidth
-          appearance="solid"
-          className="rounded-[12px] py-2.5 text-[14px] font-bold tracking-tight"
+          appearance="gradient"
+          brandGradient={{ from: '#28b99e', to: '#177564' }}
+          className="min-h-[52px] rounded-[12px] bg-gradient-to-r from-[#28b99e] to-[#177564] px-4 py-2.5 text-[14px] font-semibold tracking-[-0.01em] disabled:opacity-100 disabled:saturate-100 disabled:text-[#65756f]"
         >
           {isSubmitting ? (
-            <span className="inline-flex items-center gap-2.5">
-              <span className="w-4.5 h-4.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Sending Security Code...
+            <span className="inline-flex items-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white motion-reduce:animate-none" />
+              Sending code…
             </span>
           ) : (
             <>
               <span>Continue</span>
-              <ArrowRight className="w-4.5 h-4.5" strokeWidth={2.2} />
+              <ArrowRight className="h-4 w-4" strokeWidth={2.2} />
             </>
           )}
         </PrimaryButton>

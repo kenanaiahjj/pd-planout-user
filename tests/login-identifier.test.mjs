@@ -37,6 +37,39 @@ const primaryButtonSource = fs.readFileSync(
   'utf8',
 );
 
+function extractSnippet(source, pattern, label) {
+  const match = source.match(pattern);
+  assert.ok(match, `expected ${label} snippet to exist`);
+  return match[0];
+}
+
+const socialButtonSnippet = extractSnippet(
+  loginPageSource,
+  /function SocialButton\([\s\S]*?\n}\n\nfunction BrandLockup/,
+  'SocialButton',
+);
+
+const otpInputSnippet = extractSnippet(
+  loginPageSource,
+  /function OtpInput\([\s\S]*?\n}\n\n\/\/ ---------------------------------------------------------------------------\n\/\/ Props/,
+  'OtpInput',
+);
+
+const identifierControlSnippet = [
+  extractSnippet(
+    loginPageSource,
+    /<label htmlFor="login-identifier"[\s\S]*?<\/div>\n\n        <PrimaryButton/,
+    'identifier field',
+  ),
+  extractSnippet(
+    loginPageSource,
+    /<PrimaryButton[\s\S]*?<\/PrimaryButton>/,
+    'Continue button',
+  ),
+].join('\n');
+
+const nonPrimaryControlSnippets = [socialButtonSnippet, otpInputSnippet, identifierControlSnippet].join('\n');
+
 test('LoginPage uses one autodetected identifier field instead of a selector', () => {
   assert.match(loginPageSource, /import \{ detectLoginMethod \} from '@\/app\/data\/login';/);
   assert.match(loginPageSource, /const \[identifier, setIdentifier\] = useState\(''\);/);
@@ -54,13 +87,18 @@ test('PrimaryButton exposes an opt-in solid appearance for native actions', () =
   assert.match(primaryButtonSource, /appearance === 'solid'/);
 });
 
-test('LoginPage uses the shared rounded-rectangle control language', () => {
-  assert.match(loginPageSource, /appearance="solid"/);
-  assert.match(loginPageSource, /rounded-\[10px\]/);
-  assert.match(loginPageSource, /min-h-11/);
-  assert.doesNotMatch(loginPageSource, /p-\[1\.5px\] rounded-full/);
-  assert.doesNotMatch(loginPageSource, /rounded-\[16px\]/);
-  assert.doesNotMatch(loginPageSource, /scale-\[1\.06\]/);
-  assert.doesNotMatch(loginPageSource, /translate-x-\[\-100%\]/);
-  assert.doesNotMatch(loginPageSource, /animate-pulse/);
+test('LoginPage uses the shared rounded-rectangle control language with the brand gradient primary action', () => {
+  assert.match(identifierControlSnippet, /appearance="gradient"/);
+  assert.match(identifierControlSnippet, /brandGradient=\{\{ from: '#28b99e', to: '#177564'/);
+  assert.match(identifierControlSnippet, /bg-gradient-to-r from-\[#28b99e\] to-\[#177564\]/);
+  assert.match(identifierControlSnippet, /rounded-\[12px\]/);
+  assert.match(identifierControlSnippet, /min-h-\[52px\]/);
+  assert.match(nonPrimaryControlSnippets, /min-h-11/);
+  assert.match(nonPrimaryControlSnippets, /rounded-\[10px\]/);
+  assert.match(socialButtonSnippet, /rounded-\[12px\]/);
+  assert.doesNotMatch(nonPrimaryControlSnippets, /p-\[1\.5px\] rounded-full|rounded-full p-\[1\.5px\]/);
+  assert.doesNotMatch(nonPrimaryControlSnippets, /rounded-\[16px\]/);
+  assert.doesNotMatch(nonPrimaryControlSnippets, /translate-x-\[\-100%\]/);
+  assert.doesNotMatch(nonPrimaryControlSnippets, /scale-\[1\.06\]/);
+  assert.doesNotMatch(nonPrimaryControlSnippets, /animate-pulse/);
 });
