@@ -1,17 +1,15 @@
 /**
  * @file LoginPage.tsx
- * @description Two-step login flow (Email → OTP) matching premium Figma designs.
+ * @description Focused two-step login flow (Email/phone → OTP).
  *
- * Mobile: full-width vertically-centered form.
- * Desktop: split layout — form on left, hero image on right.
- *
- * Uses Figma-imported assets for the logo and social-login SVG icons.
+ * The visual shell stays intentionally quiet so the authentication task is
+ * clear on both mobile and desktop. The state machine and callbacks remain
+ * compatible with the existing login route.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
 import imgLogo from '@/assets/5a332411061613331a1ffc8c7aa2ccf247ff8699.png';
-import imgHero from '@/assets/80a9288cce0f3fbae7ebd6ed6d5626c04458d6fd.png';
 import svgPaths from '../../imports/svg-3kdsnz0ryc';
 import { PrimaryButton } from '@/app/components/PrimaryButton';
 import { detectLoginMethod } from '@/app/data/login';
@@ -108,25 +106,21 @@ function SocialButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="w-full min-h-11 rounded-[10px] flex items-center justify-center gap-3 px-5 py-2.5 border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)] hover:bg-slate-50 hover:border-slate-300 active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/20 focus-visible:ring-offset-1 transition-colors duration-150 cursor-pointer"
+      className="flex min-h-12 w-full items-center justify-center gap-3 rounded-[12px] border border-[#dbe6e2] bg-white px-4 text-[14px] font-semibold text-[#24342f] transition-colors duration-150 hover:bg-[#f7faf8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/40 focus-visible:ring-offset-2 active:bg-[#f0f7f4] motion-reduce:transition-none"
     >
       {icon}
-      <span className="text-[#344054] text-[14px] font-semibold tracking-tight">{label}</span>
+      <span className="tracking-[-0.01em]">{label}</span>
     </button>
   );
 }
 
 function BrandLockup() {
   return (
-    <div
-      className="flex items-center justify-center gap-3 mb-4 group transition-transform duration-500 hover:scale-105"
-      aria-label="PlanOut"
-    >
-      <div className="w-[70px] h-[70px] sm:w-[80px] sm:h-[80px]">
-        <img src={imgLogo} alt="" className="w-full h-full object-cover rounded-2xl" />
-      </div>
-      <span className="font-semibold leading-none text-[#1e9680] text-[28px] sm:text-[32px] tracking-[-0.04em]">
+    <div className="flex items-center justify-center gap-2.5" aria-label="PlanOut">
+      <img src={imgLogo} alt="" className="h-8 w-8 object-contain" />
+      <span className="text-[22px] font-semibold leading-none tracking-[-0.03em] text-[#177564]">
         PlanOut
       </span>
     </div>
@@ -305,31 +299,28 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
   // Render: Email / Phone step
   // -----------------------------------------------------------------------
   const renderEmailStep = () => (
-    <div className="flex flex-col items-center w-full animate-in fade-in duration-500">
-      {/* Logo */}
+    <div className="flex w-full flex-col items-center">
       <BrandLockup />
 
-      {/* Heading */}
-      <h1 className="text-[26px] sm:text-[32px] font-extrabold text-slate-900 tracking-[-0.035em] text-center leading-tight">
-        Welcome to PlanOut
+      <h1 className="mt-8 text-center text-[28px] font-bold leading-tight tracking-[-0.03em] text-[#111b24]">
+        Sign in to PlanOut
       </h1>
-      <p className="text-[13.5px] sm:text-[14.5px] font-medium text-slate-500 text-center tracking-tight leading-relaxed mt-2.5 max-w-[291px] sm:max-w-[384px]">
-        Exploring events is a great way to expand your horizons and experience new things.
+      <p className="mt-2 max-w-[300px] text-center text-[14px] leading-5 text-[#5f7188]">
+        Use your email or phone number to continue.
       </p>
 
-      {/* Spacer */}
-      <div className="h-6 sm:h-8" />
-
-      {/* Input section */}
-      <div className="w-full max-w-[320px]">
-        {/* Identifier field */}
-        <div className="relative mb-4 group">
-          <div className="relative flex min-h-11 items-center gap-3 rounded-[10px] border border-slate-200/80 bg-white px-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-colors duration-150 hover:border-slate-300 focus-within:border-[#177564] focus-within:ring-2 focus-within:ring-[#177564]/15">
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 transition-colors duration-150 group-focus-within:text-[#177564]">
+      <div className="mt-7 w-full">
+        <label htmlFor="login-identifier" className="block text-[12px] font-semibold text-[#34485d]">
+          Email or phone number
+        </label>
+        <div className="group relative mt-2 mb-3">
+          <div className="relative flex min-h-[52px] items-center gap-3 rounded-[12px] border border-[#d8e3df] bg-white px-4 transition-colors duration-150 hover:border-[#b8cbc4] focus-within:border-[#177564] focus-within:ring-2 focus-within:ring-[#177564]/15">
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[#8798a8] transition-colors duration-150 group-focus-within:text-[#177564]">
               {detectedMethod === 'phone' ? <PhoneIcon /> : detectedMethod === 'email' ? <EmailIcon /> : null}
             </span>
 
             <input
+              id="login-identifier"
               type="text"
               inputMode={detectedMethod === 'phone' ? 'tel' : 'email'}
               autoComplete="username"
@@ -339,7 +330,7 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
               onChange={(e) => setIdentifier(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
               placeholder="Email or phone number"
-              className="native-mobile-field w-full min-h-11 bg-transparent text-[14.5px] text-slate-800 placeholder:text-slate-400 font-semibold outline-none border-none p-0 focus:ring-0"
+              className="native-mobile-field w-full min-h-11 min-w-0 border-none bg-transparent p-0 text-[15px] font-medium text-[#1b2835] outline-none placeholder:text-[#8798a8] focus:ring-0"
             />
           </div>
         </div>
@@ -350,7 +341,9 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
           fullWidth
           appearance="gradient"
           brandGradient={{ from: '#28b99e', to: '#177564' }}
-          className="min-h-[52px] rounded-[12px] bg-gradient-to-r from-[#28b99e] to-[#177564] px-4 py-2.5 text-[14px] font-semibold tracking-[-0.01em] disabled:opacity-100 disabled:saturate-100 disabled:text-[#65756f]"
+          showShine={false}
+          pressScale={false}
+          className="min-h-[52px] !rounded-[12px] bg-gradient-to-r from-[#28b99e] to-[#177564] px-4 py-2.5 text-[14px] font-semibold tracking-[-0.01em] disabled:opacity-100 disabled:saturate-100 disabled:text-[#65756f]"
         >
           {isSubmitting ? (
             <span className="inline-flex items-center gap-2">
@@ -365,41 +358,45 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
           )}
         </PrimaryButton>
 
-        {/* Consent notice — keep this immediately after the primary action so it is easy to find. */}
-        <p className="mx-auto mt-3 max-w-[290px] px-2 text-center text-[11.5px] font-medium leading-[1.55] tracking-[-0.01em] text-slate-500 sm:text-[12px]">
+        <p className="mx-auto mt-2.5 max-w-[300px] px-2 text-center text-[11px] leading-[1.45] text-[#62766f]">
           By continuing, you agree to PlanOut&apos;s{' '}
-          <span className="font-bold text-[#177564] underline decoration-[#177564]/35 underline-offset-2">
+          <span className="font-semibold text-[#177564] underline decoration-[#177564]/35 underline-offset-2">
             Terms of Service
           </span>{' '}
           and{' '}
-          <span className="font-bold text-[#177564] underline decoration-[#177564]/35 underline-offset-2">
+          <span className="font-semibold text-[#177564] underline decoration-[#177564]/35 underline-offset-2">
             Privacy Policy
           </span>
           .
         </p>
       </div>
 
-      {/* Divider */}
-      <div className="flex items-center gap-3.5 w-full max-w-[320px] sm:max-w-[328px] mt-8 sm:mt-10">
-        <div className="flex-1 h-px bg-slate-100" />
-        <span className="text-[13px] font-bold text-slate-400 tracking-wider uppercase">or</span>
-        <div className="flex-1 h-px bg-slate-100" />
+      <div className="mt-6 flex w-full items-center gap-3 text-[#87958f]">
+        <div className="h-px flex-1 bg-[#dfe8e4]" />
+        <span className="text-[11.5px] font-medium">Or continue with</span>
+        <div className="h-px flex-1 bg-[#dfe8e4]" />
       </div>
 
-      {/* Social buttons */}
-      <div className="flex flex-col gap-3 w-full max-w-[328px] mt-6 sm:mt-8">
-        <SocialButton icon={<GoogleIcon />} label="Sign in with Google" onClick={() => onLoginComplete('email', 'google-test@planout.com')} />
-        <SocialButton icon={<FacebookIcon />} label="Sign in with Facebook" onClick={() => onLoginComplete('email', 'fb-test@planout.com')} />
+      <div className="mt-3 flex w-full flex-col gap-2.5">
+        <SocialButton
+          icon={<GoogleIcon />}
+          label="Continue with Google"
+          onClick={() => onLoginComplete('email', 'google-test@planout.com')}
+        />
+        <SocialButton
+          icon={<FacebookIcon />}
+          label="Continue with Facebook"
+          onClick={() => onLoginComplete('email', 'fb-test@planout.com')}
+        />
       </div>
 
-      {/* Guest browsing */}
       {onContinueAsGuest && (
         <button
+          type="button"
           onClick={onContinueAsGuest}
-          className="group mt-8 min-h-11 text-[13px] font-bold text-slate-500 hover:text-[#177564] tracking-tight transition-colors duration-300 flex items-center gap-1 cursor-pointer"
+          className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-[13px] font-semibold text-[#5f7188] transition-colors hover:text-[#177564] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/35 focus-visible:ring-offset-2 motion-reduce:transition-none"
         >
-          <span>Continue as Guest</span>
-          <ArrowRight className="w-3.5 h-3.5 translate-y-[0.5px] opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-300" />
+          Continue as Guest
         </button>
       )}
     </div>
@@ -409,61 +406,46 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
   // Render: OTP step
   // -----------------------------------------------------------------------
   const renderOtpStep = () => (
-    <div className="flex flex-col items-center w-full animate-in fade-in duration-500">
-      {/* Logo */}
+    <div className="flex w-full flex-col items-center">
       <BrandLockup />
 
-      {/* Heading */}
-      <h1 className="text-[26px] sm:text-[32px] font-extrabold text-slate-900 tracking-[-0.035em] text-center leading-tight">
-        Welcome to PlanOut
+      <h1 className="mt-8 text-center text-[28px] font-bold leading-tight tracking-[-0.03em] text-[#111b24]">
+        Enter your verification code
       </h1>
+      <p className="mt-2 max-w-[320px] text-center text-[14px] leading-5 text-[#5f7188]">
+        We sent a 6-digit code to <span className="font-semibold text-[#273846]">{maskedIdentifier}</span>
+      </p>
 
-      {/* Spacer */}
-      <div className="h-6 sm:h-8" />
-
-      {/* OTP section */}
-      <div className="flex flex-col items-center gap-2.5 w-full max-w-[424px]">
-        <h2 className="text-[18px] sm:text-[21px] font-extrabold text-slate-800 tracking-tight text-center leading-none">
-          Verify Security Code
-        </h2>
-        <p className="text-[13.5px] sm:text-[14.5px] font-medium text-slate-500 tracking-tight text-center leading-relaxed max-w-[274px] sm:max-w-full">
-          We sent a 6-digit code to <span className="font-bold text-slate-800">{maskedIdentifier}</span>
-        </p>
-      </div>
-
-      {/* OTP Inputs */}
-      <div className="mt-8">
+      <div className="mt-7">
         <OtpInput value={otp} onChange={setOtp} />
       </div>
 
-      {/* Resend */}
-      <div className="flex flex-col items-center gap-1.5 mt-10">
-        <p className="text-[13.5px] font-semibold text-slate-500 tracking-tight">
-          Didn't receive OTP Code?
-        </p>
+      <div className="mt-7 flex flex-col items-center gap-1">
+        <p className="text-[13px] font-medium text-[#5f7188]">Didn&apos;t receive a code?</p>
         <button
+          type="button"
           onClick={handleResend}
           disabled={resendTimer > 0}
-          className={`min-h-11 text-[14px] font-extrabold tracking-tight transition-colors duration-300 ${
+          className={`min-h-11 rounded-lg px-3 text-[13px] font-semibold tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/35 focus-visible:ring-offset-2 motion-reduce:transition-none ${
             resendTimer > 0
-              ? 'text-slate-400 cursor-not-allowed'
-              : 'text-[#177564] hover:text-[#0f5f4f] cursor-pointer'
+              ? 'cursor-not-allowed text-[#9aa8a4]'
+              : 'cursor-pointer text-[#177564] hover:bg-[#edf7f3] hover:text-[#0f5f4f]'
           }`}
         >
-          {resendTimer > 0 ? `Resend Code (${resendTimer}s)` : 'Resend Code'}
+          {resendTimer > 0 ? `Resend code (${resendTimer}s)` : 'Resend code'}
         </button>
       </div>
 
-      {/* Back to email */}
       <button
+        type="button"
         onClick={() => {
           setStep('email');
           setOtp(Array(6).fill(''));
           setIsSubmitting(false);
         }}
-        className="group mt-8 min-h-11 text-[13.5px] font-semibold text-slate-500 hover:text-[#177564] tracking-tight transition-all duration-300 flex items-center gap-1.5 cursor-pointer"
+        className="mt-5 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold text-[#5f7188] transition-colors hover:text-[#177564] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/35 focus-visible:ring-offset-2 motion-reduce:transition-none"
       >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+        <ArrowLeft className="h-4 w-4" />
         <span>Change {otpTarget?.method === 'email' ? 'email' : 'phone number'}</span>
       </button>
     </div>
@@ -472,78 +454,13 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
   // -----------------------------------------------------------------------
   // Main layout
   // -----------------------------------------------------------------------
-  return (
-    <div className="min-h-[100dvh] bg-[#f8fafc] flex relative overflow-hidden font-sans">
-      {/* Decorative Radial mesh glows in background */}
-      <div className="absolute left-[-100px] top-[-100px] w-[450px] h-[450px] bg-[#28b99e]/5 rounded-full blur-[90px] pointer-events-none z-0" />
-      <div className="absolute right-[25%] bottom-[-100px] w-[400px] h-[400px] bg-[#177564]/4 rounded-full blur-[80px] pointer-events-none z-0" />
-
-      {/* Left panel — form */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-8 overflow-y-auto relative z-10">
-        <div className="w-full max-w-[340px] py-8">
-          {step === 'email' ? renderEmailStep() : renderOtpStep()}
-        </div>
-      </div>
-
-      {/* Right panel — hero image (desktop only) */}
-      <div className="hidden lg:flex w-[46%] xl:w-[48%] items-center justify-start p-4 pl-0 relative z-10">
-        <div className="w-full h-[calc(100vh-32px)] rounded-[24px] overflow-hidden relative shadow-[0_16px_40px_rgba(0,0,0,0.06)] group">
-          <img
-            src={imgHero}
-            alt="Adventure landscape"
-            className="w-full h-full object-cover transition-transform duration-10000 ease-linear group-hover:scale-105"
-          />
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/20 transition-opacity duration-700 group-hover:opacity-90" />
-
-          {/* Glassmorphic testimonial box (Double-Bezel) */}
-          <div className="absolute bottom-10 left-10 right-10 max-w-[460px] p-[2.5px] rounded-[26px] bg-white/8 backdrop-blur-xl border border-white/12 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.35)] animate-in fade-in slide-in-from-bottom-6 duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)]">
-            <div className="rounded-[23.5px] bg-gradient-to-b from-black/25 to-black/45 p-6 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.15)] flex flex-col gap-4">
-              {/* Eyebrow and Rating */}
-              <div className="flex items-center justify-between">
-                <span className="text-[9.5px] font-bold uppercase tracking-[0.25em] text-[#28b99e]">
-                  PlanOut Passport
-                </span>
-                {/* 5 Stars Rating */}
-                <div className="flex gap-0.5">
-                  {Array.from({ length: 5 }).map((_, idx) => (
-                    <svg key={idx} className="w-3.5 h-3.5 fill-[#28b99e] text-[#28b99e]" viewBox="0 0 24 24">
-                      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-
-              {/* Testimonial Quote */}
-              <h3 className="text-[17px] font-semibold leading-relaxed tracking-tight text-white/95">
-                "One scan, and you're in. The easiest gate check-in for athletes ever."
-              </h3>
-
-              <div className="h-px bg-white/10" />
-
-              {/* User Info & Stats */}
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#177564] border border-white/15 flex items-center justify-center font-bold text-[13px] text-white shadow-sm">
-                    KM
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[13px] font-bold text-white leading-tight">Kenan Maalat</span>
-                    <span className="text-[10.5px] text-white/50 font-medium">City Striders Runner</span>
-                  </div>
-                </div>
-
-                {/* Compact stats badge */}
-                <div className="rounded-full p-[1.5px] bg-white/10 border border-white/5 shadow-inner">
-                  <div className="rounded-full px-3 py-1 bg-[#177564]/55 text-white text-[10px] font-bold tracking-tight shadow-sm">
-                    48K+ Verified
-                  </div>
-                </div>
-              </div>
+      return (
+        <main className="min-h-[100dvh] overflow-y-auto bg-[#f7faf9] px-5 py-7 font-sans sm:px-8 sm:py-10">
+          <div className="mx-auto flex min-h-[calc(100dvh-3.5rem)] w-full max-w-[360px] items-center justify-center">
+            <div className="w-full py-5 sm:py-6">
+              {step === 'email' ? renderEmailStep() : renderOtpStep()}
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-  );
+        </main>
+      );
 }

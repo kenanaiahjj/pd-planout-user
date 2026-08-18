@@ -34,6 +34,8 @@ test('mobile text-entry controls prevent iOS zoom and retain focus clearance', (
   assert.match(stylesSource, /min-block-size:\s*44px/);
   assert.match(stylesSource, /scroll-margin-block:/);
   assert.match(stylesSource, /max-inline-size:\s*100%/);
+  assert.match(stylesSource, /\.form-text-field__frame\s*\{[\s\S]*padding-block:\s*0/);
+  assert.match(stylesSource, /\.form-text-field__input\s*\{[\s\S]*min-block-size:\s*44px/);
 });
 
 test('shared fields forward native keyboard semantics', () => {
@@ -94,4 +96,13 @@ test('account and contact verification fields expose autofill and OTP semantics'
   assert.match(organizerSource, /autoComplete="name"/);
   assert.match(organizerSource, /autoComplete="email"/);
   assert.match(organizerSource, /autoComplete="tel"/);
+});
+
+test('the mobile Messenger composer keeps actions without collapsing the message field', () => {
+  const messengerSource = readSource('../src/app/components/MessengerWidget.tsx');
+
+  assert.match(messengerSource, /<form onSubmit=\{handleSend\} className="flex flex-col gap-2 sm:flex-row sm:items-center"/);
+  assert.match(messengerSource, /role="toolbar"/);
+  assert.match(messengerSource, /aria-label="Message actions"/);
+  assert.match(messengerSource, /className="flex w-full min-w-0 flex-1 items-center gap-2/);
 });

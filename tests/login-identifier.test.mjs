@@ -90,11 +90,15 @@ test('PrimaryButton exposes an opt-in solid appearance for native actions', () =
 test('LoginPage uses the shared rounded-rectangle control language with the brand gradient primary action', () => {
   assert.match(identifierControlSnippet, /appearance="gradient"/);
   assert.match(identifierControlSnippet, /brandGradient=\{\{ from: '#28b99e', to: '#177564'/);
-  assert.match(identifierControlSnippet, /bg-gradient-to-r from-\[#28b99e\] to-\[#177564\]/);
+  assert.match(identifierControlSnippet, /bg-gradient-to-r/);
+  assert.match(identifierControlSnippet, /from-\[#28b99e\]/);
+  assert.match(identifierControlSnippet, /to-\[#177564\]/);
+  assert.match(identifierControlSnippet, /showShine=\{false\}/);
+  assert.match(identifierControlSnippet, /pressScale=\{false\}/);
+  assert.match(identifierControlSnippet, /!rounded-\[12px\]/);
   assert.match(identifierControlSnippet, /rounded-\[12px\]/);
   assert.match(identifierControlSnippet, /min-h-\[52px\]/);
   assert.match(nonPrimaryControlSnippets, /min-h-11/);
-  assert.match(nonPrimaryControlSnippets, /rounded-\[10px\]/);
   assert.match(socialButtonSnippet, /rounded-\[12px\]/);
   assert.doesNotMatch(nonPrimaryControlSnippets, /p-\[1\.5px\] rounded-full|rounded-full p-\[1\.5px\]/);
   assert.doesNotMatch(nonPrimaryControlSnippets, /rounded-\[16px\]/);

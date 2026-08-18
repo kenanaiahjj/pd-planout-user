@@ -350,50 +350,52 @@ export function MessengerWidget({ hasPendingFormCard = false }: MessengerWidgetP
                 aria-hidden="true"
               />
 
-              <form onSubmit={handleSend} className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  aria-label="Add attachment"
-                  aria-haspopup="menu"
-                  aria-expanded={composerMenu === 'attachments'}
-                  onClick={() => setComposerMenu((menu) => menu === 'attachments' ? null : 'attachments')}
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#0084ff] transition-colors hover:bg-[#f0f2f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084ff]/35 md:size-10"
-                >
-                  <Plus className="h-[19px] w-[19px]" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Open camera"
-                  onClick={() => {
-                    setComposerMenu(null);
-                    cameraInputRef.current?.click();
-                  }}
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#0084ff] transition-colors hover:bg-[#f0f2f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084ff]/35 md:size-10"
-                >
-                  <Camera className="h-[17px] w-[17px]" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Add photo"
-                  onClick={() => {
-                    setComposerMenu(null);
-                    photoInputRef.current?.click();
-                  }}
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#0084ff] transition-colors hover:bg-[#f0f2f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084ff]/35 md:size-10"
-                >
-                  <ImageIcon className="h-[18px] w-[18px]" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Add emoji"
-                  aria-haspopup="dialog"
-                  aria-expanded={composerMenu === 'emoji'}
-                  onClick={() => setComposerMenu((menu) => menu === 'emoji' ? null : 'emoji')}
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#0084ff] transition-colors hover:bg-[#f0f2f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084ff]/35 md:size-10"
-                >
-                  <Smile className="h-[18px] w-[18px]" aria-hidden="true" />
-                </button>
-                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-[#f0f2f5] px-3.5 py-3">
+              <form onSubmit={handleSend} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div role="toolbar" aria-label="Message actions" className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    aria-label="Add attachment"
+                    aria-haspopup="menu"
+                    aria-expanded={composerMenu === 'attachments'}
+                    onClick={() => setComposerMenu((menu) => menu === 'attachments' ? null : 'attachments')}
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#0084ff] transition-colors hover:bg-[#f0f2f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084ff]/35 md:size-10"
+                  >
+                    <Plus className="h-[19px] w-[19px]" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Open camera"
+                    onClick={() => {
+                      setComposerMenu(null);
+                      cameraInputRef.current?.click();
+                    }}
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#0084ff] transition-colors hover:bg-[#f0f2f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084ff]/35 md:size-10"
+                  >
+                    <Camera className="h-[17px] w-[17px]" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Add photo"
+                    onClick={() => {
+                      setComposerMenu(null);
+                      photoInputRef.current?.click();
+                    }}
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#0084ff] transition-colors hover:bg-[#f0f2f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084ff]/35 md:size-10"
+                  >
+                    <ImageIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Add emoji"
+                    aria-haspopup="dialog"
+                    aria-expanded={composerMenu === 'emoji'}
+                    onClick={() => setComposerMenu((menu) => menu === 'emoji' ? null : 'emoji')}
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full text-[#0084ff] transition-colors hover:bg-[#f0f2f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0084ff]/35 md:size-10"
+                  >
+                    <Smile className="h-[18px] w-[18px]" aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="flex w-full min-w-0 flex-1 items-center gap-2 rounded-full bg-[#f0f2f5] px-3.5 py-3">
                   <input
                     type="text"
                     enterKeyHint="send"

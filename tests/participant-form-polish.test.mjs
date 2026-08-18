@@ -98,6 +98,9 @@ test('Quiet luxury CSS is scoped and leaves shared defaults untouched', () => {
   assert.match(stylesSource, /\.participant-form-premium \.form-text-field__frame/);
   assert.match(stylesSource, /\.participant-form-premium \.segmented-choice/);
   assert.match(stylesSource, /\.participant-form-premium \.participant-form-owner-choice/);
+  assert.match(stylesSource, /\.participant-form-premium \.segmented-choice\s*\{[\s\S]*border-radius: 12px;[\s\S]*padding: 3px;/);
+  assert.match(stylesSource, /\.participant-form-premium \.segmented-choice__item\s*\{[\s\S]*border-radius: 10px;/);
+  assert.match(stylesSource, /\.participant-form-premium \.segmented-choice__item\[data-selected\][\s\S]*background: #edf8f4;[\s\S]*border-color: #4d917f;/);
   assert.doesNotMatch(stylesSource, /^\.form-text-field__frame\s*\{/m);
   assert.doesNotMatch(stylesSource, /^\.segmented-choice\s*\{/m);
 });
