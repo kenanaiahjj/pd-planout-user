@@ -206,9 +206,11 @@ export function PreferencesTab() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-[#414651] text-[13px] font-semibold">Preferred Language</label>
+          <label htmlFor="preferred-language" className="text-[#414651] text-[13px] font-semibold">Preferred Language</label>
           <div className="relative">
             <select
+              id="preferred-language"
+              autoComplete="language"
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               className="w-full appearance-none bg-white border border-slate-200/80 rounded-full px-4 py-2.5 pr-10 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#177564]/10 focus:border-[#177564] transition-all shadow-sm cursor-pointer"

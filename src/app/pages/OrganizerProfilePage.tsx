@@ -431,6 +431,8 @@ function LeaveReviewForm({ onClose }: { onClose: () => void }) {
 
         {/* Text input */}
         <textarea
+          aria-label="Review description"
+          enterKeyHint="enter"
           className="w-full border border-[#e2e8f0] rounded-[10px] p-3 text-[14px] text-[#181d27] placeholder:text-[#94a3b8] resize-none outline-none focus:ring-2 focus:ring-[#177564]/20 focus:border-[#177564] transition-all"
           rows={3}
           placeholder="Share your experience..."
@@ -860,7 +862,11 @@ export function OrganizerProfilePage({
               <div className="relative flex-1 sm:w-[280px] sm:flex-initial group">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 pointer-events-none" />
                 <input
-                  type="text"
+                  type="search"
+                  inputMode="search"
+                  enterKeyHint="search"
+                  autoComplete="off"
+                  aria-label={`Search ${activeTab}`}
                   placeholder={`Search ${activeTab}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

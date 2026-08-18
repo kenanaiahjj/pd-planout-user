@@ -629,6 +629,11 @@ export function AccountTab() {
           </AnimatePresence>
           <div className="flex items-center gap-2">
             <input
+              type="url"
+              inputMode="url"
+              autoComplete="url"
+              enterKeyHint="done"
+              aria-label="Social profile URL"
               className={INPUT_CLS}
               value={newSocial}
               onChange={(e) => setNewSocial(e.target.value)}
@@ -707,9 +712,12 @@ export function AccountTab() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <input
-                    ref={emailInputRef}
-                    type="email"
+                <input
+                  ref={emailInputRef}
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  enterKeyHint="send"
                     value={newEmail}
                     onChange={(e) => {
                       setNewEmail(e.target.value);
@@ -907,6 +915,8 @@ export function AccountTab() {
                     ref={(el) => { primaryOtpInputsRef.current[idx] = el; }}
                     type="text"
                     inputMode="numeric"
+                    autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+                    aria-label={`Email verification digit ${idx + 1}`}
                     maxLength={1}
                     value={digit}
                     onChange={(e) => handlePrimaryOtpChange(idx, e.target.value)}
@@ -1043,6 +1053,9 @@ export function AccountTab() {
                 <input
                   ref={addEmailInputRef}
                   type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  enterKeyHint="send"
                   value={addEmailValue}
                   onChange={(e) => {
                     setAddEmailValue(e.target.value);
@@ -1167,9 +1180,12 @@ export function AccountTab() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <input
-                    ref={phoneInputRef}
-                    type="tel"
+                <input
+                  ref={phoneInputRef}
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  enterKeyHint="send"
                     value={newPhone}
                     onChange={(e) => {
                       setNewPhone(e.target.value);
@@ -1225,6 +1241,8 @@ export function AccountTab() {
                       ref={(el) => { otpInputsRef.current[idx] = el; }}
                       type="text"
                       inputMode="numeric"
+                      autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+                      aria-label={`Phone verification digit ${idx + 1}`}
                       maxLength={1}
                       value={digit}
                       onChange={(e) => handleOtpChange(idx, e.target.value)}

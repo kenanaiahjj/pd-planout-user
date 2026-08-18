@@ -103,6 +103,9 @@ export function ApplyOrganizerModal({ onClose }: ApplyOrganizerModalProps) {
               </label>
               <input
                 type="text"
+                autoComplete="organization"
+                enterKeyHint="done"
+                aria-label="Organization name"
                 placeholder="e.g. Metro Manila Runners"
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}

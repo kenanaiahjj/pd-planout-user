@@ -396,6 +396,7 @@ export function MessengerWidget({ hasPendingFormCard = false }: MessengerWidgetP
                 <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-[#f0f2f5] px-3.5 py-3">
                   <input
                     type="text"
+                    enterKeyHint="send"
                     value={messageInput}
                     onChange={(event) => setMessageInput(event.target.value)}
                     placeholder="Aa"

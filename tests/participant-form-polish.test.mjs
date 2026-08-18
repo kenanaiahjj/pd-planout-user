@@ -49,6 +49,50 @@ test('ParticipantFormPage opts into Quiet luxury without changing its structure'
   assert.match(participantSource, /Submit Form/);
 });
 
+test('participant form fields stay plain and defer organizer guidance', () => {
+  assert.match(participantSource, /placeholder\?: string/);
+  assert.doesNotMatch(participantSource, /placeholder="John"|placeholder="Doe"|placeholder="participant@email\.com"/);
+  assert.doesNotMatch(participantSource, /placeholder="Enter email address"|placeholder="Helps you identify who you sent it to"/);
+  assert.doesNotMatch(participantSource, /This file upload requirement is configured for this event/);
+  assert.doesNotMatch(participantSource, /This does not match a PlanOut account automatically/);
+});
+
+test('team ownership guidance uses muted secondary text', () => {
+  const ownershipGuidance = participantSource.slice(
+    participantSource.indexOf('{teamOwnerSelectionLocked &&'),
+    participantSource.indexOf('</fieldset>', participantSource.indexOf('{teamOwnerSelectionLocked &&')),
+  );
+  assert.match(ownershipGuidance, /<p className="text-\[11px\] font-medium leading-relaxed text-\[#64748b\]">/);
+  assert.doesNotMatch(ownershipGuidance, /#8a5b08/);
+});
+
+test('team participant forms identify the selected slot by player number', () => {
+  assert.match(participantSource, /teamPlayerLabel/);
+  assert.match(participantSource, /const participantIndex = Math\.max\([\s\S]*selectedParticipant/);
+  assert.match(participantSource, /const participantLabel = isTeam[\s\S]*teamPlayerLabel\(participantIndex\)/);
+  assert.doesNotMatch(participantSource, /isTeam \? 'Team player entry'/);
+});
+
+test('participant identity is a single title without redundant team chrome', () => {
+  const identityStart = participantSource.indexOf('className="participant-form-identity');
+  const identityEnd = participantSource.indexOf('{ticket.deadline', identityStart);
+  const identity = participantSource.slice(identityStart, identityEnd);
+  assert.match(identity, /className="participant-form-identity flex items-center justify-between px-0\.5 pb-0\.5"/);
+  assert.match(identity, /text-\[17px\] font-semibold tracking-\[-0\.01em\] text-\[#181d27\]/);
+  assert.match(identity, /participantLabel/);
+  assert.doesNotMatch(identity, /Team player|participantAvatarLabel|participantStatusLabel|Not started|rounded-full|bg-\[#def2ee\]/);
+});
+
+test('claim-link guidance uses the PlanOut green information treatment', () => {
+  const infoBannerStart = participantSource.indexOf('/* Info banner */');
+  const infoBannerEnd = participantSource.indexOf('<FormField', infoBannerStart);
+  const infoBanner = participantSource.slice(infoBannerStart, infoBannerEnd);
+  assert.match(infoBanner, /bg-\[#f0fdf9\] border border-\[#def2ee\]/);
+  assert.match(infoBanner, /text-\[#177564\]/);
+  assert.match(infoBanner, /text-\[#35635a\]/);
+  assert.doesNotMatch(infoBanner, /bg-\[#eff6ff\]|#1e40af|#3b82f6/);
+});
+
 test('Quiet luxury CSS is scoped and leaves shared defaults untouched', () => {
   assert.match(stylesSource, /\.participant-form-premium\s*\{/);
   assert.match(stylesSource, /\.participant-form-premium \.form-text-field__frame/);

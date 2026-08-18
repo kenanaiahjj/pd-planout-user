@@ -398,6 +398,11 @@ function GuestHome({ onGoToEvents, onEventSelect }: HomePageProps) {
             <div className="relative flex flex-1 items-center">
               <Search className="h-4.5 w-4.5 text-[#94a3b8] shrink-0" />
               <input
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                autoComplete="off"
+                aria-label="Search events"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search running, cycling, swimming..."

@@ -127,7 +127,11 @@ export function LocationDropdown({
         <div className="relative w-full group">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
           <input 
-            type="text"
+            type="search"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            aria-label="Search city"
             className={cn(
               "w-full bg-white border border-slate-200/80 rounded-xl py-2.5 text-[13px] font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#177564] focus:ring-1 focus:ring-[#177564]/20 transition-all cursor-text shadow-[0_1px_2px_rgba(0,0,0,0.015)]",
               "pl-10", // Left padding for search icon

@@ -444,6 +444,9 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
             <FieldLabel required>Organization Name</FieldLabel>
             <input
               type="text"
+              autoComplete="organization"
+              enterKeyHint="next"
+              aria-label="Organization name"
               placeholder="e.g. Metro Manila Runners"
               value={orgName}
               onChange={(e) => setOrgName(e.target.value)}
@@ -454,6 +457,7 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
           <div className="flex flex-col gap-1.5">
             <FieldLabel required>Organization Description</FieldLabel>
             <textarea
+              aria-label="Organization description"
               placeholder="Describe your organization, its mission, and the events you plan to host"
               value={orgBio}
               onChange={(e) => setOrgBio(e.target.value)}
@@ -480,6 +484,9 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
             <FieldLabel required>Full Name</FieldLabel>
             <input
               type="text"
+              autoComplete="name"
+              enterKeyHint="next"
+              aria-label="Full name"
               placeholder="Enter your full name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -490,8 +497,12 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <FieldLabel required>Email Address</FieldLabel>
-              <input
-                type="email"
+            <input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              enterKeyHint="next"
+              aria-label="Email address"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -500,8 +511,12 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
             </div>
             <div className="flex flex-col gap-1.5">
               <FieldLabel required>Contact Number</FieldLabel>
-              <input
-                type="tel"
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              enterKeyHint="done"
+              aria-label="Contact number"
                 placeholder="+63 XXX XXX XXXX"
                 value={contactNumber}
                 onChange={(e) => setContactNumber(e.target.value)}

@@ -48,6 +48,9 @@ export function FormDiffPage() {
                 )}
                 {change.type === 'new' && (
                   <input
+                    type="text"
+                    aria-label={change.fieldLabel}
+                    enterKeyHint="next"
                     placeholder={change.newValue}
                     className="mt-2 w-full rounded-[8px] border border-[#a7f3d0] bg-white px-3 py-2 text-[13px]"
                   />

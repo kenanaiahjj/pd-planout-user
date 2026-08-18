@@ -899,6 +899,9 @@ function EmailReviewSheet({
           <input
             id="invite-recipient-email"
             type="email"
+            inputMode="email"
+            autoComplete="email"
+            enterKeyHint="send"
             value={recipient}
             onChange={(event) => setRecipient(event.target.value)}
             placeholder="name@example.com"
@@ -1046,6 +1049,9 @@ function BulkEmailReviewSheet({
                             <span className="text-[12px] font-semibold tracking-[-0.1px] text-[#315f57]">{label}</span>
                             <input
                               type="email"
+                              inputMode="email"
+                              autoComplete="email"
+                              enterKeyHint="next"
                               value={entry.attendeeEmail}
                               onChange={(event) => setEmailDrafts((current) => ({ ...current, [entry.id]: event.target.value }))}
                               placeholder="name@example.com"
@@ -1135,7 +1141,7 @@ function ParticipantFormLinkActions({
           <Mail className="h-3.5 w-3.5 shrink-0" />
           Send link
         </SecondaryButton>
-        <PrimaryButton
+        <SecondaryButton
           type="button"
           onClick={() => {
             onShare?.();
@@ -1146,7 +1152,7 @@ function ParticipantFormLinkActions({
         >
           <Copy className="h-3.5 w-3.5 shrink-0" />
           Copy link
-        </PrimaryButton>
+        </SecondaryButton>
       </div>
       <EmailReviewSheet
         entry={entry}

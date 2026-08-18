@@ -200,6 +200,9 @@ export function ConnectContactModal({
           <FormTextField
             label={isPromptingEmail ? 'Email Address' : 'Phone Number'}
             type={isPromptingEmail ? 'email' : 'tel'}
+            inputMode={isPromptingEmail ? 'email' : 'tel'}
+            autoComplete={isPromptingEmail ? 'email' : 'tel'}
+            enterKeyHint="next"
             value={value}
             onChange={setValue}
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
@@ -226,6 +229,9 @@ export function ConnectContactModal({
                     key={index}
                     ref={(el) => (otpRefs.current[index] = el)}
                     type="text"
+                    inputMode="numeric"
+                    autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                    aria-label={`Verification digit ${index + 1}`}
                     value={digit}
                     onChange={(e) => handleOtpChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}

@@ -576,6 +576,8 @@ export function OnboardingScreen({
           <label className="block text-[14px] text-[#181d27] tracking-[-0.28px] mb-1.5">First Name <span className="text-[#ef4444]">*</span></label>
           <input
             type="text"
+            autoComplete="given-name"
+            enterKeyHint="next"
             value={onbFirstName}
             onChange={(e) => setOnbFirstName(e.target.value)}
             placeholder="Juan"
@@ -586,6 +588,8 @@ export function OnboardingScreen({
           <label className="block text-[14px] text-[#181d27] tracking-[-0.28px] mb-1.5">Last Name <span className="text-[#ef4444]">*</span></label>
           <input
             type="text"
+            autoComplete="family-name"
+            enterKeyHint="next"
             value={onbLastName}
             onChange={(e) => setOnbLastName(e.target.value)}
             placeholder="Dela Cruz"
@@ -604,6 +608,7 @@ export function OnboardingScreen({
         </label>
         <input
           type="date"
+          autoComplete="bday"
           value={birthdate}
           onChange={(e) => setBirthdate(e.target.value)}
           max={new Date().toISOString().split('T')[0]}
@@ -654,6 +659,9 @@ export function OnboardingScreen({
         {isPromptingEmail ? (
           <input
             type="email"
+            inputMode="email"
+            autoComplete="email"
+            enterKeyHint="send"
             value={contactValue}
             onChange={(e) => setContactValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
@@ -701,6 +709,9 @@ export function OnboardingScreen({
             {/* Phone number input */}
             <input
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              enterKeyHint="send"
               value={contactValue}
               onChange={(e) => setContactValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
@@ -759,6 +770,8 @@ export function OnboardingScreen({
               ref={(el) => { otpRefs.current[i] = el; }}
               type="text"
               inputMode="numeric"
+              autoComplete={i === 0 ? 'one-time-code' : 'off'}
+              aria-label={`Verification digit ${i + 1}`}
               value={digit}
               onChange={(e) => handleOtpChange(i, e.target.value)}
               onKeyDown={(e) => handleOtpKeyDown(i, e)}

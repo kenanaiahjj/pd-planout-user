@@ -2588,6 +2588,9 @@ export function CheckoutPage({
             <div className="flex gap-2">
               <input
                 type="text"
+                autoComplete="off"
+                enterKeyHint="done"
+                aria-label="Voucher or discount code"
                 placeholder="Enter code"
                 value={voucherCode}
                 onChange={(e) => setVoucherCode(e.target.value)}

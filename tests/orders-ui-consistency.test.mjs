@@ -357,7 +357,8 @@ test('individual and bulk form actions use the shared button components', () => 
   );
 
   assert.match(individualActions, /<SecondaryButton[\s\S]*Send link/);
-  assert.match(individualActions, /<PrimaryButton[\s\S]*Copy link/);
+  assert.match(individualActions, /<SecondaryButton[\s\S]*Copy link/);
+  assert.doesNotMatch(individualActions, /<PrimaryButton[\s\S]*Copy link/);
   assert.match(bulkActions, /<SecondaryButton[\s\S]*Send all/);
   assert.match(bulkActions, /<SecondaryButton[\s\S]*Copy all/);
   assert.match(bulkActions, /tone="neutral"[\s\S]*Send all/);

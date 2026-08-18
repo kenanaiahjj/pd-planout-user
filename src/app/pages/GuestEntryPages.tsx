@@ -1570,6 +1570,10 @@ export function MultiGuestManagerPage() {
                       </label>
                       <input
                         type="email"
+                        inputMode="email"
+                        autoComplete="email"
+                        enterKeyHint="send"
+                        aria-label="Resend claim link email"
                         value={editEmailValue}
                         onChange={(event) => setEditingClaimEmail((prev) => ({ ...prev, [entry.id]: event.target.value }))}
                         onKeyDown={(event) => {

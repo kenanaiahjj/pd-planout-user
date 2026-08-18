@@ -302,7 +302,11 @@ export function ProfilePage({ onEventSelect }: ProfilePageProps) {
         <div className="relative w-full max-w-[346px] group">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 pointer-events-none" />
           <input
-            type="text"
+            type="search"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            aria-label={activeTab === 'events' ? 'Search events' : 'Search certificates'}
             placeholder={activeTab === 'events' ? "Search events..." : "Search certificates..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

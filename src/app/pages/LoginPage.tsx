@@ -216,6 +216,8 @@ function OtpInput({
                 }}
                 type="text"
                 inputMode="numeric"
+                autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                aria-label={`Verification digit ${i + 1}`}
                 maxLength={1}
                 value={value[i] || ''}
                 onChange={(e) => handleChange(i, e.target.value)}
@@ -349,6 +351,8 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
               <input
                 type="text"
                 inputMode={detectedMethod === 'phone' ? 'tel' : 'email'}
+                autoComplete="username"
+                enterKeyHint="next"
                 aria-label="Email or phone number"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}

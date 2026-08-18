@@ -42,7 +42,7 @@ import { useNavigate } from 'react-router';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { type MyTicket, type Participant, type TeamPlayerAccessPath } from '@/app/data/tickets';
-import { resolveTeamPlayerAccess } from '@/app/data/teamAccess.js';
+import { resolveTeamPlayerAccess, teamPlayerLabel } from '@/app/data/teamAccess.js';
 import { PrimaryButton } from '@/app/components/PrimaryButton';
 import { SecondaryButton } from '@/app/components/SecondaryButton';
 import { IconButton } from '@/app/components/IconButton';
@@ -237,7 +237,7 @@ function FormField({
   label: string;
   required?: boolean;
   value: string;
-  placeholder: string;
+  placeholder?: string;
   type?: string;
   onChange: (value: string) => void;
   highlight?: 'warning';
@@ -594,6 +594,10 @@ export function ParticipantFormPage({
   const selectedParticipant = initialParticipantId
     ? ticket.participants.find((participant) => participant.id === initialParticipantId)
     : ticket.participants[0];
+  const participantIndex = Math.max(
+    ticket.participants.findIndex((participant) => participant.id === selectedParticipant?.id),
+    0,
+  );
   const initialParticipants = selectedParticipant ? [selectedParticipant] : [];
 
   // State
@@ -667,12 +671,11 @@ export function ParticipantFormPage({
     currentParticipant?.inviteStatus === 'invited' ||
     !!currentParticipant?.sentToEmail
   );
-  const participantLabel = currentParticipant?.name
-    || currentParticipant?.email
-    || (isTeam ? 'Team player entry' : 'Participant entry');
-  const participantStatusLabel = isSentOrDone
-    ? currentParticipant?.formStatus === 'completed' ? 'Completed' : 'Claim link sent'
-    : 'Not started';
+  const participantLabel = isTeam
+    ? teamPlayerLabel(participantIndex)
+    : currentParticipant?.name
+      || currentParticipant?.email
+      || 'Participant entry';
   const pageTitle = isSentOrDone && !isInviteMode
     ? 'Form details'
     : "Participant's Form";
@@ -1091,21 +1094,10 @@ export function ParticipantFormPage({
         {/* Right: Form card */}
         <div className="participant-form-card bg-white rounded-[12px] border border-[#def2ee] shadow-[0px_16px_36px_0px_rgba(0,0,0,0.03)] overflow-hidden">
           <div className="flex flex-col gap-3.5 p-4 sm:p-5">
-            <div className="participant-form-identity flex items-center gap-3 rounded-[12px] border border-[#def2ee] bg-[#f8fbfa] px-3.5 py-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#def2ee] text-[12px] font-bold text-[#177564]">
-                {participantLabel.charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">
-                  {isTeam ? 'Team player' : 'Participant'}
-                </p>
-                <p className="truncate text-[13px] font-semibold text-[#181d27]">
-                  {participantLabel}
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-[#64748b]">
-                {participantStatusLabel}
-              </span>
+            <div className="participant-form-identity flex items-center justify-between px-0.5 pb-0.5">
+              <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-[#181d27]">
+                {participantLabel}
+              </h2>
             </div>
             {ticket.deadline && <DeadlineBadge deadline={ticket.deadline} />}
 
@@ -1204,7 +1196,7 @@ export function ParticipantFormPage({
                       })}
                     </div>
                     {teamOwnerSelectionLocked && (
-                      <p className="text-[11px] font-medium leading-relaxed text-[#8a5b08]">
+                    <p className="text-[11px] font-medium leading-relaxed text-[#64748b]">
                         Use “For someone else” to create this player’s Guest QR. One Passport can represent one player per team order.
                       </p>
                     )}
@@ -1221,7 +1213,6 @@ export function ParticipantFormPage({
                     label="First Name"
                     required
                     value={currentForm.firstName}
-                    placeholder="John"
                     onChange={(v) => updateField('firstName', v)}
                     highlight={resubmission ? 'warning' : undefined}
                   />
@@ -1229,7 +1220,6 @@ export function ParticipantFormPage({
                     label="Last Name"
                     required
                     value={currentForm.lastName}
-                    placeholder="Doe"
                     onChange={(v) => updateField('lastName', v)}
                     highlight={resubmission ? 'warning' : undefined}
                   />
@@ -1240,7 +1230,6 @@ export function ParticipantFormPage({
                     label="Email"
                     required
                     value={currentForm.email}
-                    placeholder="participant@email.com"
                     type="email"
                     onChange={(v) => updateField('email', v)}
                   />
@@ -1251,15 +1240,9 @@ export function ParticipantFormPage({
                     <FormField
                       label="Email (optional)"
                       value={currentForm.email}
-                      placeholder="participant@email.com"
                       type="email"
                       onChange={(v) => updateField('email', v)}
                     />
-                    <p className="-mt-2 text-[11px] font-medium leading-relaxed text-[#64748b]">
-                      {isInviteMode
-                        ? 'Your entry attaches to the PlanOut account you used to sign in; this email is optional contact information.'
-                        : 'This does not match a PlanOut account automatically. If they need Passport ownership, send a claim/invite link and have them log in or create an account.'}
-                    </p>
                   </>
                 )}
 
@@ -1270,9 +1253,6 @@ export function ParticipantFormPage({
                       Waiver / Document Upload <span className="text-[#dc2626]">*</span>
                     </label>
                   </div>
-                  <p className="text-[11px] text-[#64748b] -mt-1 leading-normal">
-                    This file upload requirement is configured for this event (e.g. Liability Waiver, Medical Certificate, or ID proof).
-                  </p>
                   {currentForm.waiver ? (
                     <div className="participant-form-upload relative p-[1.5px] rounded-[10px] bg-[#ecfdf5] border border-[#a7f3d0] shadow-[0_1px_2px_rgba(5,150,105,0.02)]">
                       <div className="relative rounded-[calc(10px-1.5px)] bg-white/60 backdrop-blur-sm px-4 py-3 flex items-center gap-3 border border-transparent">
@@ -1426,9 +1406,12 @@ export function ParticipantFormPage({
                                 <Mail className="w-4 h-4 text-slate-400 group-focus-within:text-[#177564] transition-colors duration-300 shrink-0" />
                                 <input
                                   type="email"
+                                  inputMode="email"
+                                  autoComplete="email"
+                                  enterKeyHint="send"
+                                  aria-label="Updated invite email"
                                   value={editedEmail}
                                   onChange={(e) => setEditedEmail(e.target.value)}
-                                  placeholder="Enter new email address"
                                   className="w-full bg-transparent text-[14px] text-[#181d27] placeholder:text-[#cbd5e1] focus:outline-none min-w-0"
                                   autoFocus
                                 />
@@ -1537,9 +1520,9 @@ export function ParticipantFormPage({
             {subView === 'sendEmail' && (
               <div className="flex flex-col gap-3 animate-in fade-in duration-200">
                 {/* Info banner */}
-                <div className="flex items-start gap-2.5 bg-[#eff6ff] border border-[#bfdbfe] rounded-[10px] px-3.5 py-2.5">
-                  <Mail className="w-4 h-4 text-[#3b82f6] shrink-0 mt-0.5" />
-                  <span className="text-[#1e40af] text-[12px] font-medium leading-relaxed">
+                <div className="flex items-start gap-2.5 bg-[#f0fdf9] border border-[#def2ee] rounded-[10px] px-3.5 py-2.5">
+                  <Mail className="w-4 h-4 text-[#177564] shrink-0 mt-0.5" />
+                  <span className="text-[#35635a] text-[12px] font-medium leading-relaxed">
                     {isTeam
                       ? 'Send them a claim link. They sign in or create an account, complete their own details, and the entry attaches to their Passport.'
                       : !isMulti
@@ -1552,7 +1535,6 @@ export function ParticipantFormPage({
                   label={isTeam ? "Participant's Email" : "Attendee's Email"}
                   required
                   value={emailToSend}
-                  placeholder="Enter email address"
                   type="email"
                   onChange={setEmailToSend}
                 />
@@ -1562,7 +1544,6 @@ export function ParticipantFormPage({
                   <FormField
                     label="Name (optional)"
                     value={nameToSend}
-                    placeholder="Helps you identify who you sent it to"
                     onChange={setNameToSend}
                   />
                 )}

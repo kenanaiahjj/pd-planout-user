@@ -11,6 +11,27 @@
   *::-webkit-scrollbar {
     display: none;
   }
+
+  .native-mobile-field,
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']):not([type='color']),
+  textarea,
+  select {
+    box-sizing: border-box;
+    max-inline-size: 100%;
+    font-size: 16px !important;
+    scroll-margin-block: max(96px, 22dvh);
+  }
+
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']):not([type='color']):not(.form-text-field__input),
+  textarea:not(.form-textarea__input),
+  select,
+  .form-text-field__frame {
+    min-block-size: 44px;
+  }
+
+  [role='dialog'] {
+    max-inline-size: calc(100vw - 16px);
+  }
 }
 
 @media (prefers-reduced-transparency: reduce) {

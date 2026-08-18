@@ -262,7 +262,11 @@ export function MobileFilters({
                   <div className="relative">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
-                      type="text"
+                      type="search"
+                      inputMode="search"
+                      enterKeyHint="search"
+                      autoComplete="off"
+                      aria-label="Search city or province"
                       className="w-full bg-white border border-slate-200/80 rounded-xl py-2.5 pl-9.5 pr-4 text-[13px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#177564] focus:ring-1 focus:ring-[#177564]/20 transition-all font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
                       style={{ color: '#181d27' }}
                       placeholder="Search city or province..."

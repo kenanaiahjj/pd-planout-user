@@ -399,7 +399,7 @@ function ReviewForm({
         {/* Description */}
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-[13px] font-semibold text-[#414651]">
+            <label htmlFor="review-description" className="text-[13px] font-semibold text-[#414651]">
               Description
             </label>
             <span className={`text-[11px] font-medium tabular-nums ${description.length > 280 ? 'text-[#ef4444]' : 'text-[#94a3b8]'}`}>
@@ -407,6 +407,8 @@ function ReviewForm({
             </span>
           </div>
           <textarea
+            id="review-description"
+            enterKeyHint="enter"
             value={description}
             onChange={(e) => {
               if (e.target.value.length <= 300) onDescriptionChange(e.target.value);
