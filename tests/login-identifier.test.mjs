@@ -32,6 +32,11 @@ const loginPageSource = fs.readFileSync(
   'utf8',
 );
 
+const primaryButtonSource = fs.readFileSync(
+  new URL('../src/app/components/PrimaryButton.tsx', import.meta.url),
+  'utf8',
+);
+
 test('LoginPage uses one autodetected identifier field instead of a selector', () => {
   assert.match(loginPageSource, /import \{ detectLoginMethod \} from '@\/app\/data\/login';/);
   assert.match(loginPageSource, /const \[identifier, setIdentifier\] = useState\(''\);/);
@@ -42,4 +47,20 @@ test('LoginPage uses one autodetected identifier field instead of a selector', (
   assert.match(loginPageSource, /inputMode=\{detectedMethod === 'phone' \? 'tel' : 'email'\}/);
   assert.match(loginPageSource, /aria-label="Email or phone number"/);
   assert.match(loginPageSource, /placeholder="Email or phone number"/);
+});
+
+test('PrimaryButton exposes an opt-in solid appearance for native actions', () => {
+  assert.match(primaryButtonSource, /appearance\?: 'gradient' \| 'solid'/);
+  assert.match(primaryButtonSource, /appearance === 'solid'/);
+});
+
+test('LoginPage uses the shared rounded-rectangle control language', () => {
+  assert.match(loginPageSource, /appearance="solid"/);
+  assert.match(loginPageSource, /rounded-\[10px\]/);
+  assert.match(loginPageSource, /min-h-11/);
+  assert.doesNotMatch(loginPageSource, /p-\[1\.5px\] rounded-full/);
+  assert.doesNotMatch(loginPageSource, /rounded-\[16px\]/);
+  assert.doesNotMatch(loginPageSource, /scale-\[1\.06\]/);
+  assert.doesNotMatch(loginPageSource, /translate-x-\[\-100%\]/);
+  assert.doesNotMatch(loginPageSource, /animate-pulse/);
 });
