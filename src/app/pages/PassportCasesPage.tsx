@@ -27,98 +27,59 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Switch } from '@/app/components/ui/switch';
 import passportEmailCover from '@/assets/planout-passport-email-cover-editorial.png';
+import { screenForRoute, screenSrc } from '@/app/data/passportCaseScreens';
 
 // ---------------------------------------------------------------------------
 // Screen sources
 //
-// Every case viewport is a real app screen: either this same-origin iframe of a
-// live route, or a Playwright capture of a state that needs an interaction to
-// reach (see scratch/capture_purchase_intent_screens.mjs). The only exception
-// is WF_DefaultScreen, which explicitly says a step has no screen in the app.
+// This page documents screens; it does not embed a running app. Every case
+// viewport is a still screenshot of a real state, from one of two capture sets:
+//
+//   public/passport-cases/screens/   - one shot per route, listed in
+//                                      src/app/data/passportCaseScreens.js
+//                                      (scratch/capture_case_screens.mjs)
+//   public/passport-cases/purchase-intent/ - states that need an interaction to
+//                                      reach, such as a submitted conflict or a
+//                                      post-claim confirmation
+//                                      (scratch/capture_purchase_intent_screens.mjs)
+//
+// The only steps without a screenshot are the ones that happen outside the app
+// entirely; OffAppStep documents those by naming where their result shows up.
 // ---------------------------------------------------------------------------
 
-function LiveAppScreen({ path, title, scrollToText }: { path: string; title: string; scrollToText?: string }) {
-  const [ready, setReady] = useState(false);
-  const src = `${path}${path.includes('?') ? '&' : '?'}passportCasePreview=1`;
-  const frameWidth = 390;
-  const frameHeight = 844;
-  const frameScale = 280 / frameWidth;
+/**
+ * A captured screen state, addressed by the app route it was taken at.
+ *
+ * The cases page documents screens rather than embedding a running app, so this
+ * renders a still from public/passport-cases/screens. The manifest in
+ * src/app/data/passportCaseScreens.js maps route to screenshot, and the capture
+ * script shoots that same list, so an undocumented route fails loudly here
+ * instead of quietly rendering nothing.
+ */
+function CaseScreen({ route, title }: { route: string; title: string }) {
+  const screen = screenForRoute(route);
 
-  /** Same-origin iframe: scroll the embedded app to the section named by `scrollToText`. */
-  const handleFrameLoad = (event: React.SyntheticEvent<HTMLIFrameElement>) => {
-    if (!scrollToText) return;
-    const frame = event.currentTarget;
-    // The SPA renders after load; retry briefly until the section heading exists.
-    let attempts = 0;
-    const tryScroll = () => {
-      attempts += 1;
-      try {
-        const doc = frame.contentDocument;
-        if (doc) {
-          const target = Array.from(doc.querySelectorAll('h1, h2, h3, h4, p, span')).find(
-            (el) => el.textContent?.trim() === scrollToText,
-          );
-          if (target) {
-            target.scrollIntoView({ block: 'start' });
-            return;
-          }
-        }
-      } catch {
-        return; // cross-origin or detached — leave the frame at the top
-      }
-      if (attempts < 20) setTimeout(tryScroll, 250);
-    };
-    tryScroll();
-  };
-
-  useEffect(() => {
-    try {
-      const existing = window.localStorage.getItem('planout.user.profile.v1');
-      if (!existing) {
-        window.localStorage.setItem(
-          'planout.user.profile.v1',
-          JSON.stringify({
-            name: 'User',
-            email: 'user@example.com',
-            phone: '',
-            loginMethod: 'email',
-          }),
-        );
-      }
-    } catch {
-      // The iframe still renders unauthenticated public routes if storage is unavailable.
-    } finally {
-      setReady(true);
-    }
-  }, []);
-
-  if (!ready) {
+  if (!screen) {
     return (
-      <div className="flex min-h-full items-center justify-center bg-[#f6f8fb] p-5 text-center">
-        <div className="rounded-2xl border border-[#dbe7e4] bg-white px-4 py-3 text-[11px] font-semibold text-[#64748b]">
-          Loading app screen...
-        </div>
+      <div className="flex min-h-full flex-col items-center justify-center gap-2 bg-[#fdf6f6] p-5 text-center">
+        <span className="rounded-full border border-[#f0c6c6] bg-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-[#b42318]">
+          No screenshot
+        </span>
+        <p className="text-[10px] font-semibold leading-relaxed text-[#7f1d1d]">{route}</p>
+        <p className="text-[9px] leading-relaxed text-[#9a6a6a]">
+          Add this route to passportCaseScreens.js and re-run the capture script.
+        </p>
       </div>
     );
   }
 
   return (
-    <div
-      className="relative w-full overflow-hidden bg-[#f6f8fb]"
-      style={{ height: Math.ceil(frameHeight * frameScale) }}
-    >
-      <iframe
-        title={title}
-        src={src}
+    <div className="h-[606px] w-full overflow-hidden bg-[#f6f8fb]">
+      <img
+        src={screenSrc(screen.id)}
+        alt={`PlanOut app screen: ${title}`}
+        className={`h-full w-full object-top ${screen.wide ? 'object-contain' : 'object-cover'}`}
         loading="lazy"
-        onLoad={handleFrameLoad}
-        className="absolute left-0 top-0 border-0 bg-[#f6f8fb]"
-        style={{
-          width: frameWidth,
-          height: frameHeight,
-          transform: `scale(${frameScale})`,
-          transformOrigin: 'top left',
-        }}
       />
     </div>
   );
@@ -164,27 +125,61 @@ const EMAIL_TONE_META: Record<EmailTone, { label: string; dot: string; badge: st
   },
 };
 
-function WF_DefaultScreen({ title, desc }: { title: string; desc: string }) {
+/**
+ * Steps that happen outside the app: a gate scan, an absence, an organizer or
+ * backend state change. There is no screen to capture, so the step is
+ * documented by naming what happens and where its result becomes visible.
+ */
+const OFF_APP_STEPS: Record<string, { why: string; evidence: string }> = {
+  '9:1': {
+    why: 'Venue staff scan the Passport QR on their own device. PlanOut has no staff scanner surface in this prototype.',
+    evidence: 'The result appears on Passport → Events under Past events, as an attended entry with its check-in time.',
+  },
+  '10:1': {
+    why: 'The participant simply does not arrive. Nothing is shown or tapped, so there is no screen at this moment.',
+    evidence: 'The result appears on Passport → Events under Past events, as a no-show entry.',
+  },
+  '10:2': {
+    why: 'The organizer system marks the entry a no-show after the event closes. This is a backend state change.',
+    evidence: 'The result appears on Passport → Events under Past events, and in the no-show notification email.',
+  },
+  '12:1': {
+    why: 'Venue staff scan the guest pass at the gate. Again, the scanner belongs to the staff, not to this app.',
+    evidence: 'The result appears on the guest distribution screen, where the slot reads Used with its scan time.',
+  },
+};
+
+function OffAppStep({
+  caseTitle,
+  stepIdx,
+  title,
+  desc,
+}: {
+  caseTitle: string;
+  stepIdx: number;
+  title: string;
+  desc: string;
+}) {
+  const num = caseTitle.match(/Case\s+(\d+):/i)?.[1];
+  const note = num ? OFF_APP_STEPS[`${num}:${stepIdx}`] : undefined;
+
   return (
-    <div className="bg-[#0f172a] text-slate-200 min-h-full flex flex-col p-6 justify-center items-center text-center gap-4.5 font-sans">
-      <div className="w-11 h-11 rounded-xl bg-slate-800/80 flex items-center justify-center border border-slate-700/50 shadow-inner">
-        <span className="font-mono text-xs font-semibold text-teal-300">UI</span>
-      </div>
-      <div className="flex flex-col gap-2.5 px-2">
-        <span className="mx-auto rounded-full bg-slate-800 border border-slate-700/50 px-2.5 py-0.5 text-[8.5px] font-bold uppercase tracking-wider text-slate-400">
-          Flow Interaction
-        </span>
-        <h4 className="text-[13px] font-bold text-white mt-1 leading-tight">{title}</h4>
-        <p className="text-[10px] text-slate-400 leading-relaxed mt-1">{desc}</p>
-      </div>
-      <div className="mt-4 border-t border-slate-800/60 w-full pt-4">
-        <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
-          (No screen in app for this step)
-        </p>
-      </div>
+    <div className="flex min-h-full flex-col justify-center gap-3 bg-[#f8fafc] p-5">
+      <span className="w-fit rounded-full border border-[#dbe3ea] bg-white px-2.5 py-1 text-[8.5px] font-bold uppercase tracking-widest text-[#64748b]">
+        Happens outside the app
+      </span>
+      <h4 className="text-[13px] font-semibold leading-snug text-[#181d27]">{title}</h4>
+      <p className="text-[10px] leading-relaxed text-[#64748b]">{note?.why || desc}</p>
+      {note && (
+        <div className="mt-1 border-t border-[#e2e8f0] pt-3">
+          <p className="text-[8.5px] font-bold uppercase tracking-widest text-[#94a3b8]">Where the result shows</p>
+          <p className="mt-1.5 text-[10px] font-medium leading-relaxed text-[#315f57]">{note.evidence}</p>
+        </div>
+      )}
     </div>
   );
 }
+
 
 function getPurchaseIntentStepRoute(caseTitle: string, stepTitle: string): string | null {
   if (!/^Case\s+(2[4-9]|3[0-6]):/i.test(caseTitle)) return null;
@@ -549,12 +544,12 @@ function getStepViewport(
     return <PurchaseIntentCapture capture={source.capture} title={step.title} />;
   }
   if (source.kind === 'live') {
-    return <LiveAppScreen title={`Live app screen - ${step.title}`} path={source.route} />;
+    return <CaseScreen title={step.title} route={source.route} />;
   }
   if (source.kind === 'case') {
     return finalViewport();
   }
-  return <WF_DefaultScreen title={step.title} desc={step.desc} />;
+  return <OffAppStep caseTitle={caseTitle} stepIdx={stepIdx} title={step.title} desc={step.desc} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -863,10 +858,7 @@ function CaseItemFrame({
 /** Case 11: Guest QR Active */
 function WF_GuestQRActive() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Guest QR active"
-      path="/orders/tkt-010/entry/tkt-010-p2/guest-qr"
-    />
+    <CaseScreen title="Live app screen - Guest QR active" route="/orders/tkt-010/entry/tkt-010-p2/guest-qr" />
   );
 }
 
@@ -888,10 +880,7 @@ function WF_GuestQRUsed() {
 /** Case 13: Guest QR Revoked */
 function WF_GuestQRRevoked() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Guest QR revoked"
-      path="/orders/tkt-010/entry/tkt-010-p2/guest-qr?state=revoked"
-    />
+    <CaseScreen title="Live app screen - Guest QR revoked" route="/orders/tkt-010/entry/tkt-010-p2/guest-qr?state=revoked" />
   );
 }
 
@@ -908,10 +897,7 @@ function WF_GuestQRClaimed() {
 /** Case 14: Guest Web Page */
 function WF_PublicGuestPage() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Public guest entry"
-      path="/guest-entry/GE-CANLAON-42K"
-    />
+    <CaseScreen title="Live app screen - Public guest entry" route="/guest-entry/GE-CANLAON-42K" />
   );
 }
 
@@ -922,60 +908,42 @@ function WF_PublicGuestPage() {
  */
 function WF_GuestClaimRegister() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Shared form link destination"
-      path="/ticket-claim/CLM-CANLAON-42K?order=tkt-011&entry=tkt-011-p2"
-    />
+    <CaseScreen title="Live app screen - Shared form link destination" route="/ticket-claim/CLM-CANLAON-42K?order=tkt-011&entry=tkt-011-p2" />
   );
 }
 
 /** Case 37: Camera-first add-entry scanner */
 function WF_AddEntryScanner() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Add-entry scanner"
-      path="/passport/add-entry"
-    />
+    <CaseScreen title="Live app screen - Add-entry scanner" route="/passport/add-entry" />
   );
 }
 
 /** Case 38: Add-entry resolved to a used pass (past event) */
 function WF_AddEntryPast() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Add a past event"
-      path="/passport/add-entry?code=GE-USED-4218"
-    />
+    <CaseScreen title="Live app screen - Add a past event" route="/passport/add-entry?code=GE-USED-4218" />
   );
 }
 
 /** Case 39: Add-entry blocked because the Guest QR was already claimed */
 function WF_AddEntryAlreadySaved() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Entry already saved"
-      path="/passport/add-entry?code=GE-TEMP-4021&demoState=added"
-    />
+    <CaseScreen title="Live app screen - Entry already saved" route="/passport/add-entry?code=GE-TEMP-4021&demoState=added" />
   );
 }
 
 /** Case 40: Add-entry blocked because the Guest QR was revoked */
 function WF_AddEntryUnavailable() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Entry cannot be added"
-      path="/passport/add-entry?code=GE-REVOKED-4218"
-    />
+    <CaseScreen title="Live app screen - Entry cannot be added" route="/passport/add-entry?code=GE-REVOKED-4218" />
   );
 }
 
 /** Case 41: Public guest page with a dead reference */
 function WF_PublicGuestInvalid() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Guest QR no longer valid"
-      path="/guest-entry/GE-REVOKED-4218"
-    />
+    <CaseScreen title="Live app screen - Guest QR no longer valid" route="/guest-entry/GE-REVOKED-4218" />
   );
 }
 
@@ -997,10 +965,7 @@ function WF_AddEntryWeb() {
 /** Case 51: order-level identity with one grouped registration list */
 function WF_OrdersAdaptiveDetail() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Adaptive order detail"
-      path="/orders/tkt-009"
-    />
+    <CaseScreen title="Live app screen - Adaptive order detail" route="/orders/tkt-009" />
   );
 }
 
@@ -1017,61 +982,42 @@ function WF_CheckoutParticipantDetails() {
 /** Case 45: team player form with the Passport / Guest QR ownership choice */
 function WF_TeamOwnerChoice() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Player entry ownership choice"
-      path="/orders/tkt-013/form?returnTo=order&participantId=p7&playerOnly=1"
-    />
+    <CaseScreen title="Live app screen - Player entry ownership choice" route="/orders/tkt-013/form?returnTo=order&participantId=p7&playerOnly=1" />
   );
 }
 
 /** Case 46: completed player form, read-only */
 function WF_TeamFormCompleted() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Completed player form details"
-      path="/orders/tkt-013/form?returnTo=order&participantId=p1&playerOnly=1"
-    />
+    <CaseScreen title="Live app screen - Completed player form details" route="/orders/tkt-013/form?returnTo=order&participantId=p1&playerOnly=1" />
   );
 }
 
 /** Case 47: player invite sent, waiting, with a take-back */
 function WF_TeamInviteSent() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Player invite sent"
-      path="/orders/tkt-013/form?returnTo=order&participantId=p5&playerOnly=1"
-    />
+    <CaseScreen title="Live app screen - Player invite sent" route="/orders/tkt-013/form?returnTo=order&participantId=p5&playerOnly=1" />
   );
 }
 
 /** Case 48: team order with every player resolved */
 function WF_TeamAllReady() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Team order fully resolved"
-      path="/orders/tkt-014"
-    />
+    <CaseScreen title="Live app screen - Team order fully resolved" route="/orders/tkt-014" />
   );
 }
 
 /** Case 42: Organizer form version diff */
 function WF_FormDiffReview() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Form version diff"
-      path="/forms/tkt-011-p1/diff"
-    />
+    <CaseScreen title="Live app screen - Form version diff" route="/forms/tkt-011-p1/diff" />
   );
 }
 
 /** Case 43: Passport's "Add a past event" launcher */
 function WF_PassportPastLauncher() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Add a past event launcher"
-      path="/passport"
-      scrollToText="Add a past event"
-    />
+    <CaseScreen title="Live app screen - Add a past event launcher" route="/passport#Add a past event" />
   );
 }
 
@@ -1091,40 +1037,28 @@ function WF_InviteClaimConflict() {
 /** Case 16: Guest QR (No Account Flow) */
 function WF_TemporaryGuestQR() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Guest QR"
-      path="/orders/tkt-010/entry/tkt-010-p2/guest-qr"
-    />
+    <CaseScreen title="Live app screen - Guest QR" route="/orders/tkt-010/entry/tkt-010-p2/guest-qr" />
   );
 }
 
 /** Case 23: Multi-Guest Order — Buyer Fills All, Distributes QRs */
 function WF_MultiGuestManager() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Multi-guest manager"
-      path="/orders/tkt-008/guest-manager"
-    />
+    <CaseScreen title="Live app screen - Multi-guest manager" route="/orders/tkt-008/guest-manager" />
   );
 }
 
 /** Case 21: Lead Transfer */
 function WF_GroupShareLive() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Group claim links"
-      path="/order-share/tkt-011"
-    />
+    <CaseScreen title="Live app screen - Group claim links" route="/order-share/tkt-011" />
   );
 }
 
 /** Case 22: Events Attending Overview */
 function WF_EventsOverview() {
   return (
-    <LiveAppScreen
-      title="Live app screen - Passport Events attending"
-      path="/passport/events"
-    />
+    <CaseScreen title="Live app screen - Passport Events attending" route="/passport/events" />
   );
 }
 
@@ -1409,7 +1343,7 @@ const FLOWS = {
   formTaskMulti: [
     { title: 'Checkout & Purchase', desc: 'The buyer buys tickets for more than one participant in one order.' },
     { title: 'Open Orders', desc: 'The order shows a "Forms needed" label with the number of open forms.' },
-    { title: 'Manage Forms', desc: 'The group participant form shows the progress of each slot. The buyer completes each slot or sends a claim link.' },
+    { title: 'Resolve one slot at a time', desc: 'Opening a participant shows that entry\'s form with "Fill details" and "Send claim link", plus a "Contact organizer" helper. The order keeps the running count of what is still open.' },
   ],
   teamProgress: [
     { title: 'Checkout & Purchase', desc: 'The buyer selects a team package. The buyer pays and completes the checkout.' },
@@ -1779,7 +1713,7 @@ export function PassportCasesPage() {
           'At the gate, the buyer shows their Universal Passport QR.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Solo buyer outcome - Passport" path="/passport" />,
+      renderViewport: () => <CaseScreen title="Solo buyer outcome - Passport" route="/passport" />,
     },
     {
       group: 'scenario',
@@ -1800,7 +1734,7 @@ export function PassportCasesPage() {
           'Guest QR friends show the web QR. Claim-link friends sign in or make an account. Their entries attach to their Passports.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Buyer-managed guest distribution outcome" path="/orders/tkt-011/guest-manager" />,
+      renderViewport: () => <CaseScreen title="Buyer-managed guest distribution outcome" route="/orders/tkt-011/guest-manager" />,
     },
     {
       group: 'scenario',
@@ -1821,7 +1755,7 @@ export function PassportCasesPage() {
           'The friend shows their own Passport QR at the gate.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Buyer entry ready, claim link sent" path="/orders/tkt-011" />,
+      renderViewport: () => <CaseScreen title="Buyer entry ready, claim link sent" route="/orders/tkt-011" />,
     },
     {
       group: 'scenario',
@@ -1842,7 +1776,7 @@ export function PassportCasesPage() {
           'The staff scans the guest in at the gate.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Dependent Guest QR outcome" path="/orders/tkt-010/entry/tkt-010-p2/guest-qr" />,
+      renderViewport: () => <CaseScreen title="Dependent Guest QR outcome" route="/orders/tkt-010/entry/tkt-010-p2/guest-qr" />,
     },
     {
       group: 'scenario',
@@ -1863,7 +1797,7 @@ export function PassportCasesPage() {
           'Each slot then goes to the correct surface: the Passport or the Guest QR.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Mixed order outcome" path="/orders/tkt-011" />,
+      renderViewport: () => <CaseScreen title="Mixed order outcome" route="/orders/tkt-011" />,
     },
     {
       group: 'scenario',
@@ -1884,7 +1818,7 @@ export function PassportCasesPage() {
           'The entry attaches to the friend\'s Passport after the form is submitted.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Gifted entry, form link sent" path="/orders/tkt-012" />,
+      renderViewport: () => <CaseScreen title="Gifted entry, form link sent" route="/orders/tkt-012" />,
     },
     {
       group: 'scenario',
@@ -1905,7 +1839,7 @@ export function PassportCasesPage() {
           'The recipient shows the web QR at the gate. The buyer monitors the QR status in Orders.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="App-less pass outcome" path="/orders/tkt-010/entry/tkt-010-p2/guest-qr" />,
+      renderViewport: () => <CaseScreen title="App-less pass outcome" route="/orders/tkt-010/entry/tkt-010-p2/guest-qr" />,
     },
     {
       group: 'scenario',
@@ -1926,7 +1860,7 @@ export function PassportCasesPage() {
           'At the gate, each player uses their own Passport or Guest QR.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Team order player access outcome" path="/orders/tkt-013" />,
+      renderViewport: () => <CaseScreen title="Team order player access outcome" route="/orders/tkt-013" />,
     },
     {
       group: 'scenario',
@@ -1947,7 +1881,7 @@ export function PassportCasesPage() {
           'The Guest QR becomes invalid. A second claim is not possible.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Claimed entry on the Passport" path="/passport" />,
+      renderViewport: () => <CaseScreen title="Claimed entry on the Passport" route="/passport" />,
     },
     {
       group: 'scenario',
@@ -1969,7 +1903,7 @@ export function PassportCasesPage() {
           'The event joins Passport history. The Guest QR becomes permanently inactive, so a second Passport cannot claim it.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Past event kept in Passport history" path="/passport" />,
+      renderViewport: () => <CaseScreen title="Past event kept in Passport history" route="/passport" />,
     },
 
     // ===== GROUP A: INDIVIDUAL (SINGLE PERSON, SINGLE TICKET) =====
@@ -1992,7 +1926,7 @@ export function PassportCasesPage() {
           'The buyer shows the same card at the gate for the check-in.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Universal Passport card" path="/passport" />,
+      renderViewport: () => <CaseScreen title="Universal Passport card" route="/passport" />,
     },
     {
       group: 'ready',
@@ -2013,7 +1947,7 @@ export function PassportCasesPage() {
           'There is no different screen. All the actions are on the Passport front.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Passport front actions" path="/passport" />,
+      renderViewport: () => <CaseScreen title="Passport front actions" route="/passport" />,
     },
     {
       group: 'pending',
@@ -2060,7 +1994,7 @@ export function PassportCasesPage() {
           'The buyer submits the form. The entry attaches to the buyer\'s Passport.',
         ],
       },
-      renderViewport: () => <LiveAppScreen title="Order detail with pending form" path="/orders/tkt-003" />,
+      renderViewport: () => <CaseScreen title="Order detail with pending form" route="/orders/tkt-003" />,
     },
     {
       group: 'pending',
@@ -2082,7 +2016,7 @@ export function PassportCasesPage() {
         ],
       },
       renderViewport: () => (
-        <LiveAppScreen title="Awaiting payment ledger" path="/settings/transactions/AAA-L4DJYC" />
+        <CaseScreen title="Awaiting payment ledger" route="/settings/transactions/AAA-L4DJYC" />
       ),
     },
     {
@@ -2105,7 +2039,7 @@ export function PassportCasesPage() {
         ],
       },
       renderViewport: () => (
-        <LiveAppScreen title="Form update diff" path="/forms/resubmit-aquathlon/diff" />
+        <CaseScreen title="Form update diff" route="/forms/resubmit-aquathlon/diff" />
       ),
     },
     {
@@ -2128,7 +2062,7 @@ export function PassportCasesPage() {
         ],
       },
       renderViewport: () => (
-        <LiveAppScreen title="Ready for access entries" path="/passport/events" />
+        <CaseScreen title="Ready for access entries" route="/passport/events" />
       ),
     },
     {
@@ -2151,7 +2085,7 @@ export function PassportCasesPage() {
         ],
       },
       renderViewport: () => (
-        <LiveAppScreen title="Spot released status update" path="/passport/events" scrollToText="Status updates" />
+        <CaseScreen title="Spot released status update" route="/passport/events#Status updates" />
       ),
     },
     {
@@ -2174,7 +2108,7 @@ export function PassportCasesPage() {
         ],
       },
       renderViewport: () => (
-        <LiveAppScreen title="Past events attended log" path="/passport/events" scrollToText="Past events" />
+        <CaseScreen title="Past events attended log" route="/passport/events#Past events" />
       ),
     },
     {
@@ -2197,7 +2131,7 @@ export function PassportCasesPage() {
         ],
       },
       renderViewport: () => (
-        <LiveAppScreen title="Past events no-show log" path="/passport/events" scrollToText="Past events" />
+        <CaseScreen title="Past events no-show log" route="/passport/events#Past events" />
       ),
     },
 
@@ -2355,22 +2289,22 @@ export function PassportCasesPage() {
       badgeText: 'Form Pending · Multiple',
       badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
       title: 'Case 17: Group Entry — Multiple Participant Forms Pending',
-      subtitle: 'One purchase includes more than one participant. The group participant form shows the progress of each slot: completed or sent. For each slot, the buyer completes the form or sends a claim link. Different options for different slots are permitted.',
+      subtitle: 'One purchase includes more than one participant, and each slot is resolved on its own. The form opens per participant — the route needs an explicit participant, so there is no combined slot picker — and offers the same two paths every time: "Fill details" keeps the entry buyer-filled, "Send claim link" hands it to the recipient. Different slots in the same order can take different paths, and the aggregate count lives on the order rather than in the form.',
       timelineSteps: FLOWS.formTaskMulti,
       emailTemplates: [],
       accessPath: {
         origin: 'Orders → order → Complete forms',
-        route: '/orders/:ticketId/form',
+        route: '/orders/:ticketId/form?participantId=:pid',
         backTarget: 'Orders',
         steps: [
           'The buyer opens Orders after a multi-participant purchase.',
           'The order shows a "Forms needed" label with the number of open forms.',
-          'The buyer opens the group participant form to control all the slots.',
-          'For each slot, the buyer completes the form or sends a claim link.',
+          'The buyer opens a participant, since the form route resolves one entry at a time.',
+          'That slot is either filled by the buyer or handed over with Send claim link.',
         ],
       },
       renderViewport: () => (
-        <LiveAppScreen title="Group participant form" path="/orders/tkt-011/form?returnTo=orders" />
+        <CaseScreen title="Group participant form" route="/orders/tkt-012/form?participantId=p3" />
       ),
     },
 
@@ -2417,7 +2351,7 @@ export function PassportCasesPage() {
         ],
       },
       renderViewport: () => (
-        <LiveAppScreen title="Team order player access" path="/orders/tkt-013" />
+        <CaseScreen title="Team order player access" route="/orders/tkt-013" />
       ),
     },
     {
@@ -2440,7 +2374,7 @@ export function PassportCasesPage() {
         ],
       },
       renderViewport: () => (
-        <LiveAppScreen title="Team order player entries" path="/orders/tkt-013" />
+        <CaseScreen title="Team order player entries" route="/orders/tkt-013" />
       ),
     },
     {
@@ -2462,7 +2396,7 @@ export function PassportCasesPage() {
         ],
       },
       renderViewport: () => (
-        <LiveAppScreen title="Team order with player entries pending" path="/orders/tkt-013" />
+        <CaseScreen title="Team order with player entries pending" route="/orders/tkt-013" />
       ),
     },
     {
