@@ -60,7 +60,7 @@ test('search, login, OTP, email, phone, and message fields expose native hints',
   assert.match(readSource('../src/app/pages/LoginPage.tsx'), /autoComplete=\{i === 0 \? 'one-time-code' : 'off'\}/);
   assert.match(readSource('../src/app/components/OnboardingScreen.tsx'), /autoComplete="tel"/);
   assert.match(readSource('../src/app/components/OnboardingScreen.tsx'), /autoComplete="email"/);
-  assert.match(readSource('../src/app/components/MessengerWidget.tsx'), /enterKeyHint="send"/);
+  assert.match(readSource('../src/app/components/OrganizerContactWidget.tsx'), /enterKeyHint="send"/);
   assert.match(readSource('../src/app/pages/OrdersPage.tsx'), /type="email"[\s\S]*autoComplete="email"/);
 });
 
@@ -98,11 +98,11 @@ test('account and contact verification fields expose autofill and OTP semantics'
   assert.match(organizerSource, /autoComplete="tel"/);
 });
 
-test('the mobile Messenger composer keeps actions without collapsing the message field', () => {
-  const messengerSource = readSource('../src/app/components/MessengerWidget.tsx');
+test('the mobile organizer contact composer keeps actions without collapsing the message field', () => {
+  const contactSource = readSource('../src/app/components/OrganizerContactWidget.tsx');
 
-  assert.match(messengerSource, /<form onSubmit=\{handleSend\} className="flex flex-col gap-2 sm:flex-row sm:items-center"/);
-  assert.match(messengerSource, /role="toolbar"/);
-  assert.match(messengerSource, /aria-label="Message actions"/);
-  assert.match(messengerSource, /className="flex w-full min-w-0 flex-1 items-center gap-2/);
+  assert.match(contactSource, /<form onSubmit=\{handleSend\} className="flex flex-col gap-2 sm:flex-row sm:items-center"/);
+  assert.match(contactSource, /role="toolbar"/);
+  assert.match(contactSource, /aria-label="Message actions"/);
+  assert.match(contactSource, /className=\{`flex w-full min-w-0 flex-1 items-center gap-2/);
 });

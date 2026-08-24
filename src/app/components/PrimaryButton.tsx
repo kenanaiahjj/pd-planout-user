@@ -65,7 +65,7 @@ interface PrimaryButtonProps
 // Component
 // ---------------------------------------------------------------------------
 
-export function PrimaryButton({
+export const PrimaryButton = React.forwardRef<HTMLButtonElement, PrimaryButtonProps>(function PrimaryButton({
   children,
   className = '',
   fullWidth = false,
@@ -77,7 +77,7 @@ export function PrimaryButton({
   disabled,
   style,
   ...rest
-}: PrimaryButtonProps) {
+}, ref) {
   const resolvedStyle = disabled
     ? style
     : appearance === 'solid'
@@ -90,6 +90,7 @@ export function PrimaryButton({
 
   return (
     <button
+      ref={ref}
       disabled={disabled}
       className={`
         relative inline-flex items-center justify-center gap-2
@@ -126,4 +127,4 @@ export function PrimaryButton({
       )}
     </button>
   );
-}
+});

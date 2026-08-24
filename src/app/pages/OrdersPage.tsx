@@ -10,6 +10,7 @@ import {
   Mail,
   MapPin,
   RotateCcw,
+  Share2,
   Send,
   Trash2,
   UserPlus,
@@ -53,8 +54,19 @@ import { PrimaryButton } from '@/app/components/PrimaryButton';
 import { SecondaryButton } from '@/app/components/SecondaryButton';
 import { IconButton } from '@/app/components/IconButton';
 import { SegmentedChoice } from '@/app/components/SegmentedChoice';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/app/components/ui/dropdown-menu';
 import { OrderCover, type OrderCoverItem } from '@/app/components/OrderCover';
 import { OrderStatusLabel } from '@/app/components/OrderStatusLabel';
+import {
+  ContactOrganizerButton,
+  OrganizerContactWidget,
+  type ContactTarget,
+} from '@/app/components/OrganizerContactWidget';
 import {
   getOrderEventLineItems,
   getOrderEventSubtotal,
@@ -69,11 +81,17 @@ import {
   groupBulkEmailEntriesByEvent,
 } from '@/app/data/formLinks.js';
 import { alpha, getEventBrand, PLANOUT_EVENT_BRAND } from '@/app/data/eventBrand';
-import { formatEventDateOnly } from '@/app/data/eventDate.js';
+import { formatEventDate, formatEventDateOnly } from '@/app/data/eventDate.js';
+import { getOrganizerBySlug } from '@/app/data/organizers';
 
 type OrderFilter = 'all' | 'pending' | 'complete';
 type MerchStatus = 'Processing' | 'Shipped' | 'Delivered';
 type PaymentStatus = 'Paid' | 'Refunded';
+
+interface OrganizerContactSelection {
+  contact: ContactTarget;
+  contextSummary: string;
+}
 
 const TEMPORARILY_HIDDEN_ORDER_IDS = new Set(['ord-gear-001']);
 
@@ -1111,11 +1129,13 @@ function ParticipantFormLinkActions({
   order,
   onShare,
   compact = false,
+  primary = false,
 }: {
   entry: OrderEventEntry;
   order: OrderRecord;
   onShare?: (recipient?: string) => void;
   compact?: boolean;
+  primary?: boolean;
 }) {
   const formLink = buildParticipantFormLink(entry, order.id, appOrigin());
   const [emailReviewOpen, setEmailReviewOpen] = useState(false);
@@ -1130,30 +1150,58 @@ function ParticipantFormLinkActions({
 
   return (
     <>
-      <div className="flex shrink-0 flex-wrap justify-end gap-2 sm:flex-nowrap">
-        <SecondaryButton
-          type="button"
-          onClick={() => setEmailReviewOpen(true)}
-          compact
-          className={compact ? 'text-[11px] whitespace-nowrap' : 'text-[12px] whitespace-nowrap'}
-          title="Enter an email and review the invite"
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          {primary ? (
+            <PrimaryButton
+              type="button"
+              compact
+              className="text-[11px] whitespace-nowrap"
+              title="Choose how to share this form"
+              aria-label="Share form"
+            >
+              <Share2 className="h-3.5 w-3.5 shrink-0" />
+              Share form
+            </PrimaryButton>
+          ) : (
+            <SecondaryButton
+              type="button"
+              compact
+              className={compact ? 'text-[11px] whitespace-nowrap' : 'text-[12px] whitespace-nowrap'}
+              title="Choose how to share this form"
+              aria-label="Share form"
+            >
+              <Share2 className="h-3.5 w-3.5 shrink-0" />
+              Share form
+            </SecondaryButton>
+          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          side="top"
+          align="end"
+          sideOffset={8}
+          aria-label="Form sharing options"
+          className="min-w-[168px] rounded-[12px] border-[#d9e8e5] bg-white p-1.5 shadow-[0_16px_36px_-18px_rgba(15,23,42,0.38)]"
         >
-          <Mail className="h-3.5 w-3.5 shrink-0" />
-          Send link
-        </SecondaryButton>
-        <SecondaryButton
-          type="button"
-          onClick={() => {
-            onShare?.();
-            copyText(formLink, 'Link copied');
-          }}
-          compact
-          className={compact ? 'text-[11px] whitespace-nowrap' : 'text-[12px] whitespace-nowrap'}
-        >
-          <Copy className="h-3.5 w-3.5 shrink-0" />
-          Copy link
-        </SecondaryButton>
-      </div>
+          <DropdownMenuItem
+            onSelect={() => setEmailReviewOpen(true)}
+            className="cursor-pointer rounded-[9px] px-2.5 py-2 text-[12px] font-semibold text-[#315f57] focus:bg-[#f0f8f6] focus:text-[#125c4f]"
+          >
+            <Mail className="h-3.5 w-3.5 text-[#177564]" />
+            Send link
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              onShare?.();
+              copyText(formLink, 'Link copied');
+            }}
+            className="cursor-pointer rounded-[9px] px-2.5 py-2 text-[12px] font-semibold text-[#315f57] focus:bg-[#f0f8f6] focus:text-[#125c4f]"
+          >
+            <Copy className="h-3.5 w-3.5 text-[#177564]" />
+            Copy link
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <EmailReviewSheet
         entry={entry}
         open={emailReviewOpen}
@@ -1168,14 +1216,16 @@ function ParticipantFormShareControls({
   order,
   entries = order.eventEntries,
   onShareEntries,
+  contactAction,
 }: {
   order: OrderRecord;
   entries?: OrderEventEntry[];
   onShareEntries?: (entries: OrderEventEntry[]) => void;
+  contactAction?: React.ReactNode;
 }) {
   const [bulkEmailReviewOpen, setBulkEmailReviewOpen] = useState(false);
   const shareableEntries = getShareableFormEntries(entries);
-  if (shareableEntries.length === 0) return null;
+  if (shareableEntries.length === 0 && !contactAction) return null;
 
   const bulkEmailCandidates = getBulkEmailCandidates(shareableEntries);
   const canEmailAll = bulkEmailCandidates.length > 0;
@@ -1188,13 +1238,13 @@ function ParticipantFormShareControls({
             {bulkEmailCandidates.length} unsent form{bulkEmailCandidates.length === 1 ? '' : 's'}
           </p>
         )}
-        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+        {shareableEntries.length > 0 && (
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
             <SecondaryButton
               type="button"
               disabled={!canEmailAll}
               title={canEmailAll ? 'Review unsent pending forms before sending' : 'No unsent pending forms to email'}
               onClick={() => setBulkEmailReviewOpen(true)}
-              tone="neutral"
               className="text-[12px]"
             >
               <Send className="h-4 w-4" />
@@ -1206,26 +1256,33 @@ function ParticipantFormShareControls({
                 buildBulkFormLinkMessage(order, shareableEntries, appOrigin()),
                 'Links copied',
               )}
-              tone="neutral"
               className="text-[12px]"
             >
               <Copy className="h-4 w-4" />
               Copy all
             </SecondaryButton>
-        </div>
+          </div>
+        )}
+        {contactAction && (
+          <div className="flex justify-end">
+            {contactAction}
+          </div>
+        )}
       </div>
-      <BulkEmailReviewSheet
-        entries={bulkEmailCandidates}
-        open={bulkEmailReviewOpen}
-        onClose={() => setBulkEmailReviewOpen(false)}
-        onSend={(draftEntries) => {
-          onShareEntries?.(draftEntries);
-          setBulkEmailReviewOpen(false);
-          toast.success('Invites sent', {
-            description: `${draftEntries.length} default PlanOut invite${draftEntries.length === 1 ? '' : 's'} sent.`,
-          });
-        }}
-      />
+      {shareableEntries.length > 0 && (
+        <BulkEmailReviewSheet
+          entries={bulkEmailCandidates}
+          open={bulkEmailReviewOpen}
+          onClose={() => setBulkEmailReviewOpen(false)}
+          onSend={(draftEntries) => {
+            onShareEntries?.(draftEntries);
+            setBulkEmailReviewOpen(false);
+            toast.success('Invites sent', {
+              description: `${draftEntries.length} default PlanOut invite${draftEntries.length === 1 ? '' : 's'} sent.`,
+            });
+          }}
+        />
+      )}
     </>
   );
 }
@@ -1287,6 +1344,8 @@ export function OrdersPage() {
 type RegistrationStateTone = 'ready' | 'pending' | 'warning' | 'danger';
 
 function RegistrationCardHeader({ title, date, location, image }: { title: string; date: string; location?: string; image?: string }) {
+  const formattedDate = formatEventDate(date, { month: 'long' });
+
   return (
     <header className="bg-transparent px-4 pt-4 sm:px-5 sm:pt-5">
       <div className="flex items-center gap-3">
@@ -1304,7 +1363,7 @@ function RegistrationCardHeader({ title, date, location, image }: { title: strin
           <div className="mt-1 flex min-w-0 flex-col gap-0.5 text-[11px] font-semibold leading-[1.2] text-[#8a9bb1] sm:text-[12px]">
             <span className="inline-flex min-w-0 items-center gap-1">
               <CalendarDays className="size-3 shrink-0" strokeWidth={2.1} aria-hidden="true" />
-              <span className="truncate">{date}</span>
+              <span className="truncate">{formattedDate}</span>
             </span>
             {location && (
               <span className="inline-flex min-w-0 items-start gap-1">
@@ -1459,6 +1518,7 @@ function PassportBanner({
   fillAction,
   viewFormAction,
   shareActions,
+  contactAction,
 }: {
   entry: OrderEventEntry;
   orderId: string;
@@ -1467,6 +1527,7 @@ function PassportBanner({
   fillAction?: React.ReactNode;
   viewFormAction?: React.ReactNode;
   shareActions?: React.ReactNode;
+  contactAction?: React.ReactNode;
 }) {
   const navigate = useNavigate();
   const { generateGuestEntryQR, isDesktop, member } = useAppContext();
@@ -1589,14 +1650,17 @@ function PassportBanner({
         tone="warning"
         divider={false}
         actions={(
-          <PrimaryButton
-            type="button"
-            onClick={() => navigate(`/forms/${entry.id}/diff`)}
-            compact
-            className="text-[12px]"
-          >
-            Review changes
-          </PrimaryButton>
+          <>
+            <PrimaryButton
+              type="button"
+              onClick={() => navigate(`/forms/${entry.id}/diff`)}
+              compact
+              className="text-[12px]"
+            >
+              Review changes
+            </PrimaryButton>
+            {contactAction}
+          </>
         )}
       >
         <p className="text-[13px] font-semibold text-[#c2410c]">
@@ -1661,6 +1725,7 @@ function PassportBanner({
         <>
           {fillAction}
           {shareActions}
+          {contactAction}
         </>
       )}
     >
@@ -1674,12 +1739,19 @@ function PassportBanner({
   );
 }
 
-function RegistrationItem({ entry, orderId, order, teamEntries }: { entry: OrderEventEntry; orderId: string; order: OrderRecord; teamEntries: OrderEventEntry[] }) {
+function RegistrationItem({ entry, orderId, order, teamEntries, onContactOrganizer }: { entry: OrderEventEntry; orderId: string; order: OrderRecord; teamEntries: OrderEventEntry[]; onContactOrganizer?: () => void }) {
   const navigate = useNavigate();
   const { rescindRegistrationInvite, sendRegistrationInvite } = useAppContext();
 
   if (entry.type === 'team') {
-    return <TeamRegistrationItem entry={entry} order={order} teamEntries={teamEntries} />;
+    return (
+      <TeamRegistrationItem
+        entry={entry}
+        order={order}
+        teamEntries={teamEntries}
+        onContactOrganizer={onContactOrganizer}
+      />
+    );
   }
 
   const canSharePendingForm = entry.status !== 'attached'
@@ -1734,11 +1806,18 @@ function RegistrationItem({ entry, orderId, order, teamEntries }: { entry: Order
               View form
             </SecondaryButton>
           )}
+          contactAction={onContactOrganizer ? (
+            <ContactOrganizerButton
+              onClick={onContactOrganizer}
+              className="text-[11px]"
+            />
+          ) : undefined}
           shareActions={isShareable ? (
             <ParticipantFormLinkActions
               entry={entry}
               order={order}
               compact
+              primary={entry.type === 'guest'}
               onShare={(recipient) => sendRegistrationInvite(
                 entry.queueEntry?.id || entry.id,
                 recipient,
@@ -1752,7 +1831,7 @@ function RegistrationItem({ entry, orderId, order, teamEntries }: { entry: Order
   );
 }
 
-function TeamRegistrationItem({ entry, order, teamEntries }: { entry: OrderEventEntry; order: OrderRecord; teamEntries: OrderEventEntry[] }) {
+function TeamRegistrationItem({ entry, order, teamEntries, onContactOrganizer }: { entry: OrderEventEntry; order: OrderRecord; teamEntries: OrderEventEntry[]; onContactOrganizer?: () => void }) {
   const navigate = useNavigate();
   const {
     generateGuestEntryQR,
@@ -1923,6 +2002,12 @@ function TeamRegistrationItem({ entry, order, teamEntries }: { entry: OrderEvent
           order={order}
           entries={teamEntries}
           onShareEntries={sharePlayerInvites}
+          contactAction={onContactOrganizer ? (
+            <ContactOrganizerButton
+              onClick={onContactOrganizer}
+              className="text-[11px]"
+            />
+          ) : undefined}
         />
       </section>
 
@@ -2044,6 +2129,7 @@ function TeamRegistrationItem({ entry, order, teamEntries }: { entry: OrderEvent
                         entry={playerEntry}
                         order={order}
                         compact
+                        primary={!isBuyerPlayer}
                         onShare={(recipient) => sharePlayerInvite(playerEntry, recipient)}
                       />
                     </>
@@ -2212,6 +2298,7 @@ export function OrderDetailPage() {
     teamPlayerRoster,
     sendRegistrationInvite,
   } = useAppContext();
+  const [organizerContactSelection, setOrganizerContactSelection] = useState<OrganizerContactSelection | null>(null);
   const orders = useMemo(() => buildOrders({
     registrationQueueEntries,
     entryAttendance,
@@ -2241,6 +2328,16 @@ export function OrderDetailPage() {
       </div>
     );
   }
+
+  const openOrganizerContact = (entry: OrderEventEntry) => {
+    const contact = getOrganizerBySlug(entry.ticket.organizer);
+    if (!contact) return;
+
+    setOrganizerContactSelection({
+      contact,
+      contextSummary: `${entry.ticket.eventTitle} · Order ${order.ref}`,
+    });
+  };
 
   const registrationEntries = getOrderRegistrationEntries(order.eventEntries);
   const hasTeamRegistration = registrationEntries.some((entry) => entry.type === 'team');
@@ -2307,6 +2404,7 @@ export function OrderDetailPage() {
                     orderId={order.id}
                     order={order}
                     teamEntries={order.eventEntries.filter((item) => item.type === 'team' && item.ticket.id === entry.ticket.id)}
+                    onContactOrganizer={() => openOrganizerContact(entry)}
                   />
                 ))}
               </div>
@@ -2368,6 +2466,19 @@ export function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {organizerContactSelection && (
+        <OrganizerContactWidget
+          key={`${organizerContactSelection.contact.id}:${organizerContactSelection.contextSummary}`}
+          contact={organizerContactSelection.contact}
+          contextSummary={organizerContactSelection.contextSummary}
+          initiallyOpen
+          showLauncher={false}
+          onOpenChange={(open) => {
+            if (!open) setOrganizerContactSelection(null);
+          }}
+        />
+      )}
     </div>
   );
 }

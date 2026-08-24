@@ -85,7 +85,7 @@ test('individual and team registration items share the same visual primitives', 
   assert.match(ordersSource, /function RegistrationActionRow[\s\S]*flex flex-wrap items-center justify-end gap-2/);
   assert.doesNotMatch(ordersSource, /border-t border-\[#f1e4bd\] pt-3/);
   assert.match(ordersSource, /bg-\[#fff7d6\].*text-\[#8a5b08\]/);
-  assert.match(ordersSource, /order=\{order\}\s*compact\s*onShare=/);
+  assert.match(ordersSource, /order=\{order\}\s*compact(?:\s*primary=\{[^}]+\})?\s*onShare=/);
   assert.doesNotMatch(ordersSource, /bg-\[linear-gradient\(180deg,#f7fcfb/);
 });
 
@@ -164,8 +164,9 @@ test('individual sharing actions use compact labels', () => {
     ordersSource.indexOf('function ParticipantFormLinkActions'),
     ordersSource.indexOf('function ParticipantFormShareControls'),
   );
-  assert.match(individualActionsSource, />\s*Send link\s*</);
-  assert.match(individualActionsSource, />\s*Copy link\s*</);
+  assert.match(individualActionsSource, /<Share2[\s\S]*\/?>[\s\S]*Share form/);
+  assert.match(individualActionsSource, /<DropdownMenuItem[\s\S]*>\s*Send link\s*</);
+  assert.match(individualActionsSource, /<DropdownMenuItem[\s\S]*>\s*Copy link\s*</);
   assert.doesNotMatch(individualActionsSource, />\s*Send form link\s*</);
   assert.doesNotMatch(individualActionsSource, />\s*Copy form link\s*</);
 });

@@ -1297,7 +1297,7 @@ const FLOWS = {
   ],
   guestClaimRegister: [
     { title: 'Checkout & Purchase', desc: 'The buyer buys a ticket for another person. The buyer sends that person the form link instead of filling the form.' },
-    { title: 'Buyer Shares Ticket', desc: 'The buyer uses Send link or Copy link on the order. Both produce the same /ticket-claim/:ref link with the order and entry attached.' },
+    { title: 'Buyer Shares Ticket', desc: 'The buyer opens "Share form" on the entry and picks Send link or Copy link. Both produce the same /ticket-claim/:ref link with the order and entry attached, so the two paths differ only in delivery.' },
     { title: 'Claim Email Received', desc: 'The recipient receives the link by email or chat. The invited email is informational only, because a link can be forwarded.' },
     { title: 'Login or Register', desc: 'The link has no claim page of its own. A signed-out recipient gets the normal login screen with the form as the return destination, then lands on the standard participant form.' },
     { title: 'Passport Bound', desc: 'Submitting the form claims the entry for the account that submitted it. Opening the link reserves nothing.' },
@@ -1357,10 +1357,10 @@ const FLOWS = {
     { title: 'Status then action per event', desc: 'Inside the list each event keeps its own identity, its registration status, and its most important action, with recovery and sharing actions visually secondary.' },
   ],
   checkoutParticipantDetails: [
-    { title: 'Organizer requires details first', desc: 'When the organizer asks for participant details before payment, checkout opens on the details gate instead of the payment summary.' },
-    { title: 'Work through the slots', desc: 'The header counts the slots, for example "1/3", and a switcher moves between them. Each slot is either filled by the buyer or handed over with "Invite via Email".' },
+    { title: 'Only gated forms block payment', desc: 'A mixed cart can hold entries whose details are required before payment and entries whose details can wait. Checkout opens the gate for the first kind only, under a "Required before payment" label.' },
+    { title: 'The count is the requirement', desc: 'The progress reads against the gated entries alone — "1/1 required before payment" — so the number never implies work that does not block payment. Only gated entries appear as editable tabs.' },
     { title: 'Choose who each entry is for', desc: 'Buyer-filled slots ask "This entry is for": "For me" attaches to the buyer\'s Passport, "For someone else" produces a buyer-filled Guest QR. This is the same question the Orders and team player forms ask.' },
-    { title: 'Save now or defer', desc: '"Save details and continue" keeps the slot and moves on. "Fill up later" defers every remaining slot to after payment, and checkout says the details stay attached to the order.' },
+    { title: 'Deferred work is named up front', desc: 'An inline "After payment" summary lists the deferred events and categories before payment is submitted, and says those forms stay available from confirmation, Orders, or Passport. It uses the calm form surface, not a warning color — amber stays reserved for deadlines and problems.' },
   ],
   teamOwnerChoice: [
     { title: 'Open a player entry', desc: 'From the team order, the buyer opens a player row that still needs a form.' },
@@ -2317,11 +2317,11 @@ export function PassportCasesPage() {
       timelineSteps: FLOWS.guestClaimRegister,
       emailTemplates: [EMAIL_CATALOG.guestClaim],
       accessPath: {
-        origin: 'Shared form link from the order (Send link, Copy link, or a bulk email)',
+        origin: 'Shared form link from the order (Share form → Send link or Copy link, or a bulk email)',
         route: '/ticket-claim/:ref?order=&entry= → /login (if signed out) → /orders/:ticketId/form?invite=1',
         backTarget: 'Browser history, usually the email or chat the link came from',
         steps: [
-          'The buyer uses Send link or Copy link on the entry. Both build the same /ticket-claim link with the order and entry attached.',
+          '"Share form" on the entry offers Send link and Copy link; both build the same /ticket-claim link with the order and entry attached.',
           'The recipient opens the link. Without both parameters the route falls back to Orders, so the link is the whole credential.',
           'A signed-out recipient sees the standard login screen and returns to the form after authenticating. No claim-specific page appears.',
           'The recipient completes the standard participant form. The submission, not the invited email, decides which Passport owns the entry.',
@@ -2770,7 +2770,7 @@ export function PassportCasesPage() {
       badgeText: 'Before Payment',
       badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
       title: 'Case 49: Checkout → Participant Details Before Payment',
-      subtitle: 'When the organizer requires details before payment, checkout opens on a details gate rather than the payment summary. A counted switcher ("1/3") walks the slots; each is filled by the buyer or handed over with "Invite via Email". Buyer-filled slots ask the same ownership question as Orders — "For me" attaches to the buyer\'s Passport, "For someone else" produces a buyer-filled Guest QR. "Fill up later" defers the rest to after payment without losing them.',
+      subtitle: 'A mixed cart can hold entries that need details before payment and entries whose details can wait, so the gate shows only the first kind and counts only those — "Required before payment", "1/1". Deferred entries never appear as tabs; they are named in an inline "After payment" summary before payment is submitted, which states they stay available from confirmation, Orders, or Passport. Buyer-filled slots ask the same ownership question as Orders. With no gated entries the gate is skipped and payment is shown directly.',
       timelineSteps: FLOWS.checkoutParticipantDetails,
       emailTemplates: [EMAIL_CATALOG.formRequired],
       accessPath: {
@@ -2778,10 +2778,10 @@ export function PassportCasesPage() {
         route: '/checkout (participant details gate)',
         backTarget: 'Cart',
         steps: [
-          'An item in the order requires participant details before checkout.',
-          'Checkout opens on the details gate with a counted slot switcher.',
+          'At least one item requires participant details before payment.',
+          'The gate shows only those entries and counts only them.',
           'Each buyer-filled slot chooses Passport ownership or a buyer-filled Guest QR.',
-          '"Fill up later" defers the remaining slots; they stay attached to the order.',
+          'An "After payment" summary names the deferred forms before payment is submitted.',
         ],
       },
       renderViewport: () => <WF_CheckoutParticipantDetails />,
@@ -2812,7 +2812,7 @@ export function PassportCasesPage() {
       badgeText: 'Adaptive Order Detail',
       badgeColor: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
       title: 'Case 51: Order Details → Order Identity & Grouped Registration',
-      subtitle: 'Order Details leads with the order rather than its first event, so a multi-event purchase is never misrepresented: the header carries the status label, purchase date, reference, and a truthful title such as "3-event order" with its item count and total. Below it, every entry sits in one continuous Registration surface separated by subtle dividers instead of a stack of cards, with the aggregate pending-form state and the bulk "Send all" and "Copy all" controls in its heading.',
+      subtitle: 'Order Details leads with the order rather than its first event, so a multi-event purchase is never misrepresented: the header carries the status label, purchase date, reference, and a truthful title such as "3-event order" with its item count and total. Below it, every entry sits in one continuous Registration surface separated by subtle dividers instead of a stack of cards, with the aggregate pending-form state, the bulk "Send all" and "Copy all" controls, and a "Contact organizer" action in its heading. Per-entry sharing collapses into one "Share form" menu offering Send link or Copy link.',
       timelineSteps: FLOWS.ordersAdaptiveDetail,
       emailTemplates: [],
       accessPath: {

@@ -349,7 +349,11 @@ export const MOCK_ORGANIZERS: OrganizerData[] = [
 
 /** Find organizer by the `organizer` string used in EventData. */
 export function getOrganizerBySlug(slug: string): OrganizerData | undefined {
-  const found = MOCK_ORGANIZERS.find((o) => o.slug === slug);
+  const normalizedSlug = slug.replace(/-/g, ' ').trim().toLowerCase();
+  const found = MOCK_ORGANIZERS.find((o) => (
+    o.slug.toLowerCase() === slug.trim().toLowerCase()
+    || o.slug.toLowerCase() === normalizedSlug
+  ));
   if (found) return found;
 
   // Create a dynamic fallback organizer so navigation never breaks!

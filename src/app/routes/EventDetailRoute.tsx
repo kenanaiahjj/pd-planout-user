@@ -7,7 +7,9 @@ import { useParams, useNavigate, Navigate } from 'react-router';
 import { EventDetailsPage } from '@/app/components/EventDetailsPage';
 import { MOCK_EVENTS } from '@/app/data/events';
 import { getOrganizerBySlug } from '@/app/data/organizers';
+import { getCartAdditionDescription } from '@/app/data/cart.js';
 import { useAppContext } from '@/app/context/AppContext';
+import { toast } from 'sonner';
 
 export function EventDetailRoute() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -31,17 +33,19 @@ export function EventDetailRoute() {
         }
       }}
       onGoToCart={(items) => {
-        if (items?.length) {
-          addCartItems({
-            eventId: event.id,
-            eventName: event.title,
-            date: event.date,
-            location: event.location,
-            image: event.image || '',
-            items,
-          });
-        }
-        navigate('/cart');
+        if (!items?.length) return;
+
+        addCartItems({
+          eventId: event.id,
+          eventName: event.title,
+          date: event.date,
+          location: event.location,
+          image: event.image || '',
+          items,
+        });
+        toast.success('Added to cart', {
+          description: getCartAdditionDescription(event.title, items),
+        });
       }}
       onGoToCheckout={(eventName, category, price, image, items) => {
         setCheckoutIntent({ eventName, category, price, image, items });

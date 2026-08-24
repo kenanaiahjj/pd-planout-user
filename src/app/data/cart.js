@@ -50,6 +50,14 @@ export function mergeCartEvents(cart, addition) {
   });
 }
 
+export function getCartAdditionDescription(eventName, items) {
+  const ticketSummary = items
+    .map((item) => `${item.category}${item.qty > 1 ? ` ×${item.qty}` : ''}`)
+    .join(', ');
+
+  return `${ticketSummary} · ${eventName}`;
+}
+
 export const INITIAL_CART = [
   {
     id: 'evt-1',

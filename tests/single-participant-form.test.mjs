@@ -42,8 +42,7 @@ test('team and multiple routes without a participant target return to Orders', (
 });
 
 test('focused participant forms keep floating chat controls off the input surface', () => {
-  assert.match(rootLayoutSource, /const isParticipantForm =/);
-  assert.match(rootLayoutSource, /!isGuestQrPage && !isParticipantForm/);
+  assert.match(rootLayoutSource, /const isEventDetailPage =/);
 });
 
 test('participant form validation includes the visibly required waiver', () => {

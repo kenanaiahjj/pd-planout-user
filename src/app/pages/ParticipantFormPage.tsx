@@ -48,11 +48,13 @@ import { SecondaryButton } from '@/app/components/SecondaryButton';
 import { IconButton } from '@/app/components/IconButton';
 import { SegmentedChoice, type SegmentedChoiceOption } from '@/app/components/SegmentedChoice';
 import { FormTextField } from '@/app/components/FormTextField';
+import { ContactOrganizerButton, OrganizerContactWidget } from '@/app/components/OrganizerContactWidget';
 import { useAppContext, type RegistrationEntryClaimResult } from '@/app/context/AppContext';
 import {
   completeParticipantForm,
   isParticipantFormReady,
 } from '@/app/data/participantFormState.js';
+import { getOrganizerBySlug } from '@/app/data/organizers';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -590,6 +592,10 @@ export function ParticipantFormPage({
   const isMultiple = ticket.ticketType === 'multiple';
   const isMulti = isMultiple || isTeam;
   const isInviteMode = Boolean(onInviteSubmit);
+  const organizerContact = getOrganizerBySlug(ticket.organizer);
+  const [organizerContactOpen, setOrganizerContactOpen] = useState(false);
+  const openOrganizerContact = () => setOrganizerContactOpen(true);
+  const organizerContextSummary = `Form help · ${ticket.eventTitle} · Order ${ticket.confirmationRef}`;
   const isPlayerOnly = Boolean((isTeam || isMultiple) && (playerOnly || initialParticipantId));
   const selectedParticipant = initialParticipantId
     ? ticket.participants.find((participant) => participant.id === initialParticipantId)
@@ -988,7 +994,8 @@ export function ParticipantFormPage({
   // MAIN RENDER
   // -----------------------------------------------------------------------
   return (
-    <div className="participant-form-premium flex flex-col gap-3 pb-6">
+    <>
+      <div className="participant-form-premium flex flex-col gap-3 pb-6">
       {/* Page header */}
       <div className="flex items-center gap-3">
         <h1 className="text-[24px] sm:text-[32px] font-semibold text-[#181d27] leading-none tracking-tight">
@@ -1099,6 +1106,22 @@ export function ParticipantFormPage({
                 {participantLabel}
               </h2>
             </div>
+            {!isSentOrDone && organizerContact && (
+              <div className="flex items-center justify-between gap-3 rounded-[13px] border border-[#d7e5e2] bg-[#f5faf8] px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold text-[#315f57]">
+                    Need help filling this out?
+                  </p>
+                  <p className="mt-0.5 truncate text-[11px] font-medium text-[#7b8b9a]">
+                    Contact {ticket.organizer} about this form.
+                  </p>
+                </div>
+                <ContactOrganizerButton
+                  onClick={openOrganizerContact}
+                  className="px-2.5 text-[11px]"
+                />
+              </div>
+            )}
             {ticket.deadline && <DeadlineBadge deadline={ticket.deadline} />}
 
             {!isInviteMode && !isSentOrDone && (
@@ -1681,6 +1704,20 @@ export function ParticipantFormPage({
         />
       )}
 
-    </div>
+      </div>
+
+      {organizerContact && organizerContactOpen && (
+        <OrganizerContactWidget
+          key={`${organizerContact.id}:${ticket.id}:${ticket.confirmationRef}`}
+          contact={organizerContact}
+          contextSummary={organizerContextSummary}
+          initiallyOpen
+          showLauncher={false}
+          onOpenChange={(open) => {
+            if (!open) setOrganizerContactOpen(false);
+          }}
+        />
+      )}
+    </>
   );
 }

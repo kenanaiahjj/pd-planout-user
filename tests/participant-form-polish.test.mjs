@@ -100,13 +100,13 @@ test('Quiet luxury CSS is scoped and leaves shared defaults untouched', () => {
   assert.match(stylesSource, /\.participant-form-premium \.participant-form-owner-choice/);
   assert.match(stylesSource, /\.participant-form-premium \.segmented-choice\s*\{[\s\S]*border-radius: 12px;[\s\S]*padding: 3px;/);
   assert.match(stylesSource, /\.participant-form-premium \.segmented-choice__item\s*\{[\s\S]*border-radius: 10px;/);
-  assert.match(stylesSource, /\.participant-form-premium \.segmented-choice__item\[data-selected\][\s\S]*background: #edf8f4;[\s\S]*border-color: #4d917f;/);
+  assert.match(stylesSource, /\.participant-form-premium \.segmented-choice__item\[data-selected\][\s\S]*background: var\(--participant-surface\);[\s\S]*border-color: var\(--participant-border-strong\);/);
   assert.doesNotMatch(stylesSource, /^\.form-text-field__frame\s*\{/m);
   assert.doesNotMatch(stylesSource, /^\.segmented-choice\s*\{/m);
 });
 
 test('Checkout scopes Quiet luxury to participant form containers only', () => {
-  assert.match(checkoutSource, /participant-form-premium space-y-3/);
+  assert.match(checkoutSource, /participant-form-premium space-y-4/);
   assert.match(checkoutSource, /participant-form-premium participant-form-card rounded-\[22px\]/);
   assert.match(checkoutSource, /participant-form-ownership flex flex-col gap-2/);
   assert.match(checkoutSource, /participant-form-owner-choice flex min-h-\[70px\]/);

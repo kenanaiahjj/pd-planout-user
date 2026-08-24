@@ -73,3 +73,60 @@ test('multiple event mode reopens every displayed form', () => {
 
   assert.match(modeBlock, /prev\.map\(\(item\) => \(\{ \.\.\.item, formComplete: false \}\)\)/);
 });
+
+test('mixed checkout separates required-now forms from after-payment forms', () => {
+  const gateStart = checkoutSource.indexOf('{showPreCheckoutForms && (');
+  const gateEnd = checkoutSource.indexOf('{!showPreCheckoutForms && (', gateStart);
+  const gateSource = checkoutSource.slice(gateStart, gateEnd);
+
+  assert.match(checkoutSource, /const preCheckoutVisibleSlots = gatedSlots;/);
+  assert.match(checkoutSource, /const afterCheckoutPendingSlots = useMemo/);
+  assert.match(checkoutSource, /const afterCheckoutPreviewItems = useMemo/);
+  assert.match(gateSource, /<DeferredCheckoutFormsSummary/);
+  assert.match(gateSource, /Required before payment/);
+  assert.doesNotMatch(checkoutSource, /const preCheckoutVisibleSlots = pendingCheckoutFormSlots/);
+});
+
+test('required-before-payment forms do not expose a bypass action', () => {
+  const gateStart = checkoutSource.indexOf('{showPreCheckoutForms && (');
+  const gateEnd = checkoutSource.indexOf('{!showPreCheckoutForms && (', gateStart);
+  const gateSource = checkoutSource.slice(gateStart, gateEnd);
+
+  assert.match(gateSource, /Required before payment/);
+  assert.doesNotMatch(gateSource, /Fill up later/);
+  assert.doesNotMatch(gateSource, /setPreCheckoutFormsDeferred/);
+});
+
+test('deferred checkout forms point users to confirmation and Orders only', () => {
+  assert.match(checkoutSource, /complete them from confirmation or Orders\./);
+  assert.doesNotMatch(checkoutSource, /complete them from confirmation, Orders, or Passport\./);
+});
+
+test('pre-payment participant details use a flat header band instead of a card shell', () => {
+  const gateStart = checkoutSource.indexOf('data-pre-payment-gate');
+  const headerStart = checkoutSource.lastIndexOf('<div className=', gateStart);
+  const headerEnd = checkoutSource.indexOf('<div className="flex items-center justify-between', headerStart);
+  const headerSource = checkoutSource.slice(headerStart, headerEnd);
+
+  assert.match(headerSource, /fixed inset-x-0 top-\[70px\]/);
+  assert.match(headerSource, /border-b/);
+  assert.match(headerSource, /shadow-none/);
+  assert.doesNotMatch(headerSource, /left-3 right-3/);
+  assert.doesNotMatch(headerSource, /rounded-\[14px\]/);
+});
+
+test('pre-payment gate leaves a little more breathing room below its header', () => {
+  assert.match(
+    checkoutSource,
+    /participant-form-premium space-y-4 pt-\[124px\] lg:pt-0/,
+  );
+});
+
+test('required form submission uses a taller full-width action', () => {
+  const submitStart = checkoutSource.indexOf("'Save details and continue'");
+  const submitBlock = checkoutSource.slice(submitStart - 700, submitStart);
+
+  assert.match(submitBlock, /fullWidth/);
+  assert.match(submitBlock, /h-14/);
+  assert.doesNotMatch(submitBlock, /h-11/);
+});

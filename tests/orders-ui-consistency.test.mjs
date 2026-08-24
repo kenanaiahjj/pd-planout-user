@@ -346,7 +346,7 @@ test('team order rows prioritize the stored participant or Passport name', () =>
   assert.match(ordersSource, /const playerName = isBuyerPlayer[\s\S]*member\.displayName/);
 });
 
-test('individual and bulk form actions use the shared button components', () => {
+test('individual form sharing is grouped while bulk actions keep the shared secondary treatment', () => {
   const individualActions = ordersSource.slice(
     ordersSource.indexOf('function ParticipantFormLinkActions'),
     ordersSource.indexOf('function ParticipantFormShareControls'),
@@ -356,13 +356,17 @@ test('individual and bulk form actions use the shared button components', () => 
     ordersSource.indexOf('function RegistrationCardHeader'),
   );
 
-  assert.match(individualActions, /<SecondaryButton[\s\S]*Send link/);
-  assert.match(individualActions, /<SecondaryButton[\s\S]*Copy link/);
-  assert.doesNotMatch(individualActions, /<PrimaryButton[\s\S]*Copy link/);
+  assert.match(individualActions, /<DropdownMenu>/);
+  assert.match(individualActions, /<DropdownMenuTrigger asChild>/);
+  assert.match(individualActions, /(?:<PrimaryButton|<SecondaryButton)[\s\S]*Share form/);
+  assert.match(individualActions, /<DropdownMenuItem[\s\S]*Send link/);
+  assert.match(individualActions, /<DropdownMenuItem[\s\S]*Copy link/);
+  assert.doesNotMatch(individualActions, /<SecondaryButton[\s\S]*?Send link[\s\S]*?<\/SecondaryButton>/);
+  assert.doesNotMatch(individualActions, /<SecondaryButton[\s\S]*?Copy link[\s\S]*?<\/SecondaryButton>/);
+  assert.match(individualActions, /primary\?: boolean/);
   assert.match(bulkActions, /<SecondaryButton[\s\S]*Send all/);
   assert.match(bulkActions, /<SecondaryButton[\s\S]*Copy all/);
-  assert.match(bulkActions, /tone="neutral"[\s\S]*Send all/);
-  assert.match(bulkActions, /tone="neutral"[\s\S]*Copy all/);
+  assert.doesNotMatch(bulkActions, /tone="neutral"/);
 });
 
 test('team Copy link and Send link use the same sent-state transition', () => {
@@ -446,6 +450,20 @@ test('filling an individual form is a secondary action', () => {
   assert.doesNotMatch(fillActionSource, /<PrimaryButton/);
 });
 
+test('sharing is emphasized for non-self participant forms', () => {
+  const registrationItemSource = ordersSource.slice(
+    ordersSource.indexOf('function RegistrationItem({'),
+    ordersSource.indexOf('function TeamRegistrationItem'),
+  );
+  const teamItemSource = ordersSource.slice(
+    ordersSource.indexOf('function TeamRegistrationItem'),
+    ordersSource.indexOf('function ShippingTracker'),
+  );
+
+  assert.match(registrationItemSource, /primary=\{entry\.type === 'guest'\}/);
+  assert.match(teamItemSource, /primary=\{!isBuyerPlayer\}/);
+});
+
 test('invite review actions keep one clear primary send action', () => {
   const individualReviewSource = ordersSource.slice(
     ordersSource.indexOf('function EmailReviewSheet'),
@@ -484,6 +502,11 @@ test('all registration variants use one compact status-row composition', () => {
 
 test('registration cards use a compact event identity header', () => {
   assert.match(ordersSource, /function RegistrationCardHeader\(\{ title, date, location, image \}/);
+  const registrationHeaderSource = ordersSource.slice(
+    ordersSource.indexOf('function RegistrationCardHeader'),
+    ordersSource.indexOf('function RegistrationItemShell'),
+  );
+  assert.match(registrationHeaderSource, /formatEventDate\(date, \{ month: 'long' \}\)/);
   assert.match(ordersSource, /<ImageWithFallback[\s\S]*className="h-10 w-10 shrink-0 rounded-\[10px\] object-cover"/);
   assert.match(ordersSource, /<RegistrationCardHeader title=\{title\} date=\{date\} location=\{location\} image=\{image\} \/>/);
   assert.match(ordersSource, /location=\{entry\.ticket\.eventLocation\}/);

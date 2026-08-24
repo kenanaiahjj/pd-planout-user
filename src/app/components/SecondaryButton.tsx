@@ -7,7 +7,7 @@ interface SecondaryButtonProps
   tone?: 'brand' | 'neutral';
 }
 
-export function SecondaryButton({
+export const SecondaryButton = React.forwardRef<HTMLButtonElement, SecondaryButtonProps>(function SecondaryButton({
   children,
   className = '',
   fullWidth = false,
@@ -15,7 +15,7 @@ export function SecondaryButton({
   tone = 'brand',
   disabled,
   ...rest
-}: SecondaryButtonProps) {
+}, ref) {
   const toneClass =
     tone === 'neutral'
       ? 'border-[#e2e8f0] text-[#64748b] shadow-none hover:border-[#cbd5e1] hover:bg-[#f8fafc] hover:text-[#475569] disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300'
@@ -23,6 +23,7 @@ export function SecondaryButton({
 
   return (
     <button
+      ref={ref}
       disabled={disabled}
       className={`
         inline-flex items-center justify-center gap-2
@@ -43,4 +44,4 @@ export function SecondaryButton({
       {children}
     </button>
   );
-}
+});

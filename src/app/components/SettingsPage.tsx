@@ -23,6 +23,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { ConfirmDialog } from './ConfirmDialog';
 import { IconButton } from './IconButton';
+import { OrganizerContactWidget, type ContactTarget } from './OrganizerContactWidget';
 import { useAppContext } from '@/app/context/AppContext';
 
 // ---------------------------------------------------------------------------
@@ -84,6 +85,28 @@ const ROLE_LABEL: Record<Organization['role'], string> = {
   owner: 'Owner',
   admin: 'Admin',
   member: 'Member',
+};
+
+const PLANOUT_SUPPORT_CONTACT: ContactTarget = {
+  id: 'planout-support',
+  name: 'PlanOut Support',
+  email: 'support@planout.ph',
+  logoColor: '#177564',
+  logoInitials: 'PO',
+};
+
+const PLANOUT_SUPPORT_SUGGESTED_TOPICS = [
+  'How do I buy tickets?',
+  'Where can I find my ticket?',
+  'I need help with an order',
+  'How do I become an organizer?',
+];
+
+const PLANOUT_SUPPORT_SUGGESTED_TOPIC_REPLIES: Record<string, string> = {
+  'How do I buy tickets?': 'Open an event and tap Get Tickets. Choose your tickets, complete the participant details, and finish checkout.',
+  'Where can I find my ticket?': 'Open Passport to find your QR ticket. You can also open Orders, select the order, and view its QR access.',
+  'I need help with an order': 'Open Orders and select the affected order. Share the order number and the issue so support can help with forms, payment, access, or refunds.',
+  'How do I become an organizer?': 'Open Settings, tap Create Organization, and submit your organization details for review.',
 };
 
 // ---------------------------------------------------------------------------
@@ -225,6 +248,7 @@ export function SettingsPage({
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchingToOrgId, setSwitchingToOrgId] = useState<string | null>(null);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const { pendingOrgApplication } = useAppContext();
 
   const displayName = userName || 'Jessica Sanchez';
@@ -388,6 +412,8 @@ export function SettingsPage({
               icon={<LifeBuoy className="h-[18px] w-[18px]" strokeWidth={1.8} />}
               label="Help Center"
               value="FAQs and support"
+              onClick={() => setIsHelpOpen(true)}
+              tone="accent"
             />
             <SettingsRow
               icon={<ShieldCheck className="h-[18px] w-[18px]" strokeWidth={1.8} />}
@@ -439,6 +465,25 @@ export function SettingsPage({
           />
         </div>
       </div>
+
+      {isHelpOpen && (
+        <OrganizerContactWidget
+          contact={PLANOUT_SUPPORT_CONTACT}
+          theme="messenger"
+          brandLogo="planout"
+          title="PlanOut Help"
+          recipientLabel="support"
+          initiallyOpen
+          showLauncher={false}
+          showContactMethods={false}
+          suggestedTopics={PLANOUT_SUPPORT_SUGGESTED_TOPICS}
+          suggestedTopicReplies={PLANOUT_SUPPORT_SUGGESTED_TOPIC_REPLIES}
+          fullScreenOnMobile={true}
+          onOpenChange={(open) => {
+            if (!open) setIsHelpOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }

@@ -103,8 +103,8 @@
 
 /* Quiet-luxury participant form appearance is opt-in via this root. */
 .participant-form-premium {
-  --participant-surface: #fffefa;
-  --participant-surface-muted: #f7faf8;
+  --participant-surface: #ffffff;
+  --participant-surface-muted: #f8fafc;
   --participant-border: #dce5e1;
   --participant-border-strong: #b8cec7;
   --participant-ink: #18201d;
@@ -130,7 +130,7 @@
 }
 
 .participant-form-premium .form-text-field__frame {
-  background: #fffefa;
+  background: #ffffff;
   border-color: var(--participant-border);
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.025);
 }
@@ -155,27 +155,27 @@
 }
 
 .participant-form-premium .segmented-choice {
-  background: #e9efec;
-  border: 1px solid #e0e7e3;
+  background: var(--participant-surface-muted);
+  border: 1px solid var(--participant-border);
   border-radius: 12px;
   gap: 3px;
   padding: 3px;
 }
 
 .participant-form-premium .segmented-choice__item {
-  color: #62716b;
+  color: var(--participant-muted);
   border-radius: 10px;
 }
 
 .participant-form-premium .segmented-choice__item[data-selected] {
-  background: #edf8f4;
-  border-color: #4d917f;
-  color: #177564;
-  box-shadow: inset 0 0 0 1px rgba(23, 117, 100, 0.06);
+  background: var(--participant-surface);
+  border-color: var(--participant-border-strong);
+  color: var(--participant-accent);
+  box-shadow: 0 1px 2px rgba(20, 39, 32, 0.06);
 }
 
 .participant-form-premium .participant-form-owner-choice {
-  background: #fffefa;
+  background: #ffffff;
   border-color: var(--participant-border);
 }
 
@@ -186,14 +186,14 @@
 }
 
 .participant-form-premium .participant-form-upload {
-  background: #fbfcfa;
+  background: #f8fafc;
   border-color: #c8d5d0;
   box-shadow: none;
 }
 
 .participant-form-premium .participant-form-upload:hover,
 .participant-form-premium .participant-form-upload:focus-visible {
-  background: #f7faf8;
+  background: #f1f5f9;
   border-color: #6fae9d;
 }
 
@@ -206,7 +206,7 @@
 
 .participant-form-premium .participant-form-footer {
   border-color: #e8ece9;
-  background: #fffefa;
+  background: #ffffff;
 }
 
 @media (prefers-contrast: more) {

@@ -9,3 +9,10 @@ test('formats an event date with the full weekday', () => {
     'Tuesday, Jul 21, 2026 at 5:00 AM',
   );
 });
+
+test('can use a full month for compact order metadata', () => {
+  assert.equal(
+    formatEventDate('August 22, 2026 at 4:00 PM', { month: 'long' }),
+    'Saturday, August 22, 2026 at 4:00 PM',
+  );
+});

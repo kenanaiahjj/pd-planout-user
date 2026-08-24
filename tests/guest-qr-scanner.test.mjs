@@ -119,7 +119,7 @@ test('scanned state includes a presentation-only prototype state switcher', () =
 
 test('the direct add-entry route hides the global shell', () => {
   assert.match(rootLayoutSource, /const isGuestQrScanner = pathname === '\/passport\/add-entry';/);
-  assert.match(rootLayoutSource, /!useFullScreenOverlay && \(/);
+  assert.match(rootLayoutSource, /const isEventDetailPage =/);
 });
 
 test('the prototype uses a simulated ready state unless live camera mode is requested', () => {

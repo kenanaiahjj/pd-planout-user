@@ -240,7 +240,7 @@ function FormRequirementsPreview({ items }: { items: DeferredFormPreviewItem[] }
             Forms can be completed after payment
           </span>
           <p className="text-[13px] leading-relaxed text-[#9a5214]">
-            {items.length} registration detail{items.length === 1 ? '' : 's'} still needed. We will keep them attached to this order so you can finish from confirmation, Orders, or Passport.
+            {items.length} registration detail{items.length === 1 ? '' : 's'} still needed. We will keep them attached to this order so you can finish from confirmation or Orders.
           </p>
         </div>
         <ChevronRight
@@ -283,6 +283,50 @@ function FormRequirementsPreview({ items }: { items: DeferredFormPreviewItem[] }
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function DeferredCheckoutFormsSummary({ items }: { items: DeferredFormPreviewItem[] }) {
+  if (items.length === 0) return null;
+
+  const eventCount = new Set(items.map((item) => item.eventName)).size;
+
+  return (
+    <section
+      className="participant-form-deferred-summary overflow-hidden rounded-[16px] border border-[#dce5e1] bg-[#f8fafc]"
+      aria-labelledby="after-payment-forms-heading"
+    >
+      <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-white text-[#177564] ring-1 ring-[#e5ece8]">
+          <ClipboardList className="h-4 w-4" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold text-[#6a817b]">
+            After payment
+          </p>
+          <h3 id="after-payment-forms-heading" className="mt-1 text-[14px] font-semibold text-[#18201d]">
+            {items.length} more form{items.length === 1 ? '' : 's'} from {eventCount} event{eventCount === 1 ? '' : 's'}
+          </h3>
+          <p className="mt-1 text-[12px] leading-relaxed text-[#5f6f68]">
+            These forms do not block payment. You can complete them from confirmation or Orders.
+          </p>
+        </div>
+      </div>
+      <div className="divide-y divide-[#e5ece8] border-t border-[#e5ece8] bg-white">
+        {items.map((item) => (
+          <div key={item.id} className="flex min-w-0 items-center gap-3 px-4 py-3 sm:px-5">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#b8cec7]" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12px] font-semibold text-[#34413c]">{item.eventName}</p>
+              <p className="mt-0.5 truncate text-[11px] font-medium text-[#6a817b]">
+                {item.category}{item.label !== item.category ? ` · ${item.label}` : ''}
+              </p>
+            </div>
+            <span className="shrink-0 text-[10px] font-semibold text-[#6a817b]">After payment</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -653,11 +697,9 @@ export function CheckoutPage({
     if (item.formTiming === 'after_checkout') return 'after_checkout';
     return item.requireFormsBeforeCheckout ? 'before_checkout' : 'after_checkout';
   }, []);
-  const [preCheckoutFormsDeferred, setPreCheckoutFormsDeferred] = useState(false);
 
   useEffect(() => {
     if (checkoutIntent) {
-      setPreCheckoutFormsDeferred(false);
       const isNutriRun = checkoutIntent.eventName.includes('NUTRI-RUN 65');
       const isFormFilledQuery = new URLSearchParams(window.location.search).get('formFilled') === '1';
       const ticketTypeCountMatch = checkoutIntent.category.match(/^(\d+)\s+ticket types?$/i);
@@ -745,7 +787,7 @@ export function CheckoutPage({
   const pendingItems = displayedItems.filter((t) => t.requiresForm && !t.formComplete);
   const preCheckoutPendingItems = pendingItems.filter((item) => getItemFormTiming(item) === 'before_checkout');
   const hasGatedPreCheckoutItems = preCheckoutPendingItems.length > 0;
-  const showPreCheckoutForms = hasGatedPreCheckoutItems && !preCheckoutFormsDeferred;
+  const showPreCheckoutForms = hasGatedPreCheckoutItems;
   const completedItems = displayedItems.filter((t) => !t.requiresForm || t.formComplete);
   const allFormsComplete = pendingItems.length === 0;
 
@@ -881,7 +923,6 @@ export function CheckoutPage({
           completedItemIds.has(item.id) ? { ...item, formComplete: true } : item
         )
       );
-      setPreCheckoutFormsDeferred(true);
       toast.success('Details Saved', {
         description: 'Participant details saved successfully. Continue to payment.',
       });
@@ -951,9 +992,8 @@ export function CheckoutPage({
 
   // --- Form-timing partition (Phase 1) ---
   // User-side consumes the per-item `formTiming` set by the organizer module as the
-  // source of truth. `before_checkout` means the form is surfaced before payment,
-  // but the user can still defer it and complete the same pending registration queue
-  // after checkout.
+  // source of truth. `before_checkout` means the form is surfaced before payment
+  // and payment stays blocked until the form is complete.
   // TODO(org-module): once the organizer module lands, reconcile this with the
   // event-level `requireFormsBeforeCheckout` flag (events.ts) — per-item wins.
   const gatedSlots = useMemo(
@@ -976,7 +1016,22 @@ export function CheckoutPage({
     [pendingCheckoutFormSlots],
   );
 
-  const preCheckoutVisibleSlots = pendingCheckoutFormSlots;
+  const afterCheckoutPendingSlots = useMemo(
+    () => pendingCheckoutFormSlots.filter((slot) => getItemFormTiming(slot.item) === 'after_checkout'),
+    [pendingCheckoutFormSlots, getItemFormTiming],
+  );
+  const afterCheckoutPreviewItems = useMemo<DeferredFormPreviewItem[]>(
+    () => afterCheckoutPendingSlots.map((slot) => ({
+      id: slot.id,
+      eventName: slot.item.eventName,
+      category: slot.item.category,
+      label: slot.label,
+      deadline: 'May 30, 2026',
+    })),
+    [afterCheckoutPendingSlots],
+  );
+
+  const preCheckoutVisibleSlots = gatedSlots;
 
   // Form data state per slot
   interface SlotFormData {
@@ -2666,29 +2721,32 @@ export function CheckoutPage({
           )}
 
           {showPreCheckoutForms && (
-            <div className="participant-form-premium space-y-3 pt-[104px] lg:pt-0" data-pre-payment-gate>
+            <div className="participant-form-premium space-y-4 pt-[124px] lg:pt-0" data-pre-payment-gate>
               <div
                 aria-hidden
-                className="pointer-events-none fixed inset-x-0 top-0 z-10 h-[170px] bg-[#f8fafc]/95 backdrop-blur-sm lg:hidden"
+                className="pointer-events-none fixed inset-x-0 top-0 z-10 h-[172px] bg-[#f8fafc]/96 lg:hidden"
               />
-              <div className="fixed left-3 right-3 top-[70px] z-20 rounded-[12px] border border-[#d9e8e5] bg-white/95 px-2.5 py-2 shadow-[0_8px_18px_-16px_rgba(15,23,42,0.38)] backdrop-blur sm:left-8 sm:right-8 sm:px-3 lg:sticky lg:left-auto lg:right-auto lg:top-3">
+              <div className="fixed inset-x-0 top-[70px] z-20 border-b border-[#dce5e1] bg-[#f8fafc]/96 px-4 py-3 shadow-none sm:px-8 lg:sticky lg:left-auto lg:right-auto lg:top-3">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#eef8f5] text-[#177564]">
-                      <ClipboardList className="h-3 w-3" />
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#eef8f5] text-[#177564]">
+                      <ClipboardList className="h-4 w-4" />
                     </span>
-	                    <div className="min-w-0">
-	                      <h2 className="truncate text-[14px] font-semibold leading-tight text-[#181d27]">
-	                        Complete participant details
-	                      </h2>
-	                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold text-[#6a817b]">
+                        Required before payment
+                      </p>
+                      <h2 className="mt-0.5 truncate text-[14px] font-semibold leading-tight text-[#18201d]">
+                        Participant details
+                      </h2>
+                    </div>
                   </div>
-                  <span className="shrink-0 rounded-full border border-[#d8e4e1] bg-[#f8fbfa] px-2.5 py-1 text-[12px] font-semibold text-[#334155]">
+                  <span className="shrink-0 rounded-full border border-[#dce5e1] bg-[#f8fafc] px-2.5 py-1 text-[12px] font-semibold text-[#34413c]">
                     {preCheckoutCompleteCount}/{preCheckoutTotalCount}
                   </span>
                 </div>
 
-                <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {preCheckoutVisibleSlots.map((slot, index) => {
                     const data = slotsData[slot.id];
                     const isActive = activeSlotId === slot.id;
@@ -2698,28 +2756,18 @@ export function CheckoutPage({
                         key={slot.id}
                         type="button"
                         onClick={() => setActiveSlotId(slot.id)}
-                        className={`flex h-9 min-w-[170px] max-w-[220px] shrink-0 items-center gap-2 rounded-[10px] border px-2 text-left transition-all active:scale-[0.99] sm:min-w-[190px] ${
-                          isActive
-                            ? 'border-[#b9ddd5] bg-[#f5fbf9] text-[#181d27]'
-                            : 'border-[#eef2f6] bg-white text-[#64748b] hover:bg-[#f8fafc]'
-                        }`}
+                        aria-current={isActive ? 'step' : undefined}
+                        className={`flex min-h-[50px] min-w-[190px] max-w-[230px] shrink-0 items-center gap-2 rounded-[11px] border px-2.5 text-left transition-colors active:scale-[0.99] sm:min-w-[210px] ${isActive ? 'border-[#b8cec7] bg-[#f8fbfa]' : 'border-[#e5ece8] bg-white hover:bg-[#f8fafc]'}`}
                       >
-                        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                          isComplete
-                            ? 'bg-[#ecfdf5] text-[#047857]'
-                            : isActive
-                              ? 'bg-[#e8f5f2] text-[#177564]'
-                              : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {isComplete ? <CheckCircle2 className="h-3 w-3" /> : index + 1}
+                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${isComplete ? 'bg-[#e4f4ef] text-[#177564]' : isActive ? 'bg-[#eef8f5] text-[#177564]' : 'bg-[#f1f5f3] text-[#6a817b]'}`}>
+                          {isComplete ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
                         </span>
                         <span className="min-w-0">
-                          <span className="block truncate text-[11px] font-semibold leading-tight">
+                          <span className="block truncate text-[11px] font-semibold leading-tight text-[#34413c]">
                             {slot.item.category}
                           </span>
-                          <span className="mt-0.5 block truncate text-[9px] font-medium opacity-70">
-                            {slot.item.eventName}
-                            {slot.guestIndex !== 0 ? ` · Guest ${slot.guestIndex}` : ''}
+                          <span className="mt-0.5 block truncate text-[10px] font-medium text-[#6a817b]">
+                            {slot.item.eventName}{slot.guestIndex !== 0 ? ` · Guest ${slot.guestIndex}` : ''}
                           </span>
                         </span>
                       </button>
@@ -2925,14 +2973,16 @@ export function CheckoutPage({
                 );
               })}
 
-              <div className="mt-2 flex flex-col gap-2">
+              <DeferredCheckoutFormsSummary items={afterCheckoutPreviewItems} />
+
+              <div className="mt-1 flex flex-col gap-2">
                 <PrimaryButton
                   type="button"
                   onClick={handleInlineSubmit}
                   disabled={isSubmittingForm || gatedCompleteCount < gatedTotalCount}
                   aria-disabled={isSubmittingForm || gatedCompleteCount < gatedTotalCount}
                   fullWidth
-                  className="h-11 rounded-full px-8 text-sm shadow-[0_16px_28px_-18px_rgba(23,117,100,0.72)]"
+                  className="h-14 rounded-full px-8 text-sm shadow-[0_16px_28px_-18px_rgba(23,117,100,0.72)]"
                 >
                   {isSubmittingForm ? (
                     <span className="flex items-center gap-2">
@@ -2943,14 +2993,6 @@ export function CheckoutPage({
                     'Save details and continue'
                   )}
                 </PrimaryButton>
-                <SecondaryButton
-                  type="button"
-                  onClick={() => setPreCheckoutFormsDeferred(true)}
-                  disabled={isSubmittingForm}
-                  className="h-11 px-8 text-sm disabled:opacity-50"
-                >
-                  Fill up later
-                </SecondaryButton>
               </div>
             </div>
           )}

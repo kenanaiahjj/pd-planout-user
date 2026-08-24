@@ -40,20 +40,20 @@ function parseEventDate(value) {
   };
 }
 
-function dateLabel(date, { weekday = 'long', includeYear = true } = {}) {
+function dateLabel(date, { weekday = 'long', month = 'short', includeYear = true } = {}) {
   return new Intl.DateTimeFormat('en-US', {
     weekday,
-    month: 'short',
+    month,
     day: 'numeric',
     ...(includeYear ? { year: 'numeric' } : {}),
   }).format(date);
 }
 
-export function formatEventDate(value, { includeTime = true, weekday = 'long' } = {}) {
+export function formatEventDate(value, { includeTime = true, weekday = 'long', month = 'short' } = {}) {
   const parsed = parseEventDate(value);
   if (!parsed) return value || 'Date to be announced';
 
-  const formattedDate = dateLabel(parsed.date, { weekday });
+  const formattedDate = dateLabel(parsed.date, { weekday, month });
   return includeTime && parsed.time ? `${formattedDate} at ${parsed.time}` : formattedDate;
 }
 

@@ -25,15 +25,14 @@ import { CartPage } from '@/app/components/CartPage';
 import { NotificationsPage } from '@/app/pages/NotificationsPage';
 import { AnimatedOutlet } from '@/app/components/AnimatedOutlet';
 import { FloatCard, shouldHideFloatCardOnRoute } from '@/app/components/FloatCard';
-import { MessengerWidget } from '@/app/components/MessengerWidget';
-
-// Enabled for the current Meta Messenger prototype flow.
-const MESSENGER_WIDGET_ENABLED = true;
+import { OrganizerContactWidget } from '@/app/components/OrganizerContactWidget';
 
 // Data
 import { MOCK_EVENTS } from '@/app/data/events';
 import { getOrganizerBySlug } from '@/app/data/organizers';
+import { getCartAdditionDescription } from '@/app/data/cart.js';
 import { getEventBrand, getBrandSurfaceStyle } from '@/app/data/eventBrand';
+import { toast } from 'sonner';
 
 // Context
 import { useAppContext } from '@/app/context/AppContext';
@@ -120,7 +119,6 @@ export function RootLayout() {
   const activeTab = getActiveTab(pathname);
   const isGuestQrPage = /^\/orders\/[^/]+\/entry\/[^/]+\/(guest-qr|temporary-guest-qr)$/.test(pathname);
   const isPassportRoute = pathname.startsWith('/passport');
-  const isParticipantForm = /^\/orders\/[^/]+\/form$/.test(pathname);
   const isGuestQrScanner = pathname === '/passport/add-entry';
   const useFullScreenOverlay = isGuestQrScanner;
   const hideBottomNav = !isAuthenticated || shouldHideBottomNav(pathname, checkoutConfirmed);
@@ -141,6 +139,21 @@ export function RootLayout() {
   const eventDetailMatch = pathname.match(/^\/events\/([^/]+)$/);
   const currentEventId = eventDetailMatch?.[1];
   const currentEvent = currentEventId ? MOCK_EVENTS.find((e) => e.id === currentEventId) : null;
+  const isEventDetailPage = Boolean(currentEvent);
+  const organizerRouteMatch = pathname.match(/^\/organizers\/(.+)$/);
+  const organizerProfileSlug = organizerRouteMatch?.[1];
+  const organizerProfile = organizerProfileSlug
+    ? getOrganizerBySlug(decodeURIComponent(organizerProfileSlug))
+    : null;
+  const peekOrganizer = peekEvent ? getOrganizerBySlug(peekEvent.organizer) : null;
+  const currentOrganizer = currentEvent
+    ? getOrganizerBySlug(currentEvent.organizer)
+    : organizerProfile ?? peekOrganizer;
+  const shouldShowOrganizerContact =
+    isAuthenticated &&
+    !useFullScreenOverlay &&
+    Boolean(currentOrganizer) &&
+    (isEventDetailPage || Boolean(organizerProfile) || Boolean(peekEvent));
   const isDarkHeader = currentEvent ? getEventBrand(currentEvent).isDarkPage : false;
 
   const handleHeaderBack = useCallback(() => {
@@ -322,8 +335,11 @@ export function RootLayout() {
         />
       )}
 
-      {MESSENGER_WIDGET_ENABLED && isAuthenticated && !useFullScreenOverlay && (
-        !isGuestQrPage && !isParticipantForm ? <MessengerWidget hasPendingFormCard={showPendingFormCard} /> : null
+      {shouldShowOrganizerContact && currentOrganizer && (
+        <OrganizerContactWidget
+          contact={currentOrganizer}
+          hasPendingFormCard={showPendingFormCard}
+        />
       )}
 
       {showPendingFormCard && (
@@ -362,23 +378,19 @@ export function RootLayout() {
             }}
             onGoToCart={(items) => {
               const event = peekEvent;
-              if (items?.length && event) {
-                addCartItems({
-                  eventId: event.id,
-                  eventName: event.title,
-                  date: event.date,
-                  location: event.location,
-                  image: event.image || '',
-                  items,
-                });
-              }
-              setPeekEvent(null);
-              if (isDesktop()) {
-                setActiveDrawer('cart');
-              } else {
-                navigate('/cart');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }
+              if (!items?.length || !event) return;
+
+              addCartItems({
+                eventId: event.id,
+                eventName: event.title,
+                date: event.date,
+                location: event.location,
+                image: event.image || '',
+                items,
+              });
+              toast.success('Added to cart', {
+                description: getCartAdditionDescription(event.title, items),
+              });
             }}
             onGoToCheckout={(eventName, category, price, image, items) => {
               setPeekEvent(null);
