@@ -66,6 +66,17 @@ test('confirmation success identifies a form completed before checkout', () => {
   assert.match(checkoutSource, /frontloadedFormComplete \? 'Form completed before checkout' : 'Passport ready'/);
 });
 
+test('confirmation keeps one entry inline and sends multiple entries to form pages', () => {
+  assert.match(
+    checkoutSource,
+    /const shouldShowInlineConfirmationForm =\n\s*displayedItems\.length === 1 && itemQuantity === 1;/,
+  );
+  assert.match(checkoutSource, /function getConfirmationFormPath\(entry: RegistrationQueueEntry\)/);
+  assert.match(checkoutSource, /params\.set\('participantId', `\$\{entry\.id\}-guest-/);
+  assert.match(checkoutSource, /params\.set\('participantId', `\$\{entry\.id\}-member-/);
+  assert.match(checkoutSource, /navigate\(getConfirmationFormPath\(entry\)\)/);
+});
+
 test('multiple event mode reopens every displayed form', () => {
   const modeStart = checkoutSource.indexOf("if (mode === 'single')");
   const displayedItemsStart = checkoutSource.indexOf('const displayedItems', modeStart);

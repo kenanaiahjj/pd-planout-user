@@ -346,7 +346,7 @@ export function RootLayout() {
         <FloatCard
           pendingCount={passportPendingCount}
           nearestDeadline={nearestPassportDeadline}
-          onPress={() => navTo('/orders')}
+          onPress={() => navTo('/orders?filter=pending')}
           accentColor={currentEvent ? getEventBrand(currentEvent).accent : undefined}
           accentDarkColor={currentEvent ? getEventBrand(currentEvent).accentDark : undefined}
         />

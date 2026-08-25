@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import {
   Check,
   CalendarDays,
@@ -87,6 +87,11 @@ import { getOrganizerBySlug } from '@/app/data/organizers';
 type OrderFilter = 'all' | 'pending' | 'complete';
 type MerchStatus = 'Processing' | 'Shipped' | 'Delivered';
 type PaymentStatus = 'Paid' | 'Refunded';
+
+export function getOrderFilterFromSearch(search: string): OrderFilter {
+  const requestedFilter = new URLSearchParams(search).get('filter');
+  return requestedFilter === 'pending' || requestedFilter === 'complete' ? requestedFilter : 'all';
+}
 
 interface OrganizerContactSelection {
   contact: ContactTarget;
@@ -1289,8 +1294,9 @@ function ParticipantFormShareControls({
 
 export function OrdersPage() {
   const navigate = useNavigate();
+  const { search } = useLocation();
   const { registrationQueueEntries, entryAttendance, guestEntryQRs, teamPlayerAccess, teamPlayerRoster } = useAppContext();
-  const [activeFilter, setActiveFilter] = useState<OrderFilter>('all');
+  const [activeFilter, setActiveFilter] = useState<OrderFilter>(() => getOrderFilterFromSearch(search));
   const orders = useMemo(() => buildOrders({
     registrationQueueEntries,
     entryAttendance,
@@ -1298,6 +1304,10 @@ export function OrdersPage() {
     teamPlayerAccess,
     teamPlayerRoster,
   }), [entryAttendance, guestEntryQRs, registrationQueueEntries, teamPlayerAccess, teamPlayerRoster]);
+
+  useEffect(() => {
+    setActiveFilter(getOrderFilterFromSearch(search));
+  }, [search]);
 
   const visibleOrders = orders.filter((order) => !TEMPORARILY_HIDDEN_ORDER_IDS.has(order.id));
 

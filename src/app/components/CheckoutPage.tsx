@@ -96,6 +96,25 @@ const VOUCHER_MAP: Record<string, number> = {
 
 const CONVENIENCE_FEE_RATE = 0.04; // 4%
 
+function getConfirmationFormPath(entry: RegistrationQueueEntry) {
+  const params = new URLSearchParams({ entryId: entry.id });
+
+  // The form route requires an explicit participant for guest and team entries.
+  // Select the first unfinished participant so a multi-entry confirmation card
+  // opens the form page instead of falling back to order details.
+  if (entry.type === 'guest') {
+    const nextGuestNumber = Math.max(entry.guestCompletedCount ?? 1, 1) + 1;
+    params.set('participantId', `${entry.id}-guest-${nextGuestNumber}`);
+    params.set('playerOnly', '1');
+  } else if (entry.type === 'team') {
+    const nextPlayerNumber = Math.max(entry.teamAttachedCount ?? 0, 0) + 1;
+    params.set('participantId', `${entry.id}-member-${nextPlayerNumber}`);
+    params.set('playerOnly', '1');
+  }
+
+  return `${entry.formRoute}?${params.toString()}`;
+}
+
 function PassportStatusCard({
   status,
   passportCode,
@@ -1355,7 +1374,7 @@ export function CheckoutPage({
     return matchedItem?.image || image;
   }, [displayedItems, image]);
   const shouldShowInlineConfirmationForm =
-    itemMode === 'single' && displayedItems.length === 1 && itemQuantity === 1;
+    displayedItems.length === 1 && itemQuantity === 1;
 
   // Sync confirmation entries to global queue to ensure Passport and Orders tabs see updates immediately
   const confirmationEntriesJson = JSON.stringify(confirmationEntries);
@@ -1374,7 +1393,7 @@ export function CheckoutPage({
     seedRegistrationQueue(confirmationEntries, confirmRef);
     const firstPending = pendingConfirmationEntries[0];
     if (firstPending) {
-      navigate(`${firstPending.formRoute}?entryId=${firstPending.id}`);
+      navigate(getConfirmationFormPath(firstPending));
     } else {
       navigate('/passport/events?focus=forms&mode=order');
     }
@@ -2197,7 +2216,7 @@ export function CheckoutPage({
                                   aria-label={`${entry.eventName}, ${entry.category}, ${statusLabel}${entry.deadline ? `, due ${entry.deadline}` : ''}`}
                                   onClick={() => {
                                     seedRegistrationQueue(confirmationEntries, confirmRef);
-                                    navigate(`${entry.formRoute}?entryId=${entry.id}`);
+                                    navigate(getConfirmationFormPath(entry));
                                   }}
                                 className="group flex w-full min-w-0 items-center gap-3 rounded-[16px] border border-[#e4edf0] bg-white p-3 text-left shadow-[0_12px_26px_-24px_rgba(15,23,42,0.38)] transition-all hover:border-[#cfe4df] hover:bg-[#fbfdfc] active:scale-[0.99]"
                                 >
