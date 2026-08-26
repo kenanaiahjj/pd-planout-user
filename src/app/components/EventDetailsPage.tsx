@@ -31,6 +31,7 @@ import {
   getEventTime,
 } from '@/app/data/eventDate';
 import { getBrandCSSVarsStyle, getBrandSurfaceStyle, getEventBrand } from '@/app/data/eventBrand';
+import { getGoogleMapsSearchUrl } from '@/app/data/navigation.js';
 import { type CheckoutIntentItem } from '@/app/context/AppContext';
 import { PrimaryButton } from './PrimaryButton';
 import { GetTicketsModal, getCheapestTicketPriceLabel } from './GetTicketsModal';
@@ -102,6 +103,13 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
     `https://picsum.photos/seed/event-${event.id}-g3/800/600`,
     `https://picsum.photos/seed/event-${event.id}-g4/800/600`,
   ];
+
+  function cycleSelectedImage(direction: -1 | 1) {
+    setSelectedImageIndex((current) => {
+      if (current === null || galleryImages.length === 0) return current;
+      return (current + direction + galleryImages.length) % galleryImages.length;
+    });
+  }
 
   const handleShare = async () => {
     try {
@@ -439,10 +447,16 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
                   <p className="text-[14px] font-medium text-[var(--event-surface-fg)]">{eventVenue}</p>
                   <p className="text-[12.5px] text-[var(--event-surface-muted)]">{event.location}</p>
                 </div>
-                <button type="button" className="flex items-center gap-1.5 rounded-full border border-[var(--event-surface-border)] px-3.5 py-1.5 text-[12.5px] font-medium text-[var(--event-surface-muted)] transition-colors hover:bg-white/10 active:scale-95">
+                <a
+                  href={getGoogleMapsSearchUrl(event.location)}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={'Get directions to ' + event.location}
+                  className="flex items-center gap-1.5 rounded-full border border-[var(--event-surface-border)] px-3.5 py-1.5 text-[12.5px] font-medium text-[var(--event-surface-muted)] transition-colors hover:bg-white/10 active:scale-95"
+                >
                   <Navigation className="h-3.5 w-3.5" strokeWidth={2} />
                   Directions
-                </button>
+                </a>
               </div>
             </div>
           </motion.div>
@@ -475,7 +489,15 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
           <motion.div variants={fadeUp} className="px-5 pt-6 pb-8 lg:px-0">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[16px] font-semibold text-[var(--event-page-fg)]">Gallery</h2>
-              <button type="button" className="text-[13px] font-medium transition-opacity hover:opacity-70" style={{ color: brand.accent }}>View all</button>
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                onClick={() => setSelectedImageIndex(0)}
+                className="text-[13px] font-medium transition-opacity hover:opacity-70"
+                style={{ color: brand.accent }}
+              >
+                View all
+              </button>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {galleryImages.map((src, i) => (
@@ -547,30 +569,57 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
       <AnimatePresence>
         {selectedImageIndex !== null && (
           <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={'Event gallery for ' + event.title}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl p-4"
             onClick={() => setSelectedImageIndex(null)}
           >
-            <button onClick={() => setSelectedImageIndex(null)} className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors z-50">
+            <button
+              type="button"
+              aria-label="Close gallery"
+              onClick={() => setSelectedImageIndex(null)}
+              className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors z-50"
+            >
               <X className="h-4 w-4" />
             </button>
-            <div className="relative max-w-4xl w-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
-              {selectedImageIndex > 0 && (
-                <button onClick={() => setSelectedImageIndex(p => p! - 1)} className="absolute left-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">&larr;</button>
-              )}
+            <div
+              className="relative max-w-4xl w-full flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                aria-label="Previous photo"
+                onClick={() => cycleSelectedImage(-1)}
+                className="absolute left-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              >
+                &larr;
+              </button>
               <motion.img
                 key={selectedImageIndex}
-                initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
                 src={galleryImages[selectedImageIndex]}
                 alt=""
                 className="max-w-full max-h-[85vh] rounded-2xl object-contain"
               />
-              {selectedImageIndex < galleryImages.length - 1 && (
-                <button onClick={() => setSelectedImageIndex(p => p! + 1)} className="absolute right-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">&rarr;</button>
-              )}
+              <button
+                type="button"
+                aria-label="Next photo"
+                onClick={() => cycleSelectedImage(1)}
+                className="absolute right-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              >
+                &rarr;
+              </button>
             </div>
-            <p className="absolute bottom-5 text-white/40 text-xs font-medium">{selectedImageIndex + 1} / {galleryImages.length}</p>
+            <p className="absolute bottom-5 text-white/40 text-xs font-medium">
+              {selectedImageIndex + 1} / {galleryImages.length}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>

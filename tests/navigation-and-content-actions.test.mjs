@@ -42,3 +42,18 @@ test('organizer contact uses a semantic email link with primary-button styling',
   assert.match(organizerSource, /aria-label=\{'Email ' \+ organizer\.name\}/);
   assert.doesNotMatch(organizerSource, /<PrimaryButton compact[\s\S]*Contact Organizer/);
 });
+
+const eventDetailsSource = read('../src/app/components/EventDetailsPage.tsx');
+
+test('event actions expose Google Maps Directions and a cycling gallery', () => {
+  assert.match(eventDetailsSource, /getGoogleMapsSearchUrl/);
+  assert.match(eventDetailsSource, /href=\{getGoogleMapsSearchUrl\(event\.location\)\}/);
+  assert.match(eventDetailsSource, /target="_blank"/);
+  assert.match(eventDetailsSource, /rel="noreferrer"/);
+  assert.match(eventDetailsSource, /onClick=\{\(\) => setSelectedImageIndex\(0\)\}/);
+  assert.match(eventDetailsSource, /function cycleSelectedImage\(direction: -1 \| 1\)/);
+  assert.match(eventDetailsSource, /\(current \+ direction \+ galleryImages\.length\) % galleryImages\.length/);
+  assert.match(eventDetailsSource, /aria-label="Previous photo"/);
+  assert.match(eventDetailsSource, /aria-label="Next photo"/);
+  assert.match(eventDetailsSource, /aria-modal="true"/);
+});
