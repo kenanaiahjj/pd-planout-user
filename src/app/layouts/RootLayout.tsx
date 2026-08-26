@@ -32,6 +32,7 @@ import { MOCK_EVENTS } from '@/app/data/events';
 import { getOrganizerBySlug } from '@/app/data/organizers';
 import { getCartAdditionDescription } from '@/app/data/cart.js';
 import { getEventBrand, getBrandSurfaceStyle } from '@/app/data/eventBrand';
+import { ORDERS_PENDING_PATH } from '@/app/data/navigation.js';
 import { toast } from 'sonner';
 
 // Context
@@ -346,7 +347,7 @@ export function RootLayout() {
         <FloatCard
           pendingCount={passportPendingCount}
           nearestDeadline={nearestPassportDeadline}
-          onPress={() => navTo('/orders?filter=pending')}
+          onPress={() => navTo(ORDERS_PENDING_PATH)}
           accentColor={currentEvent ? getEventBrand(currentEvent).accent : undefined}
           accentDarkColor={currentEvent ? getEventBrand(currentEvent).accentDark : undefined}
         />

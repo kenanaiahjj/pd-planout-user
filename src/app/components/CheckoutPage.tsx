@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
+import { ORDERS_PENDING_PATH } from '@/app/data/navigation.js';
 import {
   ArrowUpRight,
   ListChecks,
@@ -1395,7 +1396,7 @@ export function CheckoutPage({
     if (firstPending) {
       navigate(getConfirmationFormPath(firstPending));
     } else {
-      navigate('/passport/events?focus=forms&mode=order');
+      navigate(ORDERS_PENDING_PATH);
     }
   };
 

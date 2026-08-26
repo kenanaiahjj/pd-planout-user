@@ -22,7 +22,7 @@
  *    /orders/:orderId/guest-manager -> MultiGuestManagerPage
  *    /guest-entry/:guestQRRef -> PublicGuestEntryPage
  *    /ticket-claim/:claimRef -> GuestTicketClaimPage
- *    /registration-queue    -> Legacy redirect to Passport forms
+ *    /registration-queue    -> Legacy redirect to Orders Pending
  *    /passport/entry/:entryId/guest-qr -> Guest QR stub
  *    /orders/:orderId       -> OrderDetailPage
  *    /passport              -> PassportPage

@@ -24,6 +24,7 @@ import { PlanOutPassportCard } from '@/app/components/PlanOutPassportCard';
 import { PrimaryButton } from '@/app/components/PrimaryButton';
 import { useAppContext } from '@/app/context/AppContext';
 import { MOCK_EVENTS, type EventData } from '@/app/data/events';
+import { ORDERS_PENDING_PATH } from '@/app/data/navigation.js';
 import { getOrderFormActionEntries, MY_TICKETS, type MyTicket, type RegistrationQueueEntry } from '@/app/data/tickets';
 import imgAvatar from '@/assets/abde7b942aa982263d4cf69ea8ef217b427c3047.png';
 import imgNoUpcomingEvents from '@/assets/ChatGPT Image Jun 18, 2026, 10_04_48 AM.png';
@@ -144,13 +145,6 @@ function formProgress(ticket?: ReturnType<typeof findTicket>, entry?: Registrati
     secondary: [deadlineLabel(ticket.deadline), inviteText].filter(Boolean).join(' · ') || undefined,
     needsAction,
   };
-}
-
-function passportFormsPath(entry?: RegistrationQueueEntry) {
-  const params = new URLSearchParams({ focus: 'forms' });
-  if (entry?.id) params.set('entryId', entry.id);
-  if (entry?.ticketId) params.set('ticketId', entry.ticketId);
-  return `/passport/events?${params.toString()}`;
 }
 
 function PassportMini({
@@ -930,7 +924,7 @@ export function HomePage({ onEventSelect, onGoToEvents, userName }: HomePageProp
         <FormsToFinishSection
           entries={pendingEntries}
           onOpenEntry={(entry) => navigate(`/orders/${entry.ticketId}/form?returnTo=home&entryId=${entry.id}`)}
-          onOpenAll={() => navigate(passportFormsPath())}
+          onOpenAll={() => navigate(ORDERS_PENDING_PATH)}
         />
       )}
 
