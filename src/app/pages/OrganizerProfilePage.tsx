@@ -27,10 +27,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
-import { PrimaryButton } from '@/app/components/PrimaryButton';
+import { PrimaryButton, PrimaryButtonLink } from '@/app/components/PrimaryButton';
 import { SegmentedChoice } from '@/app/components/SegmentedChoice';
 import { EventCard } from '@/app/components/EventCard';
 import { EmptyStateGraphic } from '@/app/components/EmptyStateGraphic';
+import { getOrganizerEmailHref } from '@/app/data/navigation.js';
 import { MOCK_EVENTS } from '@/app/data/events';
 import {
   type OrganizerData,
@@ -802,10 +803,14 @@ export function OrganizerProfilePage({
               )}
 
               {/* Contact Organizer CTA */}
-              <PrimaryButton compact className="rounded-full shadow-sm py-2 px-5 font-bold text-[13px]">
+              <PrimaryButtonLink
+                href={getOrganizerEmailHref(organizer.email)}
+                aria-label={'Email ' + organizer.name}
+                className="rounded-full shadow-sm py-2 px-5 font-bold text-[13px]"
+              >
                 <Mail className="w-3.5 h-3.5" />
                 Contact Organizer
-              </PrimaryButton>
+              </PrimaryButtonLink>
             </div>
 
             {/* Sub-info: email & phone */}

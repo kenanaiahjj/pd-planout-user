@@ -31,3 +31,14 @@ test('Home keeps direct entry-level participant form links', () => {
 test('the legacy route documentation names the Orders Pending destination', () => {
   assert.match(routerSource, /registration-queue\s+-> Legacy redirect to Orders Pending/);
 });
+
+const primaryButtonSource = read('../src/app/components/PrimaryButton.tsx');
+const organizerSource = read('../src/app/pages/OrganizerProfilePage.tsx');
+
+test('organizer contact uses a semantic email link with primary-button styling', () => {
+  assert.match(primaryButtonSource, /export const PrimaryButtonLink = React\.forwardRef<HTMLAnchorElement/);
+  assert.match(organizerSource, /getOrganizerEmailHref/);
+  assert.match(organizerSource, /<PrimaryButtonLink[\s\S]*href=\{getOrganizerEmailHref\(organizer\.email\)\}/);
+  assert.match(organizerSource, /aria-label=\{'Email ' \+ organizer\.name\}/);
+  assert.doesNotMatch(organizerSource, /<PrimaryButton compact[\s\S]*Contact Organizer/);
+});

@@ -128,3 +128,72 @@ export const PrimaryButton = React.forwardRef<HTMLButtonElement, PrimaryButtonPr
     </button>
   );
 });
+
+interface PrimaryButtonLinkProps
+  extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+  /** Stretch to fill the parent. */
+  fullWidth?: boolean;
+  /** Compact size variant for inline actions. */
+  compact?: boolean;
+  /** Use a flat native action surface instead of the default gradient shine. */
+  appearance?: 'gradient' | 'solid';
+  /** Optional organizer/event brand gradient for event-owned surfaces. */
+  brandGradient?: {
+    from: string;
+    to: string;
+    shadow?: string;
+  };
+  showShine?: boolean;
+  pressScale?: boolean;
+}
+
+export const PrimaryButtonLink = React.forwardRef<HTMLAnchorElement, PrimaryButtonLinkProps>(function PrimaryButtonLink({
+  children,
+  className = '',
+  fullWidth = false,
+  compact = false,
+  appearance = 'gradient',
+  brandGradient,
+  showShine = true,
+  pressScale = true,
+  style,
+  ...rest
+}, ref) {
+  const resolvedStyle = appearance === 'solid'
+    ? {
+        backgroundColor: '#177564',
+        boxShadow: '0 8px 18px -14px rgba(23,117,100,0.6)',
+        ...style,
+      }
+    : { ...createBackgroundStyle(brandGradient, showShine), ...style };
+
+  const linkClassName = [
+    'relative inline-flex items-center justify-center gap-2',
+    compact ? 'px-4 py-2' : 'px-[18px] py-[10px]',
+    fullWidth ? 'w-full' : '',
+    'rounded-xl text-[15px] font-semibold text-white text-center',
+    'transition-[filter,transform] duration-150 ease-out',
+    pressScale ? 'active:scale-[0.98] motion-reduce:active:scale-100' : '',
+    'motion-reduce:transition-none',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/35 focus-visible:ring-offset-2',
+    'cursor-pointer hover:brightness-110',
+    className,
+  ].filter(Boolean).join(' ');
+
+  return (
+    <a
+      ref={ref}
+      className={linkClassName}
+      style={resolvedStyle}
+      {...rest}
+    >
+      <span className="relative z-[1] flex items-center justify-center gap-2 leading-[24px] whitespace-nowrap">
+        {children}
+      </span>
+      <span
+        aria-hidden
+        className="absolute inset-0 rounded-[inherit] border border-white/20 pointer-events-none"
+      />
+    </a>
+  );
+});
