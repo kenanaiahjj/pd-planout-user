@@ -37,3 +37,6 @@ scratch/
 
 # Local agent brainstorm state (contains session tokens)
 .superpowers/
+
+# Isolated implementation worktrees
+.worktrees/
