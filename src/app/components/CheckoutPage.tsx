@@ -22,7 +22,6 @@ import {
   User,
   CalendarDays,
   Lock,
-  Mail,
   RefreshCw,
   XCircle,
   TimerOff,
@@ -43,6 +42,10 @@ import { PrimaryButton } from './PrimaryButton';
 import { SecondaryButton } from './SecondaryButton';
 import { IconButton } from './IconButton';
 import { SegmentedChoice } from './SegmentedChoice';
+import {
+  EntryCompletionChoice,
+  type EntryCompletionChoiceValue,
+} from './EntryCompletionChoice';
 import { FormTextField } from './FormTextField';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useAppContext } from '@/app/context/AppContext';
@@ -88,6 +91,30 @@ interface CheckoutPageProps {
 type ConfirmationState = 'success' | 'failed' | 'expired' | 'registered' | 'pending';
 type CheckoutItemMode = 'single' | 'multiple';
 type CheckoutEntryOwner = 'self' | 'guest';
+
+interface SlotFormData {
+  deliveryMethod: 'fill' | 'invite';
+  entryOwner: CheckoutEntryOwner;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  uploadedFile: string | null;
+  inviteEmail: string;
+}
+
+function createEmptySlotFormData(): SlotFormData {
+  return {
+    deliveryMethod: 'fill',
+    entryOwner: 'self',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    uploadedFile: null,
+    inviteEmail: '',
+  };
+}
 
 const VOUCHER_MAP: Record<string, number> = {
   SAVE100: 100,
@@ -393,82 +420,6 @@ function PendingFormsHeroCard({
         </div>
       </div>
     </div>
-  );
-}
-
-function CheckoutEntryOwnerChoice({
-  name,
-  value,
-  onChange,
-  selfTakenByAnotherEntry = false,
-}: {
-  name: string;
-  value: CheckoutEntryOwner;
-  onChange: (value: CheckoutEntryOwner) => void;
-  selfTakenByAnotherEntry?: boolean;
-}) {
-  const options = [
-    {
-      value: 'self' as const,
-      label: 'For me',
-      description: 'Attaches to my Passport',
-    },
-    {
-      value: 'guest' as const,
-      label: 'For someone else',
-      description: 'Buyer-filled Guest QR',
-    },
-  ];
-
-  return (
-    <fieldset className="participant-form-ownership flex flex-col gap-2">
-      <legend className="text-[14px] font-semibold text-[#181d27]">This entry is for</legend>
-      <div className="grid grid-cols-1 gap-2">
-        {options.map((option) => {
-          const selected = value === option.value;
-          const disabled = option.value === 'self' && selfTakenByAnotherEntry && !selected;
-
-          return (
-            <label
-              key={option.value}
-              data-selected={selected ? '' : undefined}
-              className={`participant-form-owner-choice flex min-h-[70px] items-start gap-3 rounded-[12px] border px-3.5 py-3 transition-all ${
-                selected
-                  ? 'border-[#177564] bg-[#f0fdf9] text-[#177564]'
-                  : 'border-[#e2e8f0] bg-white text-[#64748b]'
-              } ${
-                disabled
-                  ? 'cursor-not-allowed opacity-50'
-                  : 'cursor-pointer hover:border-[#b7ded6] hover:bg-[#f8fbfa]'
-              }`}
-            >
-              <input
-                type="radio"
-                name={name}
-                value={option.value}
-                checked={selected}
-                onChange={() => onChange(option.value)}
-                disabled={disabled}
-                className="mt-0.5 h-4 w-4 accent-[#177564]"
-              />
-              <span className="min-w-0">
-                <span className={`block text-[13px] font-semibold ${selected ? 'text-[#177564]' : 'text-[#181d27]'}`}>
-                  {option.label}
-                </span>
-                <span className="mt-0.5 block text-[11px] font-medium leading-relaxed text-[#64748b]">
-                  {option.description}
-                </span>
-              </span>
-            </label>
-          );
-        })}
-      </div>
-      {selfTakenByAnotherEntry && value !== 'self' && (
-        <p className="text-[12px] font-medium leading-relaxed text-[#64748b]">
-          This order already has a Passport entry for you. Additional player entries use Guest QR or claim links.
-        </p>
-      )}
-    </fieldset>
   );
 }
 
@@ -859,13 +810,13 @@ export function CheckoutPage({
         // Invite mode
         if (!data.inviteEmail.trim()) {
           toast.error('Invite email required', {
-            description: `Please enter a friend's email to invite for ${slot.label}.`,
+            description: `Please enter the participant's email for the claim link for ${slot.label}.`,
           });
           return;
         }
         if (!emailRegex.test(data.inviteEmail.trim())) {
-          toast.error('Invalid invite email', {
-            description: `Please enter a valid email address to invite for ${slot.label}.`,
+          toast.error('Invalid participant email', {
+            description: `Please enter a valid email address for the claim link for ${slot.label}.`,
           });
           return;
         }
@@ -908,16 +859,16 @@ export function CheckoutPage({
         const isSingleTicketInlineForm = itemMode === 'single' && displayedItems.length === 1 && itemQuantity === 1;
         if (isSingleTicketInlineForm) {
           if (!data.inviteEmail.trim()) {
-            toast.error('Invite email required', {
-              description: `Please enter a friend's email to invite.`,
+            toast.error('Participant email required', {
+              description: 'Please enter the participant’s email for the claim link.',
             });
             return;
           }
         }
         if (data.inviteEmail.trim()) {
           if (!emailRegex.test(data.inviteEmail.trim())) {
-            toast.error('Invalid invite email', {
-              description: `Please enter a valid email to invite for optional slot ${slot.label}.`,
+            toast.error('Invalid participant email', {
+              description: `Please enter a valid email address for the claim link for optional slot ${slot.label}.`,
             });
             return;
           }
@@ -1054,36 +1005,30 @@ export function CheckoutPage({
   const preCheckoutVisibleSlots = gatedSlots;
 
   // Form data state per slot
-  interface SlotFormData {
-    deliveryMethod: 'fill' | 'invite';
-    entryOwner: CheckoutEntryOwner;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    uploadedFile: string | null;
-    inviteEmail: string;
-  }
-
   const [slotsData, setSlotsData] = useState<Record<string, SlotFormData>>({});
 
   const updateSlotFieldGlobal = (slotId: string, field: keyof SlotFormData, value: any) => {
     setSlotsData((prev) => {
-      const existing = prev[slotId] || {
-        deliveryMethod: 'fill',
-        entryOwner: 'self' as CheckoutEntryOwner,
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        uploadedFile: null,
-        inviteEmail: '',
-      };
+      const existing = prev[slotId] || createEmptySlotFormData();
       return {
         ...prev,
         [slotId]: {
           ...existing,
           [field]: value,
+        },
+      };
+    });
+  };
+
+  const updateSlotEntryChoiceGlobal = (slotId: string, choice: EntryCompletionChoiceValue) => {
+    setSlotsData((prev) => {
+      const existing = prev[slotId] || createEmptySlotFormData();
+      return {
+        ...prev,
+        [slotId]: {
+          ...existing,
+          deliveryMethod: choice === 'claim' ? 'invite' : 'fill',
+          entryOwner: choice === 'self' ? 'self' : 'guest',
         },
       };
     });
@@ -2018,43 +1963,22 @@ export function CheckoutPage({
                 <>
                   {shouldShowInlineConfirmationForm ? (() => {
                     const singleSlot = formSlots[0];
-                    const singleSlotData = slotsData[singleSlot?.id] || {
-                      deliveryMethod: 'fill',
-                      entryOwner: 'self' as CheckoutEntryOwner,
-                      firstName: '',
-                      lastName: '',
-                      email: '',
-                      phone: '',
-                      uploadedFile: null,
-	                      inviteEmail: '',
-                    };
+                    const singleSlotData = slotsData[singleSlot?.id] || createEmptySlotFormData();
                     return (
                       <section className="participant-form-premium participant-form-card rounded-[22px] border border-[#d9e8e5] bg-white p-5 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.52)] sm:p-6 flex flex-col gap-5">
                         <PendingFormsHeroCard
                           eyebrow="1 form needs your attention"
                           title="Finish the required forms to complete your registration."
-                          description="Your spot is reserved. Add the attendee details below to attach this registration to PlanOut Passport."
+                          description="Your spot is reserved. Choose who will complete this entry, then add details or send a claim link."
                         />
 
                         <div className="flex flex-col gap-4">
-                          <SegmentedChoice
-                            size="sm"
-                            value={singleSlotData.deliveryMethod}
-                            onChange={(method) => updateSlotFieldGlobal(singleSlot.id, 'deliveryMethod', method)}
-                            options={[
-                              { value: 'fill', label: 'Fill Details Myself', icon: User },
-                              { value: 'invite', label: 'Invite via Email', icon: Mail },
-                            ]}
+                          <EntryCompletionChoice
+                            name={`checkout-entry-completion-${singleSlot.id}`}
+                            value={singleSlotData.deliveryMethod === 'invite' ? 'claim' : singleSlotData.entryOwner}
+                            onChange={(choice) => updateSlotEntryChoiceGlobal(singleSlot.id, choice)}
+                            selfTakenByAnotherEntry={isSelfOwnerTakenByAnotherEntry(singleSlot.id)}
                           />
-
-                          {singleSlotData.deliveryMethod === 'fill' && (
-                            <CheckoutEntryOwnerChoice
-                              name={`checkout-entry-owner-${singleSlot.id}`}
-                              value={singleSlotData.entryOwner}
-                              onChange={(owner) => updateSlotFieldGlobal(singleSlot.id, 'entryOwner', owner)}
-                              selfTakenByAnotherEntry={isSelfOwnerTakenByAnotherEntry(singleSlot.id)}
-                            />
-                          )}
 
                           {singleSlotData.deliveryMethod === 'fill' ? (
                             <div className="flex flex-col gap-4 animate-in fade-in duration-200 mt-1">
@@ -2151,7 +2075,7 @@ export function CheckoutPage({
                                   onChange={(value) => updateSlotFieldGlobal(singleSlot.id, 'inviteEmail', value)}
                                 />
                                 <p className="text-[11px] text-[#64748b] leading-normal mt-1">
-                                  We will email the form link to this participant.
+                                  We’ll send a claim link to this participant.
                                 </p>
                             </div>
                           )}
@@ -2168,7 +2092,7 @@ export function CheckoutPage({
                                 <span>{singleSlotData.deliveryMethod === 'invite' ? 'Sending...' : 'Submitting...'}</span>
                               </div>
                             ) : (
-                              singleSlotData.deliveryMethod === 'invite' ? 'Send invitation' : 'Save details'
+                              singleSlotData.deliveryMethod === 'invite' ? 'Send claim link' : 'Save details'
                             )}
                           </PrimaryButton>
                         </div>
@@ -2181,7 +2105,7 @@ export function CheckoutPage({
                           <PendingFormsHeroCard
                             eyebrow={`${pendingConfirmationEntries.length} form${pendingConfirmationEntries.length === 1 ? '' : 's'} need your attention`}
                             title="Finish the required forms to complete your registration."
-                            description="Your order is paid and reserved. Choose how each participant receives their entry: a claim link for their Passport or a buyer-filled app-less Guest QR."
+                            description="Your order is paid and reserved. Choose who completes each entry: you, you for someone else, or the participant through a claim link."
                             progress={`${requiredFormsCompleted}/${requiredFormsTotal}`}
                           />
 
@@ -2195,7 +2119,7 @@ export function CheckoutPage({
                                   Player claim links sent!
                                 </p>
                                 <p className="text-xs text-[#047857] mt-1 leading-relaxed">
-                                  Email invites have been automatically sent to <strong>{sentEmails.join(', ')}</strong> now that your payment is complete.
+                                  Claim links have been sent to <strong>{sentEmails.join(', ')}</strong> now that your payment is complete.
                                 </p>
                               </div>
                             </div>
@@ -2812,6 +2736,10 @@ export function CheckoutPage({
                   }));
                 };
 
+                const updateSlotEntryChoice = (choice: EntryCompletionChoiceValue) => {
+                  updateSlotEntryChoiceGlobal(slot.id, choice);
+                };
+
                 const is65K = slot.item.category.includes('65K');
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -2854,7 +2782,7 @@ export function CheckoutPage({
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded-full border border-teal-50 bg-teal-50 px-2.5 py-0.5 text-[10px] font-bold text-teal-700">
                               <Send className="w-3 h-3 text-teal-600" />
-                              Invite: {data.inviteEmail}
+                              Claim link: {data.inviteEmail}
                             </span>
                           )
                         ) : null}
@@ -2873,24 +2801,12 @@ export function CheckoutPage({
                           className="overflow-hidden border-t border-slate-100 bg-white"
                         >
                           <div className="p-5 flex flex-col gap-4">
-                            <SegmentedChoice
-                              size="sm"
-                              value={data.deliveryMethod}
-                              onChange={(method) => updateSlotField('deliveryMethod', method)}
-                              options={[
-                                { value: 'fill', label: 'Fill Details Myself', icon: User },
-                                { value: 'invite', label: 'Invite via Email', icon: Mail },
-                              ]}
+                            <EntryCompletionChoice
+                              name={`checkout-entry-completion-${slot.id}`}
+                              value={data.deliveryMethod === 'invite' ? 'claim' : data.entryOwner}
+                              onChange={updateSlotEntryChoice}
+                              selfTakenByAnotherEntry={isSelfOwnerTakenByAnotherEntry(slot.id)}
                             />
-
-                            {data.deliveryMethod === 'fill' && (
-                              <CheckoutEntryOwnerChoice
-                                name={`checkout-entry-owner-${slot.id}`}
-                                value={data.entryOwner}
-                                onChange={(owner) => updateSlotField('entryOwner', owner)}
-                                selfTakenByAnotherEntry={isSelfOwnerTakenByAnotherEntry(slot.id)}
-                              />
-                            )}
 
                             {data.deliveryMethod === 'fill' ? (
                               <div className="flex flex-col gap-4 animate-in fade-in duration-200 mt-1">

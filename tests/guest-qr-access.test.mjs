@@ -10,6 +10,10 @@ const participantFormSource = fs.readFileSync(
   new URL('../src/app/pages/ParticipantFormPage.tsx', import.meta.url),
   'utf8',
 );
+const completionChoiceSource = fs.readFileSync(
+  new URL('../src/app/components/EntryCompletionChoice.tsx', import.meta.url),
+  'utf8',
+);
 const guestEntrySource = fs.readFileSync(
   new URL('../src/app/pages/GuestEntryPages.tsx', import.meta.url),
   'utf8',
@@ -293,11 +297,12 @@ test('the retired static team form preview route is not reachable', () => {
 });
 
 test('each team player form owns its own Passport or Guest QR choice', () => {
-  assert.match(participantFormSource, /isTeam && isPlayerOnly/);
+  assert.match(participantFormSource, /const isPlayerOnly = Boolean\(\(isTeam \|\| isMultiple\)/);
   assert.match(participantFormSource, /teamEntryOwner/);
   assert.match(participantFormSource, /teamOwnerSelectionLocked/);
-  assert.match(participantFormSource, /const optionDisabled = option\.value === 'self' && teamOwnerSelectionLocked/);
-  assert.match(participantFormSource, /disabled=\{optionDisabled\}/);
+  assert.match(participantFormSource, /EntryCompletionChoice/);
+  assert.match(completionChoiceSource, /const disabled = option\.value === 'self' && selfTakenByAnotherEntry/);
+  assert.match(completionChoiceSource, /disabled=\{disabled\}/);
   assert.match(participantFormSource, /const buyerManagedGuest = isTeam[\s\S]*teamEntryOwner === 'guest'[\s\S]*teamOwnerSelectionLocked/);
 });
 

@@ -30,13 +30,12 @@ test('pending confirmation places View order inside the order summary', () => {
   assert.match(pendingActions, /Do this later/);
 });
 
-test('checkout forms expose the same ownership choice as Orders', () => {
+test('checkout forms expose the same three completion choices as Orders', () => {
   assert.match(checkoutSource, /type CheckoutEntryOwner = 'self' \| 'guest';/);
-  assert.match(checkoutSource, /This entry is for/);
-  assert.match(checkoutSource, /For me/);
-  assert.match(checkoutSource, /Attaches to my Passport/);
-  assert.match(checkoutSource, /For someone else/);
-  assert.match(checkoutSource, /Buyer-filled Guest QR/);
+  assert.match(checkoutSource, /EntryCompletionChoice/);
+  assert.match(checkoutSource, /value=\{singleSlotData\.deliveryMethod === 'invite' \? 'claim' : singleSlotData\.entryOwner\}/);
+  assert.match(checkoutSource, /value=\{data\.deliveryMethod === 'invite' \? 'claim' : data\.entryOwner\}/);
+  assert.match(checkoutSource, /choice === 'claim' \? 'invite' : 'fill'/);
   assert.match(checkoutSource, /entryOwner/);
   assert.match(checkoutSource, /const isPrimary = slot\.id === checkoutSlots\[0\]\?\.id;/);
 });

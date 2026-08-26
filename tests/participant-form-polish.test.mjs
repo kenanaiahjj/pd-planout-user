@@ -14,6 +14,10 @@ const participantSource = fs.readFileSync(
   new URL('../src/app/pages/ParticipantFormPage.tsx', import.meta.url),
   'utf8',
 );
+const completionChoiceSource = fs.readFileSync(
+  new URL('../src/app/components/EntryCompletionChoice.tsx', import.meta.url),
+  'utf8',
+);
 const checkoutSource = fs.readFileSync(
   new URL('../src/app/components/CheckoutPage.tsx', import.meta.url),
   'utf8',
@@ -39,12 +43,15 @@ test('ParticipantFormPage opts into Quiet luxury without changing its structure'
   assert.match(participantSource, /participant-form-event-card/);
   assert.match(participantSource, /participant-form-card/);
   assert.match(participantSource, /participant-form-identity/);
-  assert.match(participantSource, /participant-form-ownership/);
-  assert.match(participantSource, /participant-form-owner-choice/);
+  assert.match(completionChoiceSource, /participant-form-ownership/);
+  assert.match(completionChoiceSource, /participant-form-owner-choice/);
   assert.match(participantSource, /participant-form-upload/);
   assert.match(participantSource, /participant-form-footer/);
-  assert.match(participantSource, /Fill Details Myself/);
-  assert.match(participantSource, /Invite via Email/);
+  assert.match(participantSource, /EntryCompletionChoice/);
+  assert.match(completionChoiceSource, /Who will complete this entry\?/);
+  assert.match(completionChoiceSource, /For me/);
+  assert.match(completionChoiceSource, /For someone else/);
+  assert.match(completionChoiceSource, /Send claim link/);
   assert.match(participantSource, /Save details/);
   assert.match(participantSource, /Submit Form/);
 });
@@ -57,13 +64,11 @@ test('participant form fields stay plain and defer organizer guidance', () => {
   assert.doesNotMatch(participantSource, /This does not match a PlanOut account automatically/);
 });
 
-test('team ownership guidance uses muted secondary text', () => {
-  const ownershipGuidance = participantSource.slice(
-    participantSource.indexOf('{teamOwnerSelectionLocked &&'),
-    participantSource.indexOf('</fieldset>', participantSource.indexOf('{teamOwnerSelectionLocked &&')),
-  );
-  assert.match(ownershipGuidance, /<p className="text-\[11px\] font-medium leading-relaxed text-\[#64748b\]">/);
-  assert.doesNotMatch(ownershipGuidance, /#8a5b08/);
+test('entry completion guidance uses muted secondary text when self is unavailable', () => {
+  assert.match(completionChoiceSource, /selfTakenByAnotherEntry/);
+  assert.match(completionChoiceSource, /<p className="text-\[12px\] font-medium leading-relaxed text-\[#64748b\]">/);
+  assert.match(completionChoiceSource, /This Passport is already used for another player in this order/);
+  assert.doesNotMatch(completionChoiceSource, /#8a5b08/);
 });
 
 test('team participant forms identify the selected slot by player number', () => {
@@ -108,8 +113,8 @@ test('Quiet luxury CSS is scoped and leaves shared defaults untouched', () => {
 test('Checkout scopes Quiet luxury to participant form containers only', () => {
   assert.match(checkoutSource, /participant-form-premium space-y-4/);
   assert.match(checkoutSource, /participant-form-premium participant-form-card rounded-\[22px\]/);
-  assert.match(checkoutSource, /participant-form-ownership flex flex-col gap-2/);
-  assert.match(checkoutSource, /participant-form-owner-choice flex min-h-\[70px\]/);
-  assert.match(checkoutSource, /data-selected=\{selected \? '' : undefined\}/);
+  assert.match(completionChoiceSource, /participant-form-ownership flex flex-col gap-2/);
+  assert.match(completionChoiceSource, /participant-form-owner-choice flex min-h-\[70px\]/);
+  assert.match(completionChoiceSource, /data-selected=\{selected \? '' : undefined\}/);
   assert.doesNotMatch(checkoutSource, /Checkout dev tools[\s\S]{0,900}participant-form-premium/);
 });

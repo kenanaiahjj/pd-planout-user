@@ -46,7 +46,10 @@ import { resolveTeamPlayerAccess, teamPlayerLabel } from '@/app/data/teamAccess.
 import { PrimaryButton } from '@/app/components/PrimaryButton';
 import { SecondaryButton } from '@/app/components/SecondaryButton';
 import { IconButton } from '@/app/components/IconButton';
-import { SegmentedChoice, type SegmentedChoiceOption } from '@/app/components/SegmentedChoice';
+import {
+  EntryCompletionChoice,
+  type EntryCompletionChoiceValue,
+} from '@/app/components/EntryCompletionChoice';
 import { FormTextField } from '@/app/components/FormTextField';
 import { ContactOrganizerButton, OrganizerContactWidget } from '@/app/components/OrganizerContactWidget';
 import { useAppContext, type RegistrationEntryClaimResult } from '@/app/context/AppContext';
@@ -105,30 +108,6 @@ function emptyForm(participant?: Participant): FormData {
 
 type SubView = 'form' | 'sendEmail';
 type SingleEntryOwner = 'self' | 'guest';
-
-function ActionModeTabs({
-  options,
-  value,
-  onChange,
-  columnsClass = 'grid-cols-2 max-w-sm',
-  wrapLabels = false,
-}: {
-  options: SegmentedChoiceOption<SubView>[];
-  value: SubView;
-  onChange: (value: SubView) => void;
-  columnsClass?: string;
-  wrapLabels?: boolean;
-}) {
-  return (
-    <SegmentedChoice
-      options={options}
-      value={value}
-      onChange={onChange}
-      columnsClass={columnsClass}
-      wrapLabels={wrapLabels}
-    />
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -658,8 +637,11 @@ export function ParticipantFormPage({
     requiresEmail: !isMulti,
   });
   const singleEntryOwner: SingleEntryOwner =
-    !isMulti && currentParticipant?.isPrimary === false ? 'guest' : 'self';
+    currentParticipant?.isPrimary === false ? 'guest' : 'self';
   const entryOwner = isTeam ? teamEntryOwner : singleEntryOwner;
+  const completionChoice: EntryCompletionChoiceValue = subView === 'sendEmail'
+    ? 'claim'
+    : entryOwner;
   const isSingleGuestEntry = !isInviteMode && !isMulti && singleEntryOwner === 'guest' && currentParticipant?.accessPath !== 'passport';
   const isBuyerManagedGuestEntry = !isInviteMode && Boolean(
     (currentParticipant?.accessPath === 'guest_qr')
@@ -724,9 +706,9 @@ export function ParticipantFormPage({
       return;
     }
 
+    const originalParticipant = selectedParticipant;
     setParticipants((prev) => {
       const next = [...prev];
-      const originalParticipant = ticket.participants[activeIdx];
       next[activeIdx] = {
         ...next[activeIdx],
         isPrimary: owner === 'self',
@@ -741,9 +723,19 @@ export function ParticipantFormPage({
 
     setForms((prev) => {
       const next = [...prev];
-      next[activeIdx] = owner === 'self' ? emptyForm(ticket.participants[activeIdx]) : emptyForm();
+      next[activeIdx] = owner === 'self' ? emptyForm(originalParticipant) : emptyForm();
       return next;
     });
+  };
+
+  const handleCompletionChoiceChange = (choice: EntryCompletionChoiceValue) => {
+    if (choice === 'claim') {
+      setSubView('sendEmail');
+      return;
+    }
+
+    setSubView('form');
+    handleEntryOwnerChange(choice);
   };
 
   const handleSendFormEmail = () => {
@@ -1125,26 +1117,12 @@ export function ParticipantFormPage({
             {ticket.deadline && <DeadlineBadge deadline={ticket.deadline} />}
 
             {!isInviteMode && !isSentOrDone && (
-              <div className="flex flex-col gap-3">
-                {!isMulti && (
-                  <p className="text-slate-500 text-[13px] font-medium leading-relaxed">
-                    If someone else fills the form from a claim link, the entry attaches to that person's Passport.
-                  </p>
-                )}
-                <ActionModeTabs
-                  value={subView}
-                  onChange={setSubView}
-                  options={isMulti
-                    ? [
-                        { value: 'form', label: 'Fill details', icon: User },
-                        { value: 'sendEmail', label: 'Send claim link', icon: Send },
-                      ]
-                    : [
-                        { value: 'form', label: 'Fill Details Myself', icon: User },
-                        { value: 'sendEmail', label: 'Invite via Email', icon: Mail },
-                      ]}
-                />
-              </div>
+              <EntryCompletionChoice
+                name={`participant-entry-completion-${currentParticipant?.id ?? 'current'}`}
+                value={completionChoice}
+                onChange={handleCompletionChoiceChange}
+                selfTakenByAnotherEntry={teamOwnerSelectionLocked}
+              />
             )}
 
             {/* ============================================================== */}
@@ -1163,68 +1141,6 @@ export function ParticipantFormPage({
             {/* ── FORM VIEW (default) ── */}
             {subView === 'form' && !isSentOrDone && (
               <div className="flex flex-col gap-3">
-                {(!isMulti || (isTeam && isPlayerOnly)) && !isInviteMode && (
-                  <fieldset className="participant-form-ownership flex flex-col gap-2">
-                    <legend className="text-[#181d27] text-[13px] font-semibold">
-                      This entry is for
-                    </legend>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {[
-                        {
-                          value: 'self' as const,
-                          label: 'For me',
-                          description: 'Attaches to my Passport',
-                        },
-                        {
-                          value: 'guest' as const,
-                          label: 'For someone else',
-                          description: 'Buyer-filled Guest QR',
-                        },
-                      ].map((option) => {
-                        const selected = entryOwner === option.value;
-                        const optionDisabled = option.value === 'self' && teamOwnerSelectionLocked;
-                        return (
-                          <label
-                            key={option.value}
-                            data-selected={selected ? '' : undefined}
-                            className={`participant-form-owner-choice flex min-h-[70px] items-start gap-3 rounded-[12px] border px-3.5 py-3 transition-all ${
-                              selected
-                                ? 'border-[#177564] bg-[#f0fdf9] text-[#177564]'
-                                : 'border-[#e2e8f0] bg-white text-[#64748b]'
-                            } ${optionDisabled
-                              ? 'cursor-not-allowed opacity-60'
-                              : 'cursor-pointer hover:border-[#b7ded6] hover:bg-[#f8fbfa]'}`}
-                          >
-                            <input
-                              type="radio"
-                              name="single-entry-owner"
-                              value={option.value}
-                              checked={selected}
-                              onChange={() => handleEntryOwnerChange(option.value)}
-                              disabled={optionDisabled}
-                              className="mt-0.5 h-4 w-4 accent-[#177564]"
-                            />
-                            <span className="min-w-0">
-                              <span className={`block text-[13px] font-semibold ${selected ? 'text-[#177564]' : 'text-[#181d27]'}`}>
-                                {option.label}
-                              </span>
-                              <span className="mt-0.5 block text-[11px] font-medium leading-relaxed text-[#64748b]">
-                                {optionDisabled
-                                  ? 'This Passport is already used for another player in this order'
-                                  : option.description}
-                              </span>
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {teamOwnerSelectionLocked && (
-                    <p className="text-[11px] font-medium leading-relaxed text-[#64748b]">
-                        Use “For someone else” to create this player’s Guest QR. One Passport can represent one player per team order.
-                      </p>
-                    )}
-                  </fieldset>
-                )}
                 {isInviteMode && (
                   <div className="rounded-[12px] border border-[#def2ee] bg-[#f0fdf9] px-3.5 py-3 text-[12px] font-medium leading-relaxed text-[#35635a]">
                     You’re completing your assigned entry. Submit once to attach it to your PlanOut Passport.
@@ -1360,7 +1276,7 @@ export function ParticipantFormPage({
                     {currentParticipant?.inviteStatus === 'invited' &&
                       currentParticipant?.formStatus !== 'completed' && (
                         <span className="inline-flex items-center gap-1 bg-[#eff6ff] text-[#1e40af] text-[10px] font-semibold px-2 py-0.5 rounded-full border border-[#bfdbfe]">
-                          <Clock className="w-3 h-3" /> Invitation Sent
+                          <Clock className="w-3 h-3" /> Claim link sent
                         </span>
                       )}
                     {currentParticipant?.formStatus === 'completed' && (
@@ -1549,8 +1465,8 @@ export function ParticipantFormPage({
                     {isTeam
                       ? 'Send them a claim link. They sign in or create an account, complete their own details, and the entry attaches to their Passport.'
                       : !isMulti
-                        ? 'Send them the form link. They must sign in or create a PlanOut account, fill the form themselves, and this entry attaches to their Passport.'
-                        : 'An invitation to complete this form will be sent to the email address below.'}
+                        ? 'Send them a claim link. They must sign in or create a PlanOut account, fill the form themselves, and this entry attaches to their Passport.'
+                        : 'Send a claim link to the email address below. The participant completes the form and it attaches to their Passport.'}
                   </span>
                 </div>
 
@@ -1579,11 +1495,11 @@ export function ParticipantFormPage({
                 >
                   {emailSent ? (
                     <>
-                      <CheckCircle2 className="w-4 h-4" /> Email Sent!
+                      <CheckCircle2 className="w-4 h-4" /> Claim link sent!
                     </>
                   ) : (
                     <>
-                      <Send className="w-4 h-4" /> Send Form
+                      <Send className="w-4 h-4" /> Send claim link
                     </>
                   )}
                 </SecondaryButton>
