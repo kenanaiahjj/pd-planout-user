@@ -26,6 +26,10 @@ const rootLayoutSource = fs.readFileSync(
   new URL('../src/app/layouts/RootLayout.tsx', import.meta.url),
   'utf8',
 );
+const navigationSource = fs.readFileSync(
+  new URL('../src/app/data/navigation.js', import.meta.url),
+  'utf8',
+);
 const teamAccessSource = fs.readFileSync(
   new URL('../src/app/data/teamAccess.js', import.meta.url),
   'utf8',
@@ -62,7 +66,8 @@ test('the floating attention card remains available on Home while task surfaces 
 });
 
 test('floating forms shortcut opens Orders with Pending selected', () => {
-  assert.match(rootLayoutSource, /onPress=\{\(\) => navTo\('\/orders\?filter=pending'\)\}/);
+  assert.match(navigationSource, /export const ORDERS_PENDING_PATH = '\/orders\?filter=pending'/);
+  assert.match(rootLayoutSource, /onPress=\{\(\) => navTo\(ORDERS_PENDING_PATH\)\}/);
   assert.match(ordersSource, /export function getOrderFilterFromSearch\(search: string\): OrderFilter/);
   assert.match(ordersSource, /const \{ search \} = useLocation\(\);/);
   assert.match(ordersSource, /useState<OrderFilter>\(\(\) => getOrderFilterFromSearch\(search\)\)/);
