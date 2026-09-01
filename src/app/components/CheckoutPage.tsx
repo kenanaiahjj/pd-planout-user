@@ -47,7 +47,6 @@ import {
   type EntryCompletionChoiceValue,
 } from './EntryCompletionChoice';
 import { FormTextField } from './FormTextField';
-import { ConfirmDialog } from './ConfirmDialog';
 import { useAppContext } from '@/app/context/AppContext';
 import {
   OrderPaymentSummary,
@@ -55,7 +54,18 @@ import {
 import {
   type RegistrationQueueEntry,
   type TeamPlayerAccessPath,
+  type EntryStatus,
+  type MyTicket,
 } from '@/app/data/tickets';
+import {
+  RegistrationItem,
+  TeamRegistrationItem,
+  GroupedRegistrationList,
+  ParticipantFormShareControls,
+  registrationQueueFallback,
+  type OrderEventEntry,
+  type OrderRecord,
+} from '@/app/components/RegistrationItemComponents';
 
 import imgGcashLogo from "@/assets/361b5ff808595f5b0ded183dc36121f71aa9d6bf.png";
 import imgMayaLogo from "@/assets/65ebd716d42cf572d26c663985c86d40104a8c69.png";
@@ -567,7 +577,19 @@ export function CheckoutPage({
   };
 
   const navigate = useNavigate();
-  const { member, setCheckoutConfirmed, seedRegistrationQueue, checkoutIntent } = useAppContext();
+  const {
+    member,
+    setCheckoutConfirmed,
+    seedRegistrationQueue,
+    sendRegistrationInvite,
+    rescindRegistrationInvite,
+    registrationQueueEntries,
+    teamPlayerAccess,
+    teamPlayerRoster,
+    setTeamPlayerAccess,
+    setTeamPlayerRoster,
+    checkoutIntent,
+  } = useAppContext();
 
   // Whether we're showing confirmation or the checkout form
   const [isConfirmation, setIsConfirmation] = useState(false);
@@ -923,23 +945,31 @@ export function CheckoutPage({
   // Define checkoutSlots for all tickets in the cart
   const checkoutSlots = useMemo(() => {
     const slots: { id: string; label: string; item: OrderItem; guestIndex?: number }[] = [];
+    const categoryCounts: Record<string, number> = {};
+
     displayedItems.forEach((item, index) => {
-      if (index === 0) {
+      const key = `${item.eventName}-${item.category}`;
+      const existingCount = categoryCounts[key] || 0;
+
+      if (index === 0 && displayedItems.length === 1 && itemQuantity > 1) {
         for (let q = 0; q < itemQuantity; q++) {
           slots.push({
             id: `${item.id}-${q}`,
-            label: q === 0 ? `${item.category} (Buyer)` : `${item.category} (Guest ${q})`,
+            label: q === 0 ? 'Buyer' : `Guest ${q}`,
             item,
             guestIndex: q,
           });
         }
+        categoryCounts[key] = itemQuantity;
       } else {
+        const guestIndex = existingCount;
         slots.push({
           id: `${item.id}-0`,
-          label: item.category,
+          label: guestIndex === 0 ? 'Buyer' : `Guest ${guestIndex}`,
           item,
-          guestIndex: 0,
+          guestIndex,
         });
+        categoryCounts[key] = existingCount + 1;
       }
     });
     return slots;
@@ -1051,14 +1081,14 @@ export function CheckoutPage({
     if (data.deliveryMethod === 'fill') {
       const is65K = item.category.includes('65K');
       return !!(
-        data.firstName.trim() &&
-        data.lastName.trim() &&
-        data.email.trim() &&
+        data.firstName?.trim() &&
+        data.lastName?.trim() &&
+        data.email?.trim() &&
         emailRegexShared.test(data.email.trim()) &&
         (!is65K || data.uploadedFile)
       );
     }
-    return !!(data.inviteEmail.trim() && emailRegexShared.test(data.inviteEmail.trim()));
+    return !!(data.inviteEmail?.trim() && emailRegexShared.test(data.inviteEmail.trim()));
   };
 
   // Progress across the consolidated pre-payment (gated) step.
@@ -1117,6 +1147,164 @@ export function CheckoutPage({
       .map((s) => s.inviteEmail.trim());
   }, [slotsData]);
 
+  // Pre-checkout registration data unified with Order Details architecture
+  const preCheckoutEntries: OrderEventEntry[] = useMemo(() => {
+    return allGatedSlots.map((slot) => {
+      const isTeam = slot.item.category.includes('Team');
+      const isBuyerSlot = slot.guestIndex === 0;
+      const queueEntry = registrationQueueEntries.find(
+        (e) => e.id === slot.id || e.id === `checkout-${slot.id}`
+      );
+      const isFormComplete = slot.item.formComplete || queueEntry?.entryStatus === 'attached';
+      const isInvited = queueEntry?.inviteStatus === 'invited';
+      const entryStatus: EntryStatus = isFormComplete ? 'attached' : 'pending_form';
+      const attendeeName = queueEntry?.personName || (isBuyerSlot ? (member.displayName || userName || 'You') : `Guest ${slot.guestIndex}`);
+      const accessPath: TeamPlayerAccessPath = isFormComplete ? 'passport' : 'pending';
+
+      const eventId = slot.item.eventId || `event-${slot.item.eventName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      const ticketId = slot.item.id || `ticket-${slot.item.category.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
+      const mockTicket: MyTicket = {
+        id: ticketId,
+        eventId: eventId,
+        eventTitle: slot.item.eventName,
+        eventDate: slot.item.eventDate || 'May 30, 2026 at 6:00 AM',
+        eventLocation: slot.item.eventLocation || 'Negros Oriental Sports Complex, Dumaguete City',
+        organizer: slot.item.organizer || 'PlanOut Organizer',
+        image: slot.item.image || NUTRI_RUN_EVENT_IMAGE,
+        labels: [slot.item.category],
+        ticketType: isTeam ? 'team' : 'single',
+        ticketTypeName: slot.item.category,
+        status: isFormComplete ? 'completed' : 'action_required',
+        entryStatus: isFormComplete ? 'attached' : 'pending_form',
+        quantity: 1,
+        participants: isTeam
+          ? (teamPlayerRoster[slot.id] || [
+              {
+                id: `${slot.id}-p1`,
+                name: member.displayName || userName || 'You',
+                email: 'jessica@email.com',
+                isPrimary: true,
+                formStatus: 'completed' as const,
+                accessPath: 'passport' as const,
+              },
+              {
+                id: `${slot.id}-p2`,
+                name: null,
+                email: null,
+                isPrimary: false,
+                formStatus: 'not_started' as const,
+                inviteStatus: 'not_invited' as const,
+                accessPath: 'pending' as const,
+              },
+            ])
+          : [
+              {
+                id: `${slot.id}-p1`,
+                name: isFormComplete ? attendeeName : null,
+                email: queueEntry?.inviteEmail || (isBuyerSlot ? 'jessica@email.com' : null),
+                isPrimary: isBuyerSlot,
+                formStatus: isFormComplete ? 'completed' as const : 'not_started' as const,
+                inviteStatus: isInvited ? 'invited' as const : 'not_invited' as const,
+                accessPath,
+              },
+            ],
+        confirmationRef: 'CHECKOUT-PENDING',
+        purchaseDate: 'Today',
+        deadline: 'May 30, 2026',
+        minParticipants: isTeam ? 2 : undefined,
+        maxParticipants: isTeam ? 4 : undefined,
+      };
+
+      return {
+        id: slot.id,
+        ticket: mockTicket,
+        entryName: `${slot.item.eventName} - ${slot.item.category} (${slot.label})`,
+        participantName: attendeeName,
+        participantLabel: slot.label,
+        attendeeEmail: queueEntry?.inviteEmail,
+        category: slot.item.category,
+        status: entryStatus,
+        type: isTeam ? ('team' as const) : isBuyerSlot ? ('self' as const) : ('guest' as const),
+        participantId: `${slot.id}-p1`,
+        accessPath,
+        price: slot.item.price,
+        queueEntry,
+        buyerAttending: true,
+        inviteStatus: queueEntry?.inviteStatus || 'not_invited',
+        claimLinkRevoked: queueEntry?.claimLinkRevoked,
+      };
+    });
+  }, [allGatedSlots, registrationQueueEntries, member.displayName, userName, teamPlayerRoster]);
+
+  const preCheckoutOrder: OrderRecord = useMemo(() => {
+    return {
+      id: 'checkout-pending-order',
+      ref: 'CHECKOUT-PENDING',
+      date: 'Today',
+      name: checkoutIntent?.eventName || 'Checkout Registration',
+      eventEntries: preCheckoutEntries,
+      paymentStatus: 'Pending',
+      paymentMethod: 'GCash',
+      paymentDate: 'Pending',
+      fees: 95,
+      image: checkoutIntent?.image || NUTRI_RUN_EVENT_IMAGE,
+    };
+  }, [checkoutIntent, preCheckoutEntries]);
+
+  // Seed registrationQueueEntries if needed
+  useEffect(() => {
+    if (showPreCheckoutForms && preCheckoutEntries.length > 0) {
+      const neededQueueEntries: RegistrationQueueEntry[] = preCheckoutEntries
+        .filter((e) => !registrationQueueEntries.some((q) => q.id === e.id || q.id === `checkout-${e.id}`))
+        .map((e) => registrationQueueFallback(e, preCheckoutOrder));
+      if (neededQueueEntries.length > 0) {
+        seedRegistrationQueue(neededQueueEntries, preCheckoutOrder.ref);
+      }
+    }
+  }, [showPreCheckoutForms, preCheckoutEntries, registrationQueueEntries, preCheckoutOrder, seedRegistrationQueue]);
+
+  const isAllGatedReady = useMemo(() => {
+    if (preCheckoutEntries.length === 0) return true;
+    return preCheckoutEntries.every((entry) => {
+      if (entry.type === 'team') {
+        const roster = teamPlayerRoster[entry.ticket.id] || entry.ticket.participants;
+        return roster.every((p) => {
+          const key = `${entry.ticket.id}:${p.id}`;
+          const access = teamPlayerAccess[key] || p.accessPath;
+          return p.formStatus === 'completed' || p.inviteStatus === 'invited' || access === 'guest_qr' || access === 'passport';
+        });
+      }
+      return entry.status === 'attached' || entry.inviteStatus === 'invited' || entry.accessPath === 'passport' || entry.accessPath === 'guest_qr';
+    });
+  }, [preCheckoutEntries, teamPlayerRoster, teamPlayerAccess]);
+
+  const pendingGatedCount = useMemo(() => {
+    return preCheckoutEntries.filter((entry) => {
+      if (entry.type === 'team') {
+        const roster = teamPlayerRoster[entry.ticket.id] || entry.ticket.participants;
+        const readyCount = roster.filter((p) => {
+          const key = `${entry.ticket.id}:${p.id}`;
+          const access = teamPlayerAccess[key] || p.accessPath;
+          return p.formStatus === 'completed' || p.inviteStatus === 'invited' || access === 'guest_qr' || access === 'passport';
+        }).length;
+        return readyCount < roster.length;
+      }
+      return !(entry.status === 'attached' || entry.inviteStatus === 'invited' || entry.accessPath === 'passport' || entry.accessPath === 'guest_qr');
+    }).length;
+  }, [preCheckoutEntries, teamPlayerRoster, teamPlayerAccess]);
+
+  const handleContinueToPayment = () => {
+    setOrderItems((prev) =>
+      prev.map((item) =>
+        getItemFormTiming(item) === 'before_checkout' ? { ...item, formComplete: true } : item
+      )
+    );
+    toast.success('Registration saved', {
+      description: 'Proceed with payment to complete your order.',
+    });
+  };
+
   // Reservation countdown (15 min from mount)
   const [reservationEnd] = useState(() => new Date(Date.now() + 15 * 60 * 1000));
   const calcReservation = useCallback(() => {
@@ -1152,13 +1340,13 @@ export function CheckoutPage({
         if (slotData) {
           if (slotData.deliveryMethod === 'invite') {
             personName = 'Guest (unassigned)';
-            inviteEmail = slotData.inviteEmail.trim() || userEmail;
+            inviteEmail = (slotData.inviteEmail || '').trim() || userEmail;
             isInvited = true;
             entryType = 'guest';
             accessPath = 'pending';
           } else {
-            personName = `${slotData.firstName} ${slotData.lastName}`.trim() || personName;
-            inviteEmail = slotData.email.trim() || inviteEmail;
+            personName = `${slotData.firstName || ''} ${slotData.lastName || ''}`.trim() || personName;
+            inviteEmail = (slotData.email || '').trim() || inviteEmail;
             entryType = slotData.entryOwner === 'guest' ? 'guest' : 'self';
             accessPath = slotData.entryOwner === 'guest' ? 'guest_qr' : 'passport';
           }
@@ -1189,7 +1377,7 @@ export function CheckoutPage({
         // Group purchase (multiple tickets)
         const completedCount = Array.from({ length: itemQuantity }).filter((_, q) => {
           const sd = slotsData[`${item.id}-${q}`];
-          return sd && sd.deliveryMethod === 'fill' && (q === 0 || sd.firstName.trim().length > 0);
+          return sd && sd.deliveryMethod === 'fill' && (q === 0 || (sd.firstName || '').trim().length > 0);
         }).length;
 
         let status: EntryStatus = 'attached';
@@ -1206,24 +1394,24 @@ export function CheckoutPage({
         if (buyerSlot) {
           if (buyerSlot.deliveryMethod === 'invite') {
             personName = 'Guest (unassigned)';
-            inviteEmail = buyerSlot.inviteEmail.trim() || userEmail;
+            inviteEmail = (buyerSlot.inviteEmail || '').trim() || userEmail;
           } else {
-            personName = `${buyerSlot.firstName} ${buyerSlot.lastName}`.trim() || personName;
-            inviteEmail = buyerSlot.email.trim() || inviteEmail;
+            personName = `${buyerSlot.firstName || ''} ${buyerSlot.lastName || ''}`.trim() || personName;
+            inviteEmail = (buyerSlot.email || '').trim() || inviteEmail;
           }
         }
 
         const emails = Array.from({ length: itemQuantity - 1 }).map((_, idx) => {
           const sd = slotsData[`${item.id}-${idx + 1}`];
-          return sd && sd.deliveryMethod === 'invite' ? sd.inviteEmail.trim() : '';
+          return sd && sd.deliveryMethod === 'invite' ? (sd.inviteEmail || '').trim() : '';
         });
 
         const details = Array.from({ length: itemQuantity - 1 }).map((_, idx) => {
           const sd = slotsData[`${item.id}-${idx + 1}`];
-          if (sd && sd.deliveryMethod === 'fill' && sd.firstName.trim().length > 0) {
+          if (sd && sd.deliveryMethod === 'fill' && (sd.firstName || '').trim().length > 0) {
             return {
-              name: `${sd.firstName} ${sd.lastName}`.trim(),
-              email: sd.email.trim(),
+              name: `${sd.firstName || ''} ${sd.lastName || ''}`.trim(),
+              email: (sd.email || '').trim(),
             };
           }
           return null;
@@ -1261,12 +1449,12 @@ export function CheckoutPage({
     if (slotData) {
       if (slotData.deliveryMethod === 'invite') {
         personName = 'Guest (unassigned)';
-        inviteEmail = slotData.inviteEmail.trim() || userEmail;
+        inviteEmail = (slotData.inviteEmail || '').trim() || userEmail;
         isInvited = true;
         accessPath = 'pending';
       } else {
-        personName = `${slotData.firstName} ${slotData.lastName}`.trim() || personName;
-        inviteEmail = slotData.email.trim() || inviteEmail;
+        personName = `${slotData.firstName || ''} ${slotData.lastName || ''}`.trim() || personName;
+        inviteEmail = (slotData.email || '').trim() || inviteEmail;
         buyerManagedGuest = slotData.entryOwner === 'guest';
         accessPath = buyerManagedGuest ? 'guest_qr' : 'passport';
       }
@@ -2665,269 +2853,51 @@ export function CheckoutPage({
           )}
 
           {showPreCheckoutForms && (
-            <div className="participant-form-premium space-y-4 pt-[124px] lg:pt-0" data-pre-payment-gate>
-              <div
-                aria-hidden
-                className="pointer-events-none fixed inset-x-0 top-0 z-10 h-[172px] bg-[#f8fafc]/96 lg:hidden"
-              />
-              <div className="fixed inset-x-0 top-[70px] z-20 border-b border-[#dce5e1] bg-[#f8fafc]/96 px-4 py-3 shadow-none sm:px-8 lg:sticky lg:left-auto lg:right-auto lg:top-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#eef8f5] text-[#177564]">
-                      <ClipboardList className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold text-[#6a817b]">
-                        Required before payment
-                      </p>
-                      <h2 className="mt-0.5 truncate text-[14px] font-semibold leading-tight text-[#18201d]">
-                        Participant details
-                      </h2>
-                    </div>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-[#dce5e1] bg-[#f8fafc] px-2.5 py-1 text-[12px] font-semibold text-[#34413c]">
-                    {preCheckoutCompleteCount}/{preCheckoutTotalCount}
-                  </span>
+            <div className="flex flex-col gap-6" data-pre-payment-gate>
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <div>
+                  <h1 className="text-[28px] sm:text-[36px] font-semibold text-[#181d27] leading-none tracking-tight">
+                    Registration
+                  </h1>
+                  <p className="mt-2 text-[13px] font-medium text-[#64748b]">
+                    Forms required by organizer before payment
+                  </p>
                 </div>
 
-                <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {preCheckoutVisibleSlots.map((slot, index) => {
-                    const data = slotsData[slot.id];
-                    const isActive = activeSlotId === slot.id;
-                    const isComplete = isSlotComplete(data, slot.item);
-                    return (
-                      <button
-                        key={slot.id}
-                        type="button"
-                        onClick={() => setActiveSlotId(slot.id)}
-                        aria-current={isActive ? 'step' : undefined}
-                        className={`flex min-h-[50px] min-w-[190px] max-w-[230px] shrink-0 items-center gap-2 rounded-[11px] border px-2.5 text-left transition-colors active:scale-[0.99] sm:min-w-[210px] ${isActive ? 'border-[#b8cec7] bg-[#f8fbfa]' : 'border-[#e5ece8] bg-white hover:bg-[#f8fafc]'}`}
-                      >
-                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${isComplete ? 'bg-[#e4f4ef] text-[#177564]' : isActive ? 'bg-[#eef8f5] text-[#177564]' : 'bg-[#f1f5f3] text-[#6a817b]'}`}>
-                          {isComplete ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-[11px] font-semibold leading-tight text-[#34413c]">
-                            {slot.item.category}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[10px] font-medium text-[#6a817b]">
-                            {slot.item.eventName}{slot.guestIndex !== 0 ? ` · Guest ${slot.guestIndex}` : ''}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <ParticipantFormShareControls
+                  order={preCheckoutOrder}
+                  entries={preCheckoutEntries}
+                  onShareEntries={(draftEntries) => {
+                    draftEntries.forEach((draft) => {
+                      sendRegistrationInvite(
+                        draft.queueEntry?.id || draft.id,
+                        draft.attendeeEmail || '',
+                        draft.queueEntry || registrationQueueFallback(draft, preCheckoutOrder),
+                      );
+                    });
+                  }}
+                />
               </div>
 
-              {preCheckoutVisibleSlots
-                .filter((slot, index) => (activeSlotId ? slot.id === activeSlotId : index === 0))
-                .map((slot) => {
-                const data = slotsData[slot.id];
-                if (!data) return null;
+              <GroupedRegistrationList
+                order={preCheckoutOrder}
+                entries={preCheckoutEntries}
+                isPreCheckout={true}
+              />
 
-                const updateSlotField = (field: keyof SlotFormData, value: any) => {
-                  setSlotsData((prev) => ({
-                    ...prev,
-                    [slot.id]: {
-                      ...prev[slot.id],
-                      [field]: value,
-                    },
-                  }));
-                };
+              {afterCheckoutPreviewItems.length > 0 && (
+                <DeferredCheckoutFormsSummary items={afterCheckoutPreviewItems} />
+              )}
 
-                const updateSlotEntryChoice = (choice: EntryCompletionChoiceValue) => {
-                  updateSlotEntryChoiceGlobal(slot.id, choice);
-                };
-
-                const is65K = slot.item.category.includes('65K');
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-                const isFilledComplete = !!(
-	                  data.firstName.trim() &&
-	                  data.lastName.trim() &&
-	                  data.email.trim() &&
-	                  emailRegex.test(data.email.trim()) &&
-	                  (!is65K || data.uploadedFile)
-	                );
-
-                const isInviteComplete = !!(
-                  data.inviteEmail.trim() &&
-                  emailRegex.test(data.inviteEmail.trim())
-                );
-
-                const isCompleted = data.deliveryMethod === 'fill' ? isFilledComplete : isInviteComplete;
-                const isActive = activeSlotId === slot.id;
-
-                return (
-                  <div key={slot.id} className="participant-form-card overflow-hidden rounded-[16px] border border-[#d5e3df] bg-white shadow-[0_8px_18px_-16px_rgba(15,23,42,0.42)] transition-all duration-300">
-                    {/* Header */}
-	                    <div className="flex w-full items-center justify-between px-5 py-4 text-left">
-                      <div className="flex-1 min-w-0 pr-3">
-                        <h3 className="text-[16px] font-semibold leading-tight tracking-[-0.3px] text-[#181d27] truncate">
-                          {slot.label}
-                        </h3>
-                        <p className="mt-1 truncate text-[12px] font-medium text-[#64748b]">
-                          {slot.item.label}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2.5 shrink-0">
-                        {isCompleted ? (
-                          data.deliveryMethod === 'fill' ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-[#ecfdf5] bg-[#ecfdf5] px-2.5 py-0.5 text-[10px] font-bold text-[#047857]">
-                              <CheckCircle2 className="w-3 h-3 text-[#047857]" />
-                              Ready
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-teal-50 bg-teal-50 px-2.5 py-0.5 text-[10px] font-bold text-teal-700">
-                              <Send className="w-3 h-3 text-teal-600" />
-                              Claim link: {data.inviteEmail}
-                            </span>
-                          )
-                        ) : null}
-                        
-	                      </div>
-	                    </div>
-
-                    {/* Expandable Form Body */}
-                    <AnimatePresence initial={false}>
-                      {isActive && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.25, ease: 'easeInOut' }}
-                          className="overflow-hidden border-t border-slate-100 bg-white"
-                        >
-                          <div className="p-5 flex flex-col gap-4">
-                            <EntryCompletionChoice
-                              name={`checkout-entry-completion-${slot.id}`}
-                              value={data.deliveryMethod === 'invite' ? 'claim' : data.entryOwner}
-                              onChange={updateSlotEntryChoice}
-                              selfTakenByAnotherEntry={isSelfOwnerTakenByAnotherEntry(slot.id)}
-                            />
-
-                            {data.deliveryMethod === 'fill' ? (
-                              <div className="flex flex-col gap-4 animate-in fade-in duration-200 mt-1">
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                  <FormTextField
-                                    label="First name"
-                                    required
-                                    placeholder="Jessica"
-                                    value={data.firstName}
-                                    onChange={(value) => updateSlotField('firstName', value)}
-                                  />
-
-                                  <FormTextField
-                                    label="Last name"
-                                    required
-                                    placeholder="Sanchez"
-                                    value={data.lastName}
-                                    onChange={(value) => updateSlotField('lastName', value)}
-                                  />
-
-                                  <FormTextField
-                                    label="Email address"
-                                    required
-                                    type="email"
-                                    placeholder="jessica@email.com"
-                                    value={data.email}
-                                    onChange={(value) => updateSlotField('email', value)}
-                                  />
-
-                                  <FormTextField
-                                    label="Contact number"
-                                    placeholder="0917 123 4567"
-                                    value={data.phone}
-                                    onChange={(value) => updateSlotField('phone', value)}
-                                  />
-                                </div>
-
-                                <div className="flex flex-col gap-1.5">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-[12px] font-semibold text-[#344054]">Required document {is65K && <span className="text-red-500">*</span>}</label>
-                                  </div>
-                                  <p className="text-[12px] text-[#64748b] leading-normal -mt-0.5">
-                                    Upload the file requested by the organizer, such as a waiver, medical certificate, or ID.
-                                  </p>
-                                  {data.uploadedFile ? (
-                                    <div className="participant-form-upload flex items-center justify-between rounded-xl border border-[#a7f3d0] bg-[#ecfdf5] p-3">
-                                      <div className="flex min-w-0 items-center gap-2">
-                                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-[#059669]">
-                                          <CheckCircle2 className="h-4 w-4" />
-                                        </span>
-                                        <div className="min-w-0">
-                                          <p className="truncate text-xs font-semibold text-[#065f46]">{data.uploadedFile}</p>
-                                          <p className="text-[9px] text-[#059669]">Upload verified successfully</p>
-                                        </div>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => updateSlotField('uploadedFile', null)}
-                                        className="rounded-full p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 cursor-pointer"
-                                      >
-                                        <X className="h-3.5 w-3.5" />
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        updateSlotField('uploadedFile', 'medical_clearance_sanchez.pdf');
-                                        toast.success('File Uploaded', { description: `medical_clearance_sanchez.pdf attached for ${slot.label}.` });
-                                      }}
-                                      className="participant-form-upload flex cursor-pointer select-none flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-4 text-center transition-all hover:border-[#177564]/40 hover:bg-slate-50"
-                                    >
-                                      <span className="mb-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-400 shadow-xs">
-                                        <Plus className="h-4.5 w-4.5" />
-                                      </span>
-                                      <span className="text-[12px] font-semibold text-slate-700">Upload document</span>
-                                      <span className="text-[10px] text-slate-400">PDF, JPG, PNG up to 5MB</span>
-                                    </button>
-                                  )}
-                                </div>
-
-	                              </div>
-                            ) : (
-                              <div className="flex flex-col gap-3 animate-in fade-in duration-200 mt-1">
-                                <FormTextField
-                                  label="Participant email"
-                                  required
-                                  type="email"
-                                  placeholder="participant@email.com"
-                                  value={data.inviteEmail}
-                                  onChange={(value) => updateSlotField('inviteEmail', value)}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })}
-
-              <DeferredCheckoutFormsSummary items={afterCheckoutPreviewItems} />
-
-              <div className="mt-1 flex flex-col gap-2">
+              <div className="mt-2 flex flex-col gap-3">
                 <PrimaryButton
                   type="button"
-                  onClick={handleInlineSubmit}
-                  disabled={isSubmittingForm || gatedCompleteCount < gatedTotalCount}
-                  aria-disabled={isSubmittingForm || gatedCompleteCount < gatedTotalCount}
+                  onClick={handleContinueToPayment}
+                  disabled={!isAllGatedReady}
                   fullWidth
-                  className="h-14 rounded-full px-8 text-sm shadow-[0_16px_28px_-18px_rgba(23,117,100,0.72)]"
+                  className="h-13 rounded-full text-[14px] shadow-[0_16px_28px_-18px_rgba(23,117,100,0.72)]"
                 >
-                  {isSubmittingForm ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving...
-                    </span>
-                  ) : (
-                    'Save details and continue'
-                  )}
+                  {isAllGatedReady ? 'Continue to payment' : `${pendingGatedCount} form${pendingGatedCount === 1 ? '' : 's'} needed before payment`}
                 </PrimaryButton>
               </div>
             </div>

@@ -329,9 +329,9 @@ function ViewFormModal({
 
   // Required fields checklist
   const fields: { label: string; filled: boolean; value: string }[] = [
-    { label: 'First Name', filled: form.firstName.trim() !== '', value: form.firstName },
-    { label: 'Last Name', filled: form.lastName.trim() !== '', value: form.lastName },
-    ...(!isMulti ? [{ label: 'Email', filled: form.email.trim() !== '', value: form.email }] : []),
+    { label: 'First Name', filled: (form.firstName || '').trim() !== '', value: form.firstName || '' },
+    { label: 'Last Name', filled: (form.lastName || '').trim() !== '', value: form.lastName || '' },
+    ...(!isMulti ? [{ label: 'Email', filled: (form.email || '').trim() !== '', value: form.email || '' }] : []),
     { label: 'Waiver', filled: !!form.waiver, value: form.waiver || '' },
   ];
   const filledCount = fields.filter((f) => f.filled).length;
@@ -789,7 +789,7 @@ export function ParticipantFormPage({
           formStatus: 'completed',
           inviteStatus: 'accepted',
           accessPath: 'passport',
-          name: `${currentForm.firstName} ${currentForm.lastName}`.trim() || next[activeIdx].name,
+          name: `${currentForm.firstName || ''} ${currentForm.lastName || ''}`.trim() || next[activeIdx].name,
           email: currentForm.email || next[activeIdx].email,
         };
         return next;
@@ -1056,11 +1056,11 @@ export function ParticipantFormPage({
                     const filled = key === 'waiver'
                       ? !!currentForm.waiver
                       : key === 'firstName'
-                        ? currentForm.firstName.trim() !== ''
+                        ? (currentForm.firstName || '').trim() !== ''
                         : key === 'lastName'
-                          ? currentForm.lastName.trim() !== ''
+                          ? (currentForm.lastName || '').trim() !== ''
                           : key === 'email'
-                            ? currentForm.email.trim() !== ''
+                            ? (currentForm.email || '').trim() !== ''
                             : false;
                     const preview = key !== 'waiver' && filled
                       ? String(currentForm[key as keyof FormData] ?? '')
@@ -1566,7 +1566,7 @@ export function ParticipantFormPage({
               {isSentOrDone ? (
                 <>
                   <PrimaryButton onClick={onGoToTickets} fullWidth className="py-2.5">
-                    Back to Orders
+                    {isPreCheckout ? 'Continue checkout' : 'Back to Orders'}
                   </PrimaryButton>
                   {currentParticipant?.inviteStatus === 'invited' && currentParticipant?.formStatus !== 'completed' && (
                     <p className="text-[#94a3b8] text-[11px] text-center">

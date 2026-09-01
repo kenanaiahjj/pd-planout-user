@@ -184,10 +184,6 @@ export function ParticipantFormRoute() {
   const playerOnly = searchParams.get('playerOnly') === '1';
   const buyerFill = searchParams.get('buyerFill') === '1';
 
-  if (returnToCheckout) {
-    return <Navigate to="/checkout" replace />;
-  }
-
   const entry = registrationQueueEntries.find((item) =>
     (entryId && item.id === entryId) || (!entryId && ticketId && item.ticketId === ticketId),
   );
@@ -225,19 +221,7 @@ export function ParticipantFormRoute() {
         )),
       }
     : rawTicket;
-  const ticket = (buyerFillTicket && returnToCheckout)
-    ? {
-        ...buyerFillTicket,
-        status: 'action_required' as const,
-        entryStatus: 'pending_form' as const,
-        participants: buyerFillTicket.participants.map(p => ({
-          ...p,
-          formStatus: 'not_started' as const,
-          name: '',
-          email: '',
-        }))
-      }
-    : buyerFillTicket;
+  const ticket = buyerFillTicket;
 
   const passportEventsParams = new URLSearchParams({ focus: 'forms' });
   if (entryId) passportEventsParams.set('entryId', entryId);
@@ -259,6 +243,7 @@ export function ParticipantFormRoute() {
 
   const goToQueueOrOrders = () => {
     if (returnToCheckout) {
+      persistBuyerCompletion();
       navigate('/checkout?formFilled=1');
       return;
     }

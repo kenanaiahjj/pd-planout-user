@@ -24,7 +24,23 @@ export function CheckoutRoute() {
           phone: '0917 123 4567',
         }));
       }
-      if (!checkoutIntent) {
+      if (window.location.hash.includes('demo-same') || window.location.hash.includes('demo-multi')) {
+        setCheckoutIntent({
+          eventName: 'NegOr50•50 Series 2: NUTRI-RUN 65',
+          category: '65K Ultramarathon Entry (Solo)',
+          price: 4500,
+          image: '',
+          items: [
+            {
+              ticketId: 'tkt-65k',
+              category: '65K Ultramarathon Entry (Solo)',
+              eventName: 'NegOr50•50 Series 2: NUTRI-RUN 65',
+              price: 1500,
+              qty: 3,
+            },
+          ],
+        });
+      } else if (!checkoutIntent) {
         setCheckoutIntent({
           eventName: 'NegOr50•50 Series 2: NUTRI-RUN 65',
           category: '3 ticket types',
