@@ -24,7 +24,7 @@ export function createCartEventFromAddition({
       price: item.price,
       quantity: item.qty,
       image: item.image || image,
-      formTiming: item.formTiming,
+      ...(item.formTiming ? { formTiming: item.formTiming } : {}),
     })),
   };
 }
