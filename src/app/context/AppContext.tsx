@@ -8,7 +8,7 @@ import { hasAccountSession } from '@/app/data/session.js';
  */
 
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
-import { type EventData } from '@/app/data/events';
+import { type EventData, type FormTiming } from '@/app/data/events';
 import {
   MY_TICKETS,
   createRegistrationQueueEntries,
@@ -72,6 +72,7 @@ export interface CheckoutIntentItem {
   price: number;
   eventName?: string;
   image?: string;
+  formTiming?: FormTiming;
 }
 
 export interface CheckoutIntent {
@@ -90,6 +91,7 @@ export interface CartItem {
   price: number;
   quantity: number;
   image: string;
+  formTiming?: FormTiming;
   countdownEnd?: Date;
   holdingEnd?: Date;
 }

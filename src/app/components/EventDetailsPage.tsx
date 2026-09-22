@@ -23,7 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
-import { type EventData } from '@/app/data/events';
+import { getEventFormTiming, type EventData } from '@/app/data/events';
 import {
   formatEventDateOnly,
   formatEventDateRange,
@@ -639,6 +639,7 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
               price: item.price,
               eventName: event.title,
               image: event.image || '',
+              formTiming: getEventFormTiming(event),
             })));
           }}
           onCheckout={(items, total) => {
@@ -650,6 +651,7 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
               price: item.price,
               eventName: event.title,
               image: event.image || '',
+              formTiming: getEventFormTiming(event),
             }));
             const category = items.length === 1
               ? items[0].category

@@ -30,7 +30,7 @@ import {
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { type CheckoutIntentItem } from '@/app/context/AppContext';
 import { getBrandPanelStyle, getEventBrand } from '@/app/data/eventBrand';
-import { type EventData } from '@/app/data/events';
+import { getEventFormTiming, type EventData } from '@/app/data/events';
 import { PrimaryButton } from './PrimaryButton';
 import { GetTicketsModal, getCheapestTicketPriceLabel } from './GetTicketsModal';
 
@@ -523,6 +523,7 @@ export function EventPeekPanel({
               price: item.price,
               eventName: event.title,
               image: event.image || '',
+              formTiming: getEventFormTiming(event),
             })));
           }}
           onCheckout={(items, total) => {
@@ -534,6 +535,7 @@ export function EventPeekPanel({
               price: item.price,
               eventName: event.title,
               image: event.image || '',
+              formTiming: getEventFormTiming(event),
             }));
             const category =
               items.length === 1

@@ -365,6 +365,7 @@ export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
         price: item.price,
         eventName: event.eventName,
         image: item.image,
+        formTiming: item.formTiming,
       }))
   );
   const subtotal = selectedCartItems.reduce(
