@@ -237,3 +237,11 @@ export function resetMockStoreState(storage: StorageLike | undefined, seed: Mock
   removeLegacyKeys(storage);
   return next;
 }
+
+export function findGuestEntryQRInState(
+  guestEntryQRs: Record<string, GuestEntryQRRecord | undefined>,
+  ref: string,
+): GuestEntryQRRecord | undefined {
+  const normalizedRef = ref.trim().toUpperCase();
+  return Object.values(guestEntryQRs).find((qr) => qr?.ref.toUpperCase() === normalizedRef);
+}

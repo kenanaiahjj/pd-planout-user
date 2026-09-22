@@ -1,3 +1,4 @@
+import { hasAccountSession } from '@/app/data/session.js';
 /**
  * @file AppContext.tsx
  * @description Shared application state accessible to all route components.
@@ -13,15 +14,28 @@ import {
   createRegistrationQueueEntries,
   getActionRequiredCount,
   getOrderFormActionEntries,
+  getPendingFormCount,
   retiredRegistrationEntryIds,
   type GuestEntryQR,
   type Participant,
   type RegistrationQueueEntry,
   type TeamPlayerAccessPath,
 } from '@/app/data/tickets';
+import { getMockTicketById } from '@/app/data/mockCatalog';
+import {
+  MOCK_STORE_STORAGE_KEY,
+  createMockStoreState,
+  findGuestEntryQRInState,
+  readMockStoreState,
+  resetMockStoreState,
+  writeMockStoreState,
+  type MockStoreState,
+  type StorageLike,
+} from '@/app/data/mockStore';
 import { claimFormEntry, rescindFormInvite } from '@/app/data/formLinks.js';
 import {
   applyParticipantToRegistrationQueue,
+  resolveParticipantEntryStatus,
   shareRegistrationInviteInQueue,
 } from '@/app/data/participantFormState.js';
 import { attachTeamPlayerToPassport, normalizeTeamPlayerState } from '@/app/data/teamAccess.js';
@@ -32,6 +46,7 @@ import { INITIAL_CART, createCartEventFromAddition, mergeCartEvents } from '@/ap
 // ---------------------------------------------------------------------------
 
 export interface UserProfile {
+  sessionMode?: 'account' | 'guest';
   name: string;
   email: string;
   phone: string;
@@ -214,6 +229,7 @@ interface AppContextValue {
   // Checkout confirmed (confirmation step reached — controls bottom nav visibility)
   checkoutConfirmed: boolean;
   setCheckoutConfirmed: React.Dispatch<React.SetStateAction<boolean>>;
+  resetMockState: () => void;
 
   // Pending organizer application
   pendingOrgApplication: PendingOrgApplication | null;
@@ -277,12 +293,6 @@ const noop = () => {};
 const MOCK_MEMBER_ID = '7c4f1a92-3b7e-4a11-9d2b-1e8b0c4f6a23';
 const MOCK_PASSPORT_CODE = 'PO-7K2M-9XQA';
 const PASSPORT_STORAGE_KEY = 'planout.passport.member.v1';
-const REGISTRATION_QUEUE_STORAGE_KEY = 'planout.registration.queue.v1';
-const ACTIVE_REGISTRATION_ORDER_KEY = 'planout.registration.activeOrder.v1';
-const ENTRY_ATTENDANCE_STORAGE_KEY = 'planout.entry.attendance.v1';
-const GUEST_ENTRY_QR_STORAGE_KEY = 'planout.guest.entry.qrs.v1';
-const TEAM_PLAYER_ACCESS_STORAGE_KEY = 'planout.team.player.access.v1';
-const TEAM_PLAYER_ROSTER_STORAGE_KEY = 'planout.team.player.roster.v1';
 const USER_PROFILE_STORAGE_KEY = 'planout.user.profile.v1';
 
 function isPlaceholderDisplayName(value: unknown) {
@@ -368,90 +378,6 @@ function cacheMember(member: Member) {
   window.localStorage.setItem(PASSPORT_STORAGE_KEY, JSON.stringify(member));
 }
 
-function readRegistrationQueueEntries(): RegistrationQueueEntry[] {
-  const defaults = createRegistrationQueueEntries();
-  if (typeof window === 'undefined') return defaults;
-
-  try {
-    const raw = window.localStorage.getItem(REGISTRATION_QUEUE_STORAGE_KEY);
-    if (!raw) return defaults;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return defaults;
-    const cached = parsed.filter((entry: RegistrationQueueEntry) => !retiredRegistrationEntryIds.has(entry.id));
-    const cachedIds = new Set(cached.map((entry: RegistrationQueueEntry) => entry.id));
-    return [...cached, ...defaults.filter((entry) => !cachedIds.has(entry.id))];
-  } catch {
-    return defaults;
-  }
-}
-
-function cacheRegistrationQueueEntries(entries: RegistrationQueueEntry[]) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(REGISTRATION_QUEUE_STORAGE_KEY, JSON.stringify(entries));
-}
-
-function readActiveRegistrationOrderRef(): string | null {
-  if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(ACTIVE_REGISTRATION_ORDER_KEY);
-}
-
-function cacheActiveRegistrationOrderRef(orderRef: string | null) {
-  if (typeof window === 'undefined') return;
-  if (orderRef) window.localStorage.setItem(ACTIVE_REGISTRATION_ORDER_KEY, orderRef);
-  else window.localStorage.removeItem(ACTIVE_REGISTRATION_ORDER_KEY);
-}
-
-function readRecord<T>({ key, fallback }: { key: string; fallback: Record<string, T | undefined> }) {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed as Record<string, T | undefined> : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function cacheRecord<T>(key: string, value: Record<string, T | undefined>) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(key, JSON.stringify(value));
-}
-
-function readNormalizedTeamPlayerState(memberId: string) {
-  const rawAccess = readRecord<TeamPlayerAccessPath>({
-    key: TEAM_PLAYER_ACCESS_STORAGE_KEY,
-    fallback: {},
-  });
-  const rawRoster = readRecord<Participant[]>({
-    key: TEAM_PLAYER_ROSTER_STORAGE_KEY,
-    fallback: {},
-  });
-  const nextAccess = { ...rawAccess };
-  const nextRoster = { ...rawRoster };
-  const ticketIds = new Set([
-    ...MY_TICKETS.filter((ticket) => ticket.ticketType === 'team').map((ticket) => ticket.id),
-    ...Object.keys(rawRoster),
-  ]);
-
-  ticketIds.forEach((ticketId) => {
-    const ticket = MY_TICKETS.find((candidate) => candidate.id === ticketId);
-    const participants = rawRoster[ticketId] || ticket?.participants;
-    if (!participants) return;
-
-    const normalized = normalizeTeamPlayerState({
-      ticketId,
-      participants,
-      access: nextAccess,
-      memberId,
-    });
-    Object.assign(nextAccess, normalized.access);
-    if (rawRoster[ticketId]) nextRoster[ticketId] = normalized.participants;
-  });
-
-  return { access: nextAccess, roster: nextRoster };
-}
-
 function createGuestEntryRef(entryId: string) {
   const input = `${entryId}|${Date.now()}|guest-entry`;
   let hash = 0x811c9dc5;
@@ -488,6 +414,7 @@ const DEFAULT_CONTEXT: AppContextValue = {
   addCartItems: noop as any,
   checkoutConfirmed: false,
   setCheckoutConfirmed: noop as any,
+  resetMockState: noop,
   pendingOrgApplication: null,
   setPendingOrgApplication: noop as any,
   registrationQueueEntries: [],
@@ -541,6 +468,49 @@ export function useAppContext(): AppContextValue {
 
 const MOCK_NOTIFICATION_COUNT = 4;
 
+function getMockStorage(): StorageLike | undefined {
+  return typeof window === 'undefined' ? undefined : window.localStorage;
+}
+
+function createSeedMockState(): MockStoreState {
+  return createMockStoreState({
+    cart: INITIAL_CART as CartEvent[],
+    registrationQueueEntries: createRegistrationQueueEntries(),
+    checkoutIntent: null,
+    checkoutConfirmed: false,
+  });
+}
+
+function normalizeMockStateForMember(state: MockStoreState, memberId: string): MockStoreState {
+  const nextAccess = { ...state.teamPlayerAccess };
+  const nextRoster = { ...state.teamPlayerRoster };
+  const ticketIds = new Set([
+    ...MY_TICKETS.filter((ticket) => ticket.ticketType === 'team').map((ticket) => ticket.id),
+    ...Object.keys(nextRoster),
+  ]);
+
+  ticketIds.forEach((ticketId) => {
+    const ticket = getMockTicketById(ticketId);
+    const participants = nextRoster[ticketId] || ticket?.participants;
+    if (!participants) return;
+
+    const normalized = normalizeTeamPlayerState({
+      ticketId,
+      participants,
+      access: nextAccess,
+      memberId,
+    });
+    Object.assign(nextAccess, normalized.access);
+    if (state.teamPlayerRoster[ticketId]) nextRoster[ticketId] = normalized.participants;
+  });
+
+  return {
+    ...state,
+    teamPlayerAccess: nextAccess,
+    teamPlayerRoster: nextRoster,
+  };
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   // User profile
   const [userProfile, setUserProfileState] = useState<UserProfile>(() => readUserProfile());
@@ -565,48 +535,74 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [peekEvent, setPeekEvent] = useState<EventData | null>(null);
   const [activeDrawer, setActiveDrawer] = useState<'cart' | 'notifications' | null>(null);
 
-  // Checkout intent
-  const [checkoutIntent, setCheckoutIntent] = useState<CheckoutIntent | null>(null);
-
-  // Cart state is shared so an event ticket selection survives navigation and
-  // the desktop cart drawer can render the same lines as the full cart route.
-  const [cart, setCart] = useState<CartEvent[]>(() => INITIAL_CART as CartEvent[]);
-  const addCartItems = useCallback((addition: CartAddition) => {
-    const cartEvent = createCartEventFromAddition(addition) as CartEvent;
-    setCart((prev) => mergeCartEvents(prev, cartEvent) as CartEvent[]);
-  }, []);
-
-  // Checkout confirmed
-  const [checkoutConfirmed, setCheckoutConfirmed] = useState<boolean>(false);
-
   // Pending organizer application
   const [pendingOrgApplication, setPendingOrgApplication] = useState<PendingOrgApplication | null>({
     orgName: 'Urban Fitness Team',
     orgType: 'club',
     submittedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
   });
-  const [registrationQueueEntries, setRegistrationQueueEntries] = useState<RegistrationQueueEntry[]>(() =>
-    readRegistrationQueueEntries(),
-  );
-  const [activeRegistrationOrderRef, setActiveRegistrationOrderRef] = useState<string | null>(() =>
-    readActiveRegistrationOrderRef(),
-  );
-  const [entryAttendance, setEntryAttendanceState] = useState<Record<string, EntryAttendanceDecision | undefined>>(() =>
-    readRecord<EntryAttendanceDecision>({ key: ENTRY_ATTENDANCE_STORAGE_KEY, fallback: {} }),
-  );
-  const [guestEntryQRs, setGuestEntryQRs] = useState<Record<string, GuestEntryQRRecord | undefined>>(() =>
-    readRecord<GuestEntryQRRecord>({ key: GUEST_ENTRY_QR_STORAGE_KEY, fallback: {} }),
-  );
-  const [teamPlayerAccess, setTeamPlayerAccessState] = useState<TeamPlayerAccess>(() =>
-    readNormalizedTeamPlayerState(passportMember.memberId).access,
-  );
-  const [teamPlayerRoster, setTeamPlayerRosterState] = useState<TeamPlayerRoster>(() =>
-    readNormalizedTeamPlayerState(passportMember.memberId).roster,
-  );
-  const registrationQueueEntriesRef = useRef(registrationQueueEntries);
-  const teamPlayerAccessRef = useRef(teamPlayerAccess);
-  const teamPlayerRosterRef = useRef(teamPlayerRoster);
-  const guestEntryQRsRef = useRef(guestEntryQRs);
+
+  const [mockState, setMockState] = useState<MockStoreState>(() => normalizeMockStateForMember(
+    readMockStoreState(getMockStorage(), createSeedMockState()),
+    passportMember.memberId,
+  ));
+  const mockStateRef = useRef(mockState);
+
+  const commitMockState = useCallback((next: MockStoreState) => {
+    mockStateRef.current = next;
+    setMockState(next);
+    writeMockStoreState(getMockStorage(), next);
+  }, []);
+
+  const updateMockState = useCallback((update: (state: MockStoreState) => MockStoreState) => {
+    const next = update(mockStateRef.current);
+    commitMockState(next);
+  }, [commitMockState]);
+
+  const {
+    cart,
+    checkoutIntent,
+    checkoutConfirmed,
+    registrationQueueEntries,
+    activeRegistrationOrderRef,
+    entryAttendance,
+    guestEntryQRs,
+    teamPlayerAccess,
+    teamPlayerRoster,
+  } = mockState;
+
+  const setCart = useCallback((value: React.SetStateAction<CartEvent[]>) => {
+    updateMockState((state) => ({
+      ...state,
+      cart: typeof value === 'function' ? (value as (cart: CartEvent[]) => CartEvent[])(state.cart) : value,
+    }));
+  }, [updateMockState]);
+
+  const addCartItems = useCallback((addition: CartAddition) => {
+    const cartEvent = createCartEventFromAddition(addition) as CartEvent;
+    updateMockState((state) => ({
+      ...state,
+      cart: mergeCartEvents(state.cart, cartEvent) as CartEvent[],
+    }));
+  }, [updateMockState]);
+
+  const setCheckoutIntent = useCallback((value: React.SetStateAction<CheckoutIntent | null>) => {
+    updateMockState((state) => ({
+      ...state,
+      checkoutIntent: typeof value === 'function'
+        ? (value as (intent: CheckoutIntent | null) => CheckoutIntent | null)(state.checkoutIntent)
+        : value,
+    }));
+  }, [updateMockState]);
+
+  const setCheckoutConfirmed = useCallback((value: React.SetStateAction<boolean>) => {
+    updateMockState((state) => ({
+      ...state,
+      checkoutConfirmed: typeof value === 'function'
+        ? (value as (confirmed: boolean) => boolean)(state.checkoutConfirmed)
+        : value,
+    }));
+  }, [updateMockState]);
 
   // Desktop media query check
   const isDesktop = useCallback(() => {
@@ -614,7 +610,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Derived auth state
-  const isAuthenticated = userProfile.name.length > 0 || onboardingStep !== 'done';
+  const isAuthenticated = hasAccountSession(userProfile);
   const member: Member = {
     ...passportMember,
     displayName: isPlaceholderDisplayName(userProfile.name)
@@ -623,28 +619,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     avatarUrl: userProfile.avatarUrl || passportMember.avatarUrl,
   };
 
-  // Persist the corrected state as soon as the provider mounts. This repairs
-  // duplicate Passport ownership left by older prototype interactions without
-  // requiring the user to clear browser storage.
-  useEffect(() => {
-    cacheRecord(TEAM_PLAYER_ACCESS_STORAGE_KEY, teamPlayerAccess);
-    cacheRecord(TEAM_PLAYER_ROSTER_STORAGE_KEY, teamPlayerRoster);
-  }, [teamPlayerAccess, teamPlayerRoster]);
-
   const seedRegistrationQueue = useCallback((entries: RegistrationQueueEntry[], orderRef: string) => {
-    setRegistrationQueueEntries((prev) => {
-      const next = [...prev.filter((entry) => entry.orderRef !== orderRef), ...entries];
-      registrationQueueEntriesRef.current = next;
-      cacheRegistrationQueueEntries(next);
-      return next;
-    });
-    setActiveRegistrationOrderRef(orderRef);
-    cacheActiveRegistrationOrderRef(orderRef);
-  }, []);
+    updateMockState((state) => ({
+      ...state,
+      registrationQueueEntries: [
+        ...state.registrationQueueEntries.filter((entry) => entry.orderRef !== orderRef),
+        ...entries,
+      ],
+      activeRegistrationOrderRef: orderRef,
+    }));
+  }, [updateMockState]);
 
   const completeRegistrationEntry = useCallback((entryId: string, accessPath?: TeamPlayerAccessPath) => {
-    setRegistrationQueueEntries((prev) => {
-      const next = prev.map((entry) =>
+    updateMockState((state) => ({
+      ...state,
+      registrationQueueEntries: state.registrationQueueEntries.map((entry) =>
         entry.id === entryId
           ? {
               ...entry,
@@ -653,12 +642,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               teamAttachedCount: entry.teamTotalCount || entry.teamAttachedCount,
             }
           : entry,
-      );
-      registrationQueueEntriesRef.current = next;
-      cacheRegistrationQueueEntries(next);
-      return next;
-    });
-  }, []);
+      ),
+    }));
+  }, [updateMockState]);
 
   const claimRegistrationEntry = useCallback(({
     entryId,
@@ -672,23 +658,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Re-read persisted state at submission time so two tabs/devices sharing
     // the same mock store still model first-submit-wins instead of each tab
     // claiming its own stale in-memory copy.
-    const persistedEntries = readRegistrationQueueEntries();
-    const currentEntries = persistedEntries.some((entry) => entry.id === entryId)
-      ? persistedEntries
-      : registrationQueueEntriesRef.current;
-    const persistedTeamPlayerAccess = readRecord<TeamPlayerAccessPath>({
-      key: TEAM_PLAYER_ACCESS_STORAGE_KEY,
-      fallback: teamPlayerAccessRef.current,
-    });
-    const persistedTeamPlayerRoster = readRecord<Participant[]>({
-      key: TEAM_PLAYER_ROSTER_STORAGE_KEY,
-      fallback: teamPlayerRosterRef.current,
-    });
+    const persistedState = normalizeMockStateForMember(
+      readMockStoreState(getMockStorage(), createSeedMockState()),
+      member.memberId,
+    );
+    const currentState = persistedState.registrationQueueEntries.some((entry) => entry.id === entryId)
+      ? persistedState
+      : mockStateRef.current;
+    const currentEntries = currentState.registrationQueueEntries;
+    const persistedTeamPlayerAccess = currentState.teamPlayerAccess;
+    const persistedTeamPlayerRoster = currentState.teamPlayerRoster;
     const queueEntry = currentEntries.find((entry) => entry.id === entryId);
     const teamKey = ticketId && participantId ? `${ticketId}:${participantId}` : undefined;
     const currentParticipants = ticketId
       ? persistedTeamPlayerRoster[ticketId]
-        || MY_TICKETS.find((ticket) => ticket.id === ticketId)?.participants
+        || getMockTicketById(ticketId)?.participants
       : undefined;
     const participant = currentParticipants?.find((item) => item.id === participantId);
     const participantForClaim = participant
@@ -720,18 +704,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ? { teamAttachedCount: Math.min(queueEntry.teamTotalCount, (queueEntry.teamAttachedCount || 0) + 1) }
           : {}),
       } as RegistrationQueueEntry;
-      const nextEntries = currentEntries.map((entry) => entry.id === entryId ? nextQueueEntry : entry);
-      registrationQueueEntriesRef.current = nextEntries;
-      setRegistrationQueueEntries(nextEntries);
-      cacheRegistrationQueueEntries(nextEntries);
+      currentState.registrationQueueEntries = currentEntries.map((entry) => entry.id === entryId ? nextQueueEntry : entry);
     }
 
+    let nextState = currentState;
     if (ticketId && participantId) {
       if (teamKey) {
         const nextAccess = { ...persistedTeamPlayerAccess, [teamKey]: 'passport' as const };
-        teamPlayerAccessRef.current = nextAccess;
-        setTeamPlayerAccessState(nextAccess);
-        cacheRecord(TEAM_PLAYER_ACCESS_STORAGE_KEY, nextAccess);
+        nextState = { ...nextState, teamPlayerAccess: nextAccess };
       }
 
       if (participant) {
@@ -745,78 +725,76 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           };
         });
         const nextRoster = { ...persistedTeamPlayerRoster, [ticketId]: nextParticipants };
-        teamPlayerRosterRef.current = nextRoster;
-        setTeamPlayerRosterState(nextRoster);
-        cacheRecord(TEAM_PLAYER_ROSTER_STORAGE_KEY, nextRoster);
+        nextState = { ...nextState, teamPlayerRoster: nextRoster };
       }
     }
 
+    commitMockState(nextState);
     return { ok: true };
-  }, [member]);
+  }, [commitMockState, member]);
 
   const rescindRegistrationInvite = useCallback((entryId: string) => {
-    setRegistrationQueueEntries((prev) => {
-      const next = prev.map((entry) => (
+    updateMockState((state) => ({
+      ...state,
+      registrationQueueEntries: state.registrationQueueEntries.map((entry) => (
         entry.id === entryId ? rescindFormInvite(entry) : entry
-      ));
-      registrationQueueEntriesRef.current = next;
-      cacheRegistrationQueueEntries(next);
-      return next;
-    });
-  }, []);
+      )),
+    }));
+  }, [updateMockState]);
 
   const sendRegistrationInvite = useCallback((entryId: string, recipient?: string, fallbackEntry?: RegistrationQueueEntry) => {
-    setRegistrationQueueEntries((prev) => {
-      const next = shareRegistrationInviteInQueue(prev, entryId, recipient, fallbackEntry);
-      registrationQueueEntriesRef.current = next;
-      cacheRegistrationQueueEntries(next);
-      return next;
-    });
-  }, []);
+    updateMockState((state) => ({
+      ...state,
+      registrationQueueEntries: shareRegistrationInviteInQueue(
+        state.registrationQueueEntries,
+        entryId,
+        recipient,
+        fallbackEntry,
+      ),
+    }));
+  }, [updateMockState]);
 
   const updateRegistrationParticipant = useCallback((entryId: string, participant: Participant, fallbackEntry?: RegistrationQueueEntry) => {
-    setRegistrationQueueEntries((prev) => {
-      const next = applyParticipantToRegistrationQueue(prev, entryId, participant, fallbackEntry);
-      registrationQueueEntriesRef.current = next;
-      cacheRegistrationQueueEntries(next);
-      return next;
-    });
-  }, []);
+    updateMockState((state) => ({
+      ...state,
+      registrationQueueEntries: applyParticipantToRegistrationQueue(
+        state.registrationQueueEntries,
+        entryId,
+        participant,
+        fallbackEntry,
+      ),
+    }));
+  }, [updateMockState]);
 
   const setRegistrationEntryAccessPath = useCallback((entryId: string, accessPath: TeamPlayerAccessPath) => {
-    setRegistrationQueueEntries((prev) => {
-      const next = prev.map((entry) => (
+    updateMockState((state) => ({
+      ...state,
+      registrationQueueEntries: state.registrationQueueEntries.map((entry) => (
         entry.id === entryId ? { ...entry, accessPath } : entry
-      ));
-      registrationQueueEntriesRef.current = next;
-      cacheRegistrationQueueEntries(next);
-      return next;
-    });
-  }, []);
+      )),
+    }));
+  }, [updateMockState]);
 
   const updateRegistrationEntryStatus = useCallback((entryId: string, status: RegistrationQueueEntry['entryStatus']) => {
-    setRegistrationQueueEntries((prev) => {
-      const next = prev.map((entry) =>
+    updateMockState((state) => ({
+      ...state,
+      registrationQueueEntries: state.registrationQueueEntries.map((entry) =>
         entry.id === entryId
           ? {
               ...entry,
               entryStatus: status,
             }
           : entry,
-      );
-      registrationQueueEntriesRef.current = next;
-      cacheRegistrationQueueEntries(next);
-      return next;
-    });
-  }, []);
+      ),
+    }));
+  }, [updateMockState]);
 
   const setEntryAttendance = useCallback((entryId: string, decision: EntryAttendanceDecision) => {
-    setEntryAttendanceState((prev) => {
-      const next = { ...prev, [entryId]: decision };
-      cacheRecord(ENTRY_ATTENDANCE_STORAGE_KEY, next);
-      return next;
-    });
-  }, []);
+    updateMockState((state) => ({
+      ...state,
+      entryAttendance: { ...state.entryAttendance, [entryId]: decision },
+    }));
+  }, [updateMockState]);
 
   const generateGuestEntryQR = useCallback((input: {
     orderId: string;
@@ -830,7 +808,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     onBehalfSignedBy?: string;
     forceNew?: boolean;
   }) => {
-    const existing = guestEntryQRs[input.entryId];
+    const existing = mockStateRef.current.guestEntryQRs[input.entryId];
     if (existing && !input.forceNew && (existing.isActive || existing.claimedAt)) {
       return existing;
     }
@@ -853,60 +831,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       onBehalfSignedBy: input.onBehalfSignedBy || input.buyerName,
     };
 
-    setGuestEntryQRs((prev) => {
-      const updated = { ...prev, [input.entryId]: next };
-      guestEntryQRsRef.current = updated;
-      cacheRecord(GUEST_ENTRY_QR_STORAGE_KEY, updated);
-      return updated;
+    commitMockState({
+      ...mockStateRef.current,
+      guestEntryQRs: { ...mockStateRef.current.guestEntryQRs, [input.entryId]: next },
     });
     return next;
-  }, [guestEntryQRs]);
+  }, [commitMockState]);
 
   const revokeGuestEntryQR = useCallback((entryId: string) => {
-    setGuestEntryQRs((prev) => {
-      const current = prev[entryId];
-      if (!current) return prev;
-      const updated = {
-        ...prev,
+    const current = mockStateRef.current.guestEntryQRs[entryId];
+    if (!current) return;
+    commitMockState({
+      ...mockStateRef.current,
+      guestEntryQRs: {
+        ...mockStateRef.current.guestEntryQRs,
         [entryId]: {
           ...current,
           isActive: false,
           revokedAt: new Date().toISOString(),
         },
-      };
-      guestEntryQRsRef.current = updated;
-      cacheRecord(GUEST_ENTRY_QR_STORAGE_KEY, updated);
-      return updated;
+      },
     });
-  }, []);
+  }, [commitMockState]);
 
   const markGuestEntryQRUsed = useCallback((entryId: string, scanGate = 'Main Gate') => {
-    setGuestEntryQRs((prev) => {
-      const current = prev[entryId];
-      if (!current) return prev;
-      const updated = {
-        ...prev,
+    const current = mockStateRef.current.guestEntryQRs[entryId];
+    if (!current) return;
+    commitMockState({
+      ...mockStateRef.current,
+      guestEntryQRs: {
+        ...mockStateRef.current.guestEntryQRs,
         [entryId]: {
           ...current,
           usedAt: new Date().toISOString(),
           scanGate,
         },
-      };
-      guestEntryQRsRef.current = updated;
-      cacheRecord(GUEST_ENTRY_QR_STORAGE_KEY, updated);
-      return updated;
+      },
     });
-  }, []);
+  }, [commitMockState]);
 
   const findGuestEntryQRByRef = useCallback((ref: string) => {
     const normalizedRef = ref.trim().toUpperCase();
-    return Object.values(guestEntryQRs).find((qr) => qr?.ref.toUpperCase() === normalizedRef)
+    return findGuestEntryQRInState(mockStateRef.current.guestEntryQRs, normalizedRef)
       || getDemoGuestEntryQR(normalizedRef);
-  }, [guestEntryQRs]);
+  }, []);
 
   const claimGuestEntryQR = useCallback((ref: string): GuestEntryClaimResult => {
     const normalizedRef = ref.trim().toUpperCase();
-    const current = Object.values(guestEntryQRsRef.current).find((qr) => qr?.ref.toUpperCase() === normalizedRef)
+    const current = findGuestEntryQRInState(mockStateRef.current.guestEntryQRs, normalizedRef)
       || getDemoGuestEntryQR(normalizedRef);
     if (!current) return { ok: false, reason: 'not_found' };
     if (current.claimedAt) return { ok: false, reason: 'already_claimed' };
@@ -918,22 +890,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       claimedAt: new Date().toISOString(),
       claimedByMemberId: member.memberId,
     };
-    const updated = { ...guestEntryQRsRef.current, [current.entryId]: claimed };
-    guestEntryQRsRef.current = updated;
-    cacheRecord(GUEST_ENTRY_QR_STORAGE_KEY, updated);
-    setGuestEntryQRs(updated);
+    const updated = { ...mockStateRef.current.guestEntryQRs, [current.entryId]: claimed };
+    commitMockState({ ...mockStateRef.current, guestEntryQRs: updated });
     return { ok: true, qr: claimed };
-  }, [member.memberId]);
+  }, [commitMockState, member.memberId]);
 
   const canAttachTeamPlayerToPassport = useCallback((ticketId: string, participantId: string) => {
-    const participants = teamPlayerRosterRef.current[ticketId]
-      || MY_TICKETS.find((ticket) => ticket.id === ticketId)?.participants
+    const participants = mockStateRef.current.teamPlayerRoster[ticketId]
+      || getMockTicketById(ticketId)?.participants
       || [];
 
     return !participants.some((participant) => {
       if (participant.id === participantId) return false;
       const key = `${ticketId}:${participant.id}`;
-      const effectiveAccess = teamPlayerAccessRef.current[key] || participant.accessPath;
+      const effectiveAccess = mockStateRef.current.teamPlayerAccess[key] || participant.accessPath;
       return effectiveAccess === 'passport' && participant.passportMemberId === member.memberId;
     });
   }, [member.memberId]);
@@ -943,61 +913,60 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ? 'guest_qr'
       : requestedAccessPath;
     const key = `${ticketId}:${participantId}`;
-    setTeamPlayerAccessState((prev) => {
-      const next = { ...prev, [key]: accessPath };
-      teamPlayerAccessRef.current = next;
-      cacheRecord(TEAM_PLAYER_ACCESS_STORAGE_KEY, next);
-      return next;
-    });
-    setTeamPlayerRosterState((prev) => {
-      const currentParticipants = prev[ticketId]
-        || (accessPath === 'passport' ? MY_TICKETS.find((ticket) => ticket.id === ticketId)?.participants : undefined);
-      if (!currentParticipants) return prev;
+    const currentState = mockStateRef.current;
+    const currentParticipants = currentState.teamPlayerRoster[ticketId]
+      || (accessPath === 'passport' ? getMockTicketById(ticketId)?.participants : undefined);
+    if (!currentParticipants) return;
 
-      const nextParticipants = currentParticipants.map((participant) => {
-        if (participant.id !== participantId) return participant;
-        if (accessPath === 'passport') {
-          return attachTeamPlayerToPassport(participant, member);
-        }
-        const {
-          passportMemberId: _passportMemberId,
-          passportDisplayName: _passportDisplayName,
-          ...withoutPassportOwner
-        } = participant;
-        return {
-          ...withoutPassportOwner,
-          accessPath,
-        };
-      });
-      const next = { ...prev, [ticketId]: nextParticipants };
-      teamPlayerRosterRef.current = next;
-      cacheRecord(TEAM_PLAYER_ROSTER_STORAGE_KEY, next);
-      return next;
+    const nextParticipants = currentParticipants.map((participant) => {
+      if (participant.id !== participantId) return participant;
+      if (accessPath === 'passport') {
+        return attachTeamPlayerToPassport(participant, member);
+      }
+      const {
+        passportMemberId: _passportMemberId,
+        passportDisplayName: _passportDisplayName,
+        ...withoutPassportOwner
+      } = participant;
+      return {
+        ...withoutPassportOwner,
+        accessPath,
+      };
     });
-  }, [canAttachTeamPlayerToPassport, member]);
+
+    commitMockState({
+      ...currentState,
+      teamPlayerAccess: { ...currentState.teamPlayerAccess, [key]: accessPath },
+      teamPlayerRoster: { ...currentState.teamPlayerRoster, [ticketId]: nextParticipants },
+    });
+  }, [canAttachTeamPlayerToPassport, commitMockState, member]);
 
   const setTeamPlayerRoster = useCallback((ticketId: string, participants: Participant[]) => {
-    setTeamPlayerRosterState((prev) => {
-      const next = { ...prev, [ticketId]: participants };
-      teamPlayerRosterRef.current = next;
-      cacheRecord(TEAM_PLAYER_ROSTER_STORAGE_KEY, next);
-      return next;
-    });
-    setRegistrationQueueEntries((prev) => {
+    updateMockState((state) => {
       const attachedCount = participants.filter((participant) => participant.formStatus === 'completed').length;
-      const next = prev.map((entry) => entry.ticketId === ticketId && entry.type === 'team'
-        ? {
-            ...entry,
-            teamAttachedCount: attachedCount,
-            teamTotalCount: participants.length,
-          }
-        : entry,
-      );
-      registrationQueueEntriesRef.current = next;
-      cacheRegistrationQueueEntries(next);
-      return next;
+      return {
+        ...state,
+        teamPlayerRoster: { ...state.teamPlayerRoster, [ticketId]: participants },
+        registrationQueueEntries: state.registrationQueueEntries.map((entry) => entry.ticketId === ticketId && entry.type === 'team'
+          ? {
+              ...entry,
+              entryStatus: attachedCount === participants.length ? 'attached' : 'pending_form',
+              teamAttachedCount: attachedCount,
+              teamTotalCount: participants.length,
+            }
+          : entry,
+        ),
+      };
     });
-  }, []);
+  }, [updateMockState]);
+
+  const resetMockState = useCallback(() => {
+    const next = normalizeMockStateForMember(
+      resetMockStoreState(getMockStorage(), createSeedMockState()),
+      member.memberId,
+    );
+    commitMockState(next);
+  }, [commitMockState, member.memberId]);
 
   const passportPendingSummary = useMemo(() => {
     const pendingEntries = getOrderFormActionEntries(registrationQueueEntries);
@@ -1007,7 +976,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .sort((a, b) => a.getTime() - b.getTime());
 
     return {
-      pendingCount: pendingEntries.length,
+      pendingCount: pendingEntries.reduce((sum, entry) => sum + getPendingFormCount(entry), 0),
       nearestDeadline: deadlines[0],
     };
   }, [registrationQueueEntries]);
@@ -1050,6 +1019,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addCartItems,
         checkoutConfirmed,
         setCheckoutConfirmed,
+        resetMockState,
         pendingOrgApplication,
         setPendingOrgApplication,
         registrationQueueEntries,

@@ -6,6 +6,11 @@ const ordersSource = fs.readFileSync(
   new URL('../src/app/pages/OrdersPage.tsx', import.meta.url),
   'utf8',
 );
+const registrationSource = fs.readFileSync(
+  new URL('../src/app/components/RegistrationItemComponents.tsx', import.meta.url),
+  'utf8',
+);
+const ordersContractSource = `${ordersSource}\n${registrationSource}`;
 const participantFormSource = fs.readFileSync(
   new URL('../src/app/pages/ParticipantFormPage.tsx', import.meta.url),
   'utf8',
@@ -54,12 +59,12 @@ const routerSource = fs.readFileSync(
 
 test('buyer-filled individual entries resolve to Guest QR access in Orders', () => {
   assert.match(ordersSource, /const isBuyerManagedGuest = isGuest && accessPath === 'guest_qr';/);
-  assert.match(ordersSource, /Guest QR ready/);
+  assert.match(registrationSource, /Guest QR ready/);
 });
 
 test('recipient-claimed individual entries keep Passport access in Orders', () => {
-  assert.match(ordersSource, /isIndividualPassportEntry/);
-  assert.match(ordersSource, /entry\.accessPath === 'passport'/);
+  assert.match(registrationSource, /isIndividualPassportEntry/);
+  assert.match(registrationSource, /entry\.accessPath === 'passport'/);
   assert.match(ordersSource, /entry\.type === 'guest' && entry\.accessPath !== 'passport'/);
   assert.match(participantFormRouteSource, /claimRegistrationEntry\(/);
   assert.match(appContextSource, /claimFormEntry\(source!, claimant\)/);
@@ -72,9 +77,10 @@ test('a duplicate claimant keeps a local draft and can copy answers after the co
 });
 
 test('shared claims re-read persisted state before accepting a submission', () => {
-  assert.match(appContextSource, /const persistedEntries = readRegistrationQueueEntries\(\)/);
-  assert.match(appContextSource, /const persistedTeamPlayerAccess = readRecord<TeamPlayerAccessPath>/);
-  assert.match(appContextSource, /const persistedTeamPlayerRoster = readRecord<Participant\[\]>/);
+  assert.match(appContextSource, /const persistedState = normalizeMockStateForMember\(/);
+  assert.match(appContextSource, /readMockStoreState\(getMockStorage\(\), createSeedMockState\(\)\)/);
+  assert.match(appContextSource, /const persistedTeamPlayerAccess = currentState\.teamPlayerAccess/);
+  assert.match(appContextSource, /const persistedTeamPlayerRoster = currentState\.teamPlayerRoster/);
 });
 
 test('unsent team claim links are rejected after the buyer takes the form back', () => {
@@ -261,18 +267,18 @@ test('completion persistence records the selected ownership path', () => {
 });
 
 test('team order details keep Guest QR actions visible per player', () => {
-  assert.match(ordersSource, /teamEntries\.map/);
-  assert.match(ordersSource, /View QR/);
+  assert.match(registrationSource, /teamEntries\.map/);
+  assert.match(registrationSource, /View QR/);
 });
 
 test('team order details keep form management on the order', () => {
-  const teamRegistrationSource = ordersSource.slice(
-    ordersSource.indexOf('function TeamRegistrationItem'),
-    ordersSource.indexOf('function ShippingTracker'),
+  const teamRegistrationSource = registrationSource.slice(
+    registrationSource.indexOf('export function TeamRegistrationSectionContent'),
+    registrationSource.indexOf('export function TeamRegistrationItem'),
   );
   assert.doesNotMatch(ordersSource, />\s*Open player entries\s*</);
-  assert.match(ordersSource, /ParticipantFormLinkActions/);
-  assert.match(ordersSource, /entry=\{playerEntry\}/);
+  assert.match(registrationSource, /ParticipantFormLinkActions/);
+  assert.match(registrationSource, /entry=\{playerEntry\}/);
   assert.match(teamRegistrationSource, />\s*Fill up\s*</);
   assert.doesNotMatch(teamRegistrationSource, />\s*Complete\s*</);
   assert.match(participantFormRouteSource, /const playerOnly = searchParams\.get\('playerOnly'\) === '1';/);
@@ -280,7 +286,7 @@ test('team order details keep form management on the order', () => {
 });
 
 test('Orders participant links always open one form, never the retired roster editor', () => {
-  assert.match(ordersSource, /participantId=.*playerOnly=1/);
+  assert.match(ordersContractSource, /participantId=.*playerOnly=1/);
   assert.match(participantFormRouteSource, /ticket\.ticketType === 'team' \|\| ticket\.ticketType === 'multiple'/);
   assert.match(participantFormRouteSource, /const completionParticipantId = participantId \|\| entry\?\.participantId;/);
   assert.match(participantFormRouteSource, /if \(\(ticket\.ticketType === 'team' \|\| ticket\.ticketType === 'multiple'\) && !completionParticipantId && !isInvite/);
@@ -313,9 +319,9 @@ test('team Passport ownership is guarded and duplicate stored slots are normaliz
 });
 
 test('team order details expose completed player forms', () => {
-  const teamRegistrationSource = ordersSource.slice(
-    ordersSource.indexOf('function TeamRegistrationItem'),
-    ordersSource.indexOf('function ShippingTracker'),
+  const teamRegistrationSource = registrationSource.slice(
+    registrationSource.indexOf('export function TeamRegistrationSectionContent'),
+    registrationSource.indexOf('export function TeamRegistrationItem'),
   );
   assert.match(teamRegistrationSource, /hasGuestQr \? \(/);
   assert.match(teamRegistrationSource, /hasPassport && isBuyerPlayer \? \(/);
@@ -324,17 +330,17 @@ test('team order details expose completed player forms', () => {
 });
 
 test('buyer-owned team Passport rows are labeled You and expose their form', () => {
-  assert.match(ordersSource, /passportMemberId\?: string;/);
+  assert.match(registrationSource, /passportMemberId\?: string;/);
   assert.match(ordersSource, /passportMemberId: participant\.passportMemberId/);
-  assert.match(ordersSource, /const isBuyerPlayer = playerEntry\.passportMemberId === member\.memberId/);
-  assert.match(ordersSource, /isBuyerPlayer \? 'You'/);
-  assert.match(ordersSource, /hasPassport && isBuyerPlayer \? \(/);
+  assert.match(registrationSource, /const isBuyerPlayer = playerEntry\.passportMemberId === member\.memberId/);
+  assert.match(registrationSource, /isBuyerPlayer \? 'You'/);
+  assert.match(registrationSource, /hasPassport && isBuyerPlayer \? \(/);
 });
 
 test('team Passport rows surface the recorded owner for non-buyer entries', () => {
-  assert.match(ordersSource, /passportDisplayName\?: string;/);
+  assert.match(registrationSource, /passportDisplayName\?: string;/);
   assert.match(ordersSource, /passportDisplayName: participant\.passportDisplayName/);
-  assert.match(ordersSource, /playerEntry\.participantName/);
+  assert.match(registrationSource, /playerEntry\.participantName/);
 
   const teamMockStart = ticketsSource.indexOf("id: 'tkt-014'");
   const teamMock = ticketsSource.slice(teamMockStart, teamMockStart + 5200);
@@ -349,32 +355,32 @@ test('unsent team rows do not display a saved email as if it were sent', () => {
 });
 
 test('pending team invites can be unsent from Orders without opening the form', () => {
-  assert.match(ordersSource, />\s*Revoke\s*</);
-  assert.match(ordersSource, /unsendTeamPlayerInvite/);
-  const unsendHandlerStart = ordersSource.indexOf('const unsendPlayerInvite =');
-  const unsendHandlerEnd = ordersSource.indexOf('const sharePlayerInvite', unsendHandlerStart);
-  const unsendHandler = ordersSource.slice(unsendHandlerStart, unsendHandlerEnd);
+  assert.match(registrationSource, /Revoke/);
+  assert.match(registrationSource, /unsendTeamPlayerInvite/);
+  const unsendHandlerStart = registrationSource.indexOf('const unsendPlayerInvite =');
+  const unsendHandlerEnd = registrationSource.indexOf('const sharePlayerInvite', unsendHandlerStart);
+  const unsendHandler = registrationSource.slice(unsendHandlerStart, unsendHandlerEnd);
   assert.doesNotMatch(unsendHandler, /navigate\(/);
 });
 
 test('team order details expose add-player access up to the team maximum', () => {
-  assert.match(ordersSource, /canAddTeamPlayer/);
-  assert.match(ordersSource, /Add player/);
-  assert.match(ordersSource, /const addPlayerSlot/);
-  assert.match(ordersSource, /setTeamPlayerRoster\(ticketId, \[\.\.\.roster, newPlayer\]\)/);
-  assert.doesNotMatch(ordersSource, /newPlayer=1/);
+  assert.match(registrationSource, /canAddTeamPlayer/);
+  assert.match(registrationSource, /Add player/);
+  assert.match(registrationSource, /const addPlayerSlot/);
+  assert.match(registrationSource, /setTeamPlayerRoster\(ticketId, \[\.\.\.roster, newPlayer\]\)/);
+  assert.doesNotMatch(registrationSource, /newPlayer=1/);
   assert.doesNotMatch(participantFormRouteSource, /const newPlayer = searchParams\.get\('newPlayer'\) === '1';/);
   assert.doesNotMatch(participantFormSource, /newPlayer/);
 });
 
 test('team order details expose removal for eligible unsent extra slots', () => {
-  assert.match(ordersSource, /canRemoveTeamPlayer/);
-  assert.match(ordersSource, /removeTeamPlayerSlot/);
-  assert.match(ordersSource, /title="Remove player entry\?"/);
-  assert.match(ordersSource, /cornerAction=/);
-  assert.match(ordersSource, /IconButton/);
-  assert.match(ordersSource, /size="sm"/);
-  assert.match(ordersSource, /aria-label=\{`Remove \$\{playerName\}`\}/);
+  assert.match(registrationSource, /canRemoveTeamPlayer/);
+  assert.match(registrationSource, /removeTeamPlayerSlot/);
+  assert.match(registrationSource, /title="Remove player entry\?"/);
+  assert.match(registrationSource, /cornerAction=/);
+  assert.match(registrationSource, /IconButton/);
+  assert.match(registrationSource, /size="sm"/);
+  assert.match(registrationSource, /aria-label=\{`Remove \$\{playerName\}`\}/);
 });
 
 test('Orders includes a completed team mock with buyer-managed Guest QR players', () => {
