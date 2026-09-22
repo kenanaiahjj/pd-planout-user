@@ -24,7 +24,6 @@ function getDaysLeft(deadline?: Date): number | null {
 }
 
 export function shouldHideFloatCardOnRoute(pathname: string): boolean {
-  if (pathname === '/') return true;
   // Event discovery and detail pages need the full viewport for browsing and purchase actions.
   if (pathname === '/events' || pathname.startsWith('/events/')) return true;
   if (pathname === '/orders') return true;
@@ -50,16 +49,16 @@ export function FloatCard({ pendingCount, nearestDeadline, onPress, onDismiss, a
   const bottomOffset = 'bottom-[calc(104px+env(safe-area-inset-bottom))] sm:bottom-6';
   const deadlineLabel = showDeadline ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left` : '';
 
-  // Use event brand gradient if on an event page, otherwise default to the brand teal gradient from Passport page
+  // Use event brand gradient if on an event page, otherwise use warning colors for pending forms.
   const hasEventBrand = Boolean(accentColor && accentDarkColor);
   const gradientBg = hasEventBrand
     ? `linear-gradient(135deg, ${accentColor} 0%, ${accentDarkColor} 100%)`
-    : 'linear-gradient(135deg, #28b99e 0%, #177564 100%)';
-  const borderColor = hasEventBrand ? `${accentColor}55` : 'rgba(89, 200, 184, 0.45)';
+    : 'linear-gradient(135deg, oklch(0.66 0.14 72) 0%, oklch(0.50 0.14 45) 100%)';
+  const borderColor = hasEventBrand ? `${accentColor}55` : 'oklch(0.78 0.12 78 / 0.72)';
   const boxShadow = hasEventBrand
     ? `0 24px 44px -28px ${accentDarkColor}cc`
-    : '0 24px 44px -28px rgba(23, 117, 100, 0.85)';
-  const ctaTextColor = hasEventBrand ? (accentDarkColor ?? '#0f172a') : '#177564';
+    : '0 24px 44px -28px oklch(0.42 0.14 42 / 0.78)';
+  const ctaTextColor = hasEventBrand ? (accentDarkColor ?? '#0f172a') : 'oklch(0.45 0.15 35)';
 
   return (
     <div

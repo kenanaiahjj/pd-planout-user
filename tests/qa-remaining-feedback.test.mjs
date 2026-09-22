@@ -18,10 +18,10 @@ const filters = read('../src/app/components/MobileFilters.tsx');
 const passport = read('../src/app/pages/PassportPage.tsx');
 const guestEntry = read('../src/app/pages/GuestEntryPages.tsx');
 
-test('attention surfaces are prioritized, compact, dismissible, and not duplicated on Home', () => {
+test('attention surfaces are prioritized, compact, dismissible, and available on Home', () => {
   assert.match(floatCard, /onDismiss\?: \(\) => void/);
   assert.match(floatCard, /Dismiss forms reminder/);
-  assert.match(floatCard, /pathname === '\/'/);
+  assert.doesNotMatch(floatCard, /if \(pathname === '\/'\) return true;/);
   assert.match(rootLayout, /isPendingFormCardDismissed/);
   assert.match(rootLayout, /onDismiss=\{\(\) => setIsPendingFormCardDismissed\(true\)\}/);
 

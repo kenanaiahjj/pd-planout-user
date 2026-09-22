@@ -139,3 +139,27 @@ test('required form submission uses a taller full-width action', () => {
   assert.match(submitBlock, /h-14/);
   assert.doesNotMatch(submitBlock, /h-11/);
 });
+
+test('confirmation required-form surfaces use warning semantics instead of success green', () => {
+  const heroStart = checkoutSource.indexOf('function PendingFormsHeroCard');
+  const heroEnd = checkoutSource.indexOf('function CheckoutDevTools', heroStart);
+  const heroSource = checkoutSource.slice(heroStart, heroEnd);
+  const entryStart = checkoutSource.indexOf('const statusLabel =');
+  const entryEnd = checkoutSource.indexOf('</button>', entryStart);
+  const entrySource = checkoutSource.slice(entryStart, entryEnd);
+
+  assert.ok(heroStart >= 0 && heroEnd > heroStart, 'confirmation pending-form hero should exist');
+  assert.match(checkoutSource, /gradient: 'linear-gradient\(135deg, oklch\(0\.66 0\.14 72\) 0%, oklch\(0\.50 0\.14 45\) 100%\)'/);
+  assert.match(checkoutSource, /border: 'oklch\(0\.78 0\.12 78 \/ 0\.72\)'/);
+  assert.match(checkoutSource, /shadow: '0 24px 44px -28px oklch\(0\.42 0\.14 42 \/ 0\.78\)'/);
+  assert.match(heroSource, /PENDING_FORMS_WARNING\.gradient/);
+  assert.match(heroSource, /PENDING_FORMS_WARNING\.ctaText/);
+  assert.doesNotMatch(heroSource, /#28b99e|#177564/);
+  assert.match(entrySource, /PENDING_FORMS_WARNING\.pillBackground/);
+  assert.match(entrySource, /PENDING_FORMS_WARNING\.ctaText/);
+  assert.doesNotMatch(entrySource, /bg-\[#eef8f5\]|text-\[#177564\]/);
+});
+
+test('checkout imports the confirmation dialog used by the locked-form action', () => {
+  assert.match(checkoutSource, /import \{ ConfirmDialog \} from '\.\/ConfirmDialog';/);
+});

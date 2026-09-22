@@ -63,11 +63,19 @@ test('Orders overview does not render the floating attention card over order con
   assert.match(floatCardSource, /pathname === '\/orders'/);
 });
 
-test('the floating attention card is suppressed on Home while task surfaces hide it', () => {
-  assert.match(floatCardSource, /pathname === '\/'/);
+test('the floating attention card remains available on Home while task surfaces hide it', () => {
+  assert.doesNotMatch(floatCardSource, /if \(pathname === '\/'\) return true;/);
   assert.match(floatCardSource, /pathname === '\/orders'/);
   assert.match(floatCardSource, /pathname === '\/passport'/);
   assert.ok(floatCardSource.includes('if (/\\/form(?:\\/|$)/.test(pathname)) return true;'));
+});
+
+test('the default floating forms reminder uses warning semantics instead of success green', () => {
+  assert.match(floatCardSource, /linear-gradient\(135deg, oklch\(0\.66 0\.14 72\) 0%, oklch\(0\.50 0\.14 45\) 100%\)/);
+  assert.match(floatCardSource, /oklch\(0\.78 0\.12 78 \/ 0\.72\)/);
+  assert.match(floatCardSource, /oklch\(0\.42 0\.14 42 \/ 0\.78\)/);
+  assert.match(floatCardSource, /: 'oklch\(0\.45 0\.15 35\)';/);
+  assert.doesNotMatch(floatCardSource, /linear-gradient\(135deg, #28b99e 0%, #177564 100%\)/);
 });
 
 test('floating forms shortcut opens Orders with Pending selected', () => {
