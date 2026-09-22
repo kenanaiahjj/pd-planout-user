@@ -34,6 +34,8 @@ export interface EventBrandTheme {
   textOnAccent?: string;
 }
 
+export type FormTiming = 'before_checkout' | 'after_checkout';
+
 /** Core shape of an event used across all pages (discovery, detail, cart). */
 export interface EventData {
   id: string;
@@ -63,8 +65,19 @@ export interface EventData {
   brand?: EventBrandTheme;
   /** If true, this event has already ended and is no longer accepting registrations. */
   isPast?: boolean;
+  /** When participant forms must be completed relative to payment. */
+  formTiming?: FormTiming;
   /** If true, the organizer requires participant forms to be completed before payment/checkout. */
   requireFormsBeforeCheckout?: boolean;
+}
+
+export function getEventFormTiming(
+  event?: Pick<EventData, 'formTiming' | 'requireFormsBeforeCheckout'> | null,
+): FormTiming {
+  if (event?.formTiming === 'before_checkout' || event?.formTiming === 'after_checkout') {
+    return event.formTiming;
+  }
+  return event?.requireFormsBeforeCheckout === true ? 'before_checkout' : 'after_checkout';
 }
 
 // ---------------------------------------------------------------------------
@@ -248,6 +261,7 @@ export const MOCK_EVENTS: EventData[] = [
     organizer: "NORSPORTS",
     rating: 4.8,
     labels: ["Running", "Ultramarathon", "Outdoor"],
+    formTiming: 'before_checkout',
     image: "https://images.unsplash.com/photo-1714962747379-93714999d5cc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYXJhdGhvbiUyMHJ1bm5lcnMlMjBjcm93ZHxlbnwxfHx8fDE3NzAxODc2MTB8MA&ixlib=rb-4.1.0&q=80&w=1080",
     requireFormsBeforeCheckout: true
   },
@@ -259,6 +273,7 @@ export const MOCK_EVENTS: EventData[] = [
     organizer: "NBL Official",
     rating: 4.9,
     labels: ["Basketball", "Team Sports", "Indoor"],
+    formTiming: 'before_checkout',
     brand: EVENT_BRANDS.arena,
     image: "https://images.unsplash.com/photo-1559369064-c4d65141e408?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwZ2FtZSUyMGluZG9vciUyMGFyZW5hfGVufDF8fHx8MTc3MDE4NzYxMXww&ixlib=rb-4.1.0&q=80&w=1080"
   },
@@ -271,6 +286,7 @@ export const MOCK_EVENTS: EventData[] = [
     organizer: "Tennis Fed",
     rating: 4.7,
     labels: ["Tennis", "Tournament", "Outdoor"],
+    formTiming: 'after_checkout',
     brand: EVENT_BRANDS.court,
     image: "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZW5uaXMlMjBwbGF5ZXIlMjBhY3Rpb24lMjBjb3VydHxlbnwxfHx8fDE3NzAxNTE2MzJ8MA&ixlib=rb-4.1.0&q=80&w=1080"
   },
@@ -287,6 +303,7 @@ export const MOCK_EVENTS: EventData[] = [
     organizer: "Swim Stars",
     rating: 4.6,
     labels: ["Swimming", "Aquatics", "Indoor", "Training"],
+    formTiming: 'after_checkout',
     image: "https://images.unsplash.com/photo-1707401252805-9019f342604b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzd2ltbWluZyUyMGNvbXBldGl0aW9uJTIwcG9vbHxlbnwxfHx8fDE3NzAxODc2MTF8MA&ixlib=rb-4.1.0&q=80&w=1080"
   },
   {
@@ -297,6 +314,7 @@ export const MOCK_EVENTS: EventData[] = [
     organizer: "Velo Club",
     rating: 4.8,
     labels: ["Cycling", "Endurance", "Outdoor"],
+    formTiming: 'after_checkout',
     brand: EVENT_BRANDS.velo,
     image: "https://images.unsplash.com/photo-1586280246643-9e2f01e3c14e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjeWNsaW5nJTIwcmFjZSUyMHJvYWQlMjBiaWtlc3xlbnwxfHx8fDE3NzAwOTE2MjV8MA&ixlib=rb-4.1.0&q=80&w=1080"
   },
@@ -308,6 +326,7 @@ export const MOCK_EVENTS: EventData[] = [
     organizer: "Football Assoc.",
     rating: 4.9,
     labels: ["Soccer", "Team Sports", "Stadium"],
+    formTiming: 'before_checkout',
     brand: EVENT_BRANDS.football,
     image: "https://images.unsplash.com/photo-1698844013403-b7c4cf0d3b2f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBtYXRjaCUyMHN0YWRpdW18ZW58MXx8fHwxNzcwMDg1OTUwfDA&ixlib=rb-4.1.0&q=80&w=1080"
   },
@@ -319,6 +338,7 @@ export const MOCK_EVENTS: EventData[] = [
     organizer: "Beach Volley Pro",
     rating: 4.7,
     labels: ["Volleyball", "Beach", "Outdoor"],
+    formTiming: 'after_checkout',
     brand: EVENT_BRANDS.beach,
     image: "https://images.unsplash.com/photo-1628314200733-5f7785cdc925?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiZWFjaCUyMHZvbGxleWJhbGwlMjBtYXRjaHxlbnwxfHx8fDE3NzAxODc2MTF8MA&ixlib=rb-4.1.0&q=80&w=1080"
   },
@@ -330,6 +350,7 @@ export const MOCK_EVENTS: EventData[] = [
     organizer: "Shuttlecock Club",
     rating: 4.5,
     labels: ["Badminton", "Racquet", "Indoor", "Fitness"],
+    formTiming: 'after_checkout',
     brand: EVENT_BRANDS.shuttle,
     image: "https://images.unsplash.com/photo-1640267461512-38f3f6b1b102?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYWRtaW50b24lMjBkb3VibGVzJTIwbWF0Y2h8ZW58MXx8fHwxNzcwMTg3NjEyfDA&ixlib=rb-4.1.0&q=80&w=1080"
   },
@@ -341,6 +362,7 @@ export const MOCK_EVENTS: EventData[] = [
     organizer: "Swim Philippines",
     rating: 4.7,
     labels: ["Swimming", "Aquatics", "Outdoor"],
+    formTiming: 'after_checkout',
     image: "https://images.unsplash.com/photo-1707401252805-9019f342604b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdW5zZXQlMjB5b2dhJTIwcmV0cmVhdCUyMGJlYWNofGVufDF8fHx8MTc3MDk1NzM0N3ww&ixlib=rb-4.1.0&q=80&w=1080"
   },
 
