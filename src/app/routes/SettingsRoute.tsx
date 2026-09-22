@@ -2,6 +2,7 @@
  * Route wrapper for the Settings page.
  * Auth-guarded — redirects to login if not authenticated.
  */
+import { createGuestProfile } from '@/app/data/session.js';
 import React from 'react';
 import { useNavigate } from 'react-router';
 import { SettingsPage } from '@/app/components/SettingsPage';
@@ -24,7 +25,7 @@ export function SettingsRoute() {
         onGoToPassportCases={() => navigate('/passport-cases')}
         userName={userProfile.name}
         onSignOut={() => {
-          setUserProfile({ name: '', email: '', phone: '', loginMethod: 'email' });
+          setUserProfile(createGuestProfile());
           navigate('/login');
         }}
       />

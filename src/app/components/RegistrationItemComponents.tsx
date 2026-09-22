@@ -258,6 +258,16 @@ export function ClaimLinkActions({
   onRescind: () => void;
 }) {
   const formLink = buildParticipantFormLink(entry, order.id, appOrigin());
+  const [isRevoking, setIsRevoking] = useState(false);
+
+  const handleRescind = async () => {
+    setIsRevoking(true);
+    try {
+      await onRescind();
+    } finally {
+      setIsRevoking(false);
+    }
+  };
 
   return (
     <>
@@ -274,10 +284,11 @@ export function ClaimLinkActions({
         type="button"
         compact
         tone="neutral"
-        onClick={onRescind}
+        onClick={handleRescind}
+        disabled={isRevoking}
         className="text-[12px]"
       >
-        Revoke
+        {isRevoking ? 'Revoking…' : 'Revoke'}
       </SecondaryButton>
     </>
   );
@@ -291,6 +302,7 @@ export function ClaimLinkStatePanel({
   title,
   compactDetail,
   divider = true,
+  fillAction,
 }: {
   entry: OrderEventEntry;
   order: OrderRecord;
@@ -299,12 +311,13 @@ export function ClaimLinkStatePanel({
   title?: string;
   compactDetail?: React.ReactNode;
   divider?: boolean;
+  fillAction?: React.ReactNode;
 }) {
   return (
     <RegistrationStatePanel
       tone="pending"
       divider={divider}
-      actions={<ClaimLinkActions entry={entry} order={order} onRescind={onRescind} />}
+      actions={<>{fillAction}<ClaimLinkActions entry={entry} order={order} onRescind={onRescind} /></>}
     >
       {title && <p className="truncate text-[12.5px] font-semibold text-[#181d27]">{title}</p>}
       {compact ? (
@@ -336,6 +349,7 @@ export function EmailReviewSheet({
 }) {
   const [recipient, setRecipient] = useState(entry.attendeeEmail ?? '');
   const [keyboardInset, setKeyboardInset] = useState(0);
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     if (open) setRecipient(entry.attendeeEmail ?? '');
@@ -379,6 +393,15 @@ export function EmailReviewSheet({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [onClose, open]);
+
+  const handleSendInvite = async () => {
+    setIsSending(true);
+    try {
+      await onSendInvite(recipient.trim());
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -466,14 +489,14 @@ export function EmailReviewSheet({
               </SecondaryButton>
               <PrimaryButton
                 type="button"
-                onClick={() => onSendInvite(recipient.trim())}
+                onClick={handleSendInvite}
                 data-testid="email-review-send"
-                disabled={!/^\S+@\S+\.\S+$/.test(recipient.trim())}
+                disabled={isSending || !/^\S+@\S+\.\S+$/.test(recipient.trim())}
                 compact
                 className="text-[12px]"
               >
                 <Send className="h-3.5 w-3.5" />
-                Send invite
+                {isSending ? 'Sending…' : 'Send invite'}
               </PrimaryButton>
             </div>
           </motion.section>
@@ -1003,6 +1026,16 @@ export function PassportBanner({
     );
   }
 
+  if (entry.status === 'pending_payment' || entry.status === 'no_show') {
+    return (
+      <RegistrationStatePanel tone="pending" divider={false} actions={contactAction}>
+        <p className="text-[13px] font-semibold text-[#516173]">
+          {entry.status === 'pending_payment' ? 'Pending payment verification' : 'No show'}
+        </p>
+      </RegistrationStatePanel>
+    );
+  }
+
   const isInvitedEntry = (entry.inviteStatus === 'invited' || entry.queueEntry?.inviteStatus === 'invited')
     && entry.status !== 'attached';
 
@@ -1019,6 +1052,7 @@ export function PassportBanner({
           </p>
         )}
         onRescind={onRescind}
+        fillAction={fillAction}
       />
     );
   }
@@ -1081,6 +1115,7 @@ export function RegistrationItem({
   const canSharePendingForm = entry.status !== 'attached'
     && entry.status !== 'released'
     && entry.status !== 'no_show'
+    && entry.status !== 'pending_payment'
     && entry.inviteStatus !== 'invited';
   const isShareable = canSharePendingForm && (
     entry.type === 'self'
@@ -1092,8 +1127,7 @@ export function RegistrationItem({
     && entry.status !== 'attached'
     && entry.accessPath !== 'passport'
     && entry.accessPath !== 'guest_qr'
-    && entry.inviteStatus !== 'invited'
-    && (isGuestWithoutBuyer || isUnassignedGuest);
+    && (isGuestWithoutBuyer || isUnassignedGuest || entry.inviteStatus === 'invited');
   const participantQuery = entry.participantId
     ? `&participantId=${encodeURIComponent(entry.participantId)}&playerOnly=1`
     : '';
@@ -1101,6 +1135,9 @@ export function RegistrationItem({
   const actionTarget = `/orders/${entry.ticket.id}/form?returnTo=${returnParam}&entryId=${encodeURIComponent(entry.queueEntry?.id || entry.id)}${participantQuery}${isBuyerFillRequired ? '&buyerFill=1' : ''}`;
 
   const handleFill = () => {
+    if (entry.inviteStatus === 'invited' && entry.status === 'pending_form') {
+      rescindRegistrationInvite(entry.queueEntry?.id || entry.id);
+    }
     if (onFill) {
       onFill(entry);
     } else {
@@ -1111,6 +1148,15 @@ export function RegistrationItem({
   return (
     <RegistrationItemShell title={entry.entryName} date={entry.ticket.eventDate} location={entry.ticket.eventLocation} image={entry.ticket.image}>
       <div className="px-4 pb-1 sm:px-5">
+        {entry.status === 'attached' && (entry.participantName || entry.attendeeEmail) && (
+          <div data-testid="participant-contact-summary" className="mb-3 rounded-[12px] border border-[#dcebe7] bg-[#f7fbfa] px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#6a817b]">Participant</p>
+            <p className="mt-1 truncate text-[13px] font-semibold text-[#315f57]">{entry.participantName || entry.entryName}</p>
+            {entry.attendeeEmail && (
+              <p className="mt-0.5 truncate text-[11.5px] font-medium text-[#64748b]">{entry.attendeeEmail}</p>
+            )}
+          </div>
+        )}
         <PassportBanner
           entry={entry}
           orderId={orderId}
@@ -1329,7 +1375,7 @@ export function TeamRegistrationSectionContent({
             <p className="text-[14px] font-semibold tracking-[-0.2px] text-[#163d37]">Team Roster</p>
             <div className="mt-0.5 flex flex-wrap items-baseline gap-2">
               <p className="text-[15px] font-semibold tracking-[-0.3px] text-[#315f57]">{summary.setUpCount} of {summary.totalCount} ready</p>
-              {!canAddPlayer && <span className="text-[11px] font-semibold text-[#7b8b9a]">Full</span>}
+              {!canAddPlayer && <span className="text-[11px] font-semibold text-[#7b8b9a]">Maximum players reached</span>}
             </div>
           </div>
         </div>
@@ -1401,6 +1447,19 @@ export function TeamRegistrationSectionContent({
                   <p className="mt-1 truncate text-[11px] font-medium text-[#516173]">
                     {playerEntry.attendeeEmail || 'Recipient'} · Claim link sent
                   </p>
+                )}
+                fillAction={(
+                  <SecondaryButton
+                    type="button"
+                    compact
+                    onClick={() => {
+                      unsendPlayerInvite(playerEntry);
+                      openPlayerForm(playerEntry);
+                    }}
+                    className="text-[11px]"
+                  >
+                    Fill up
+                  </SecondaryButton>
                 )}
                 onRescind={() => {
                   unsendPlayerInvite(playerEntry);
@@ -1695,6 +1754,7 @@ export function RegistrationEntryRow({
   const canSharePendingForm = entry.status !== 'attached'
     && entry.status !== 'released'
     && entry.status !== 'no_show'
+    && entry.status !== 'pending_payment'
     && entry.inviteStatus !== 'invited';
   const isShareable = canSharePendingForm && (
     entry.type === 'self'
@@ -1706,8 +1766,7 @@ export function RegistrationEntryRow({
     && entry.status !== 'attached'
     && entry.accessPath !== 'passport'
     && entry.accessPath !== 'guest_qr'
-    && entry.inviteStatus !== 'invited'
-    && (isGuestWithoutBuyer || isUnassignedGuest);
+    && (isGuestWithoutBuyer || isUnassignedGuest || entry.inviteStatus === 'invited');
   const participantQuery = entry.participantId
     ? `&participantId=${encodeURIComponent(entry.participantId)}&playerOnly=1`
     : '';
@@ -1715,6 +1774,9 @@ export function RegistrationEntryRow({
   const actionTarget = `/orders/${entry.ticket.id}/form?returnTo=${returnParam}&entryId=${encodeURIComponent(entry.queueEntry?.id || entry.id)}${participantQuery}${isBuyerFillRequired ? '&buyerFill=1' : ''}`;
 
   const handleFill = () => {
+    if (entry.inviteStatus === 'invited' && entry.status === 'pending_form') {
+      rescindRegistrationInvite(entry.queueEntry?.id || entry.id);
+    }
     if (onFill) {
       onFill(entry);
     } else {
@@ -1971,7 +2033,10 @@ export function EventRegistrationGroupCard({
       </header>
 
       {/* ── Ticket Type Groups ── */}
-      <div className="divide-y divide-[#e9f0ee]">
+      <div
+        data-testid="registration-event-list"
+        className="divide-y divide-[#e7ecef]"
+      >
         {eventGroup.ticketTypeGroups.map((ticketTypeGroup) => (
           <TicketTypeRegistrationSection
             key={ticketTypeGroup.ticketTypeId}
@@ -2022,4 +2087,3 @@ export function GroupedRegistrationList({
     </div>
   );
 }
-

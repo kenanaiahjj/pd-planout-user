@@ -1,5 +1,7 @@
+import { useAppContext } from '@/app/context/AppContext';
+import { getRegistrationFormPath } from '@/app/data/navigation.js';
 import React from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { ClipboardList } from 'lucide-react';
 import { PrimaryButton } from '@/app/components/PrimaryButton';
 
@@ -13,7 +15,10 @@ const CHANGES = [
 export function FormDiffPage() {
   const navigate = useNavigate();
   const { entryId = 'resubmit-aquathlon' } = useParams<{ entryId: string }>();
-  const eventName = entryId === 'resubmit-aquathlon' ? 'Bay Aquathlon Challenge' : 'Registration';
+  const { registrationQueueEntries } = useAppContext();
+  const [searchParams] = useSearchParams();
+  const entry = registrationQueueEntries.find((item) => item.id === entryId);
+  const eventName = entry?.eventName || 'Registration';
 
   return (
     <div className="relative flex flex-col gap-5 pb-44">
@@ -73,7 +78,7 @@ export function FormDiffPage() {
 
       <PrimaryButton
         type="button"
-        onClick={() => navigate(`/orders/tkt-005/form?returnTo=passport&resubmit=1&entryId=${entryId}`)}
+        onClick={() => navigate(getRegistrationFormPath(entry, { resubmit: true, returnTo: searchParams.get('returnTo') || 'order' }))}
         fullWidth
         className="h-13 rounded-[14px] text-[14px]"
       >

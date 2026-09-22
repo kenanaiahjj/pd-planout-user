@@ -28,12 +28,12 @@ import { createPassportQrSvg, PlanOutPassportCard } from '@/app/components/PlanO
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { useAppContext } from '@/app/context/AppContext';
 import {
-  MY_TICKETS,
   type MyTicket,
   type Participant,
   type RegistrationQueueEntry,
   type TeamPlayerAccessPath,
 } from '@/app/data/tickets';
+import { getMockTicketById, getTicketParticipants, MOCK_TICKETS } from '@/app/data/mockCatalog';
 import { resolveTeamPlayerAccess, teamPlayerLabel } from '@/app/data/teamAccess.js';
 
 import imgAvatar from '@/assets/abde7b942aa982263d4cf69ea8ef217b427c3047.png';
@@ -52,17 +52,21 @@ function isUpcomingEntry(entry: RegistrationQueueEntry) {
 }
 
 function findTicket(entry: RegistrationQueueEntry) {
-  return MY_TICKETS.find((ticket) => ticket.id === entry.ticketId);
+  return getMockTicketById(entry.ticketId);
 }
 
 function buildTeamPassportEntries(
   teamPlayerAccess: Record<string, TeamPlayerAccessPath | undefined> = {},
   teamPlayerRoster: Record<string, Participant[] | undefined> = {},
+  registrationQueueEntries: RegistrationQueueEntry[] = [],
 ): RegistrationQueueEntry[] {
-  return MY_TICKETS.flatMap((ticket) => {
+  return MOCK_TICKETS.flatMap((ticket) => {
     if (ticket.ticketType !== 'team') return [];
 
-    const participants = teamPlayerRoster[ticket.id] || ticket.participants;
+    const participants = getTicketParticipants(ticket, {
+      registrationQueueEntries,
+      teamPlayerRoster,
+    });
     return participants.flatMap((participant, index) => {
       const accessPath = teamPlayerAccess[`${ticket.id}:${participant.id}`]
         || participant.accessPath
@@ -640,7 +644,7 @@ export function PassportEventsPage() {
   const { registrationQueueEntries, teamPlayerAccess, teamPlayerRoster } = useAppContext();
   const passportEntries = [
     ...registrationQueueEntries,
-    ...buildTeamPassportEntries(teamPlayerAccess, teamPlayerRoster),
+    ...buildTeamPassportEntries(teamPlayerAccess, teamPlayerRoster, registrationQueueEntries),
   ];
 
   const upcomingEntries = passportEntries.filter(isUpcomingEntry);
@@ -741,7 +745,7 @@ export function PassportPage({ onBack: _onBack }: PassportPageProps) {
   const holderImage = userProfile.avatarUrl || member.avatarUrl || imgAvatar;
   const passportEntries = [
     ...registrationQueueEntries,
-    ...buildTeamPassportEntries(teamPlayerAccess, teamPlayerRoster),
+    ...buildTeamPassportEntries(teamPlayerAccess, teamPlayerRoster, registrationQueueEntries),
   ];
   const upcomingEntries = passportEntries.filter(isUpcomingEntry);
   const attachedEntries = upcomingEntries.filter(isReadyAccessEntry);
@@ -840,7 +844,7 @@ export function PassportPage({ onBack: _onBack }: PassportPageProps) {
           {/* Right Column: Actions & Passport History */}
           <section
             data-testid="passport-add-event-card"
-            className="rounded-[18px] border border-[#e3ebe8] bg-white p-4 shadow-[0_4px_8px_-6px_rgba(15,23,42,0.24)] sm:p-5"
+            className="order-first lg:order-none rounded-[18px] border border-[#e3ebe8] bg-white p-4 shadow-[0_4px_8px_-6px_rgba(15,23,42,0.24)] sm:p-5"
           >
             <div className="flex items-center gap-3 px-1">
               <div className="min-w-0">

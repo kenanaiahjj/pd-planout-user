@@ -145,15 +145,11 @@ export function MobileFilters({
           onMouseEnter={() => setIsTriggerHovered(true)}
           onMouseLeave={() => setIsTriggerHovered(false)}
           style={{
-            background: isTriggerHovered
-              ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 253, 250, 0.45) 50%, rgba(204, 251, 241, 0.7) 100%)'
-              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(240, 253, 250, 0.3) 50%, rgba(204, 251, 241, 0.5) 100%)',
-            border: isTriggerHovered
-              ? '1px solid rgba(255, 255, 255, 0.95)'
-              : '1px solid rgba(255, 255, 255, 0.75)',
+            background: isTriggerHovered ? '#f8fffd' : '#ffffff',
+            border: isTriggerHovered ? '1px solid #bfe5de' : '1px solid #dce7e4',
             boxShadow: isTriggerHovered
-              ? '0 6px 16px rgba(15, 23, 42, 0.055), inset 0 1.5px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 3px rgba(23, 117, 100, 0.08)'
-              : '0 3px 10px rgba(15, 23, 42, 0.03), inset 0 1.5px 0 rgba(255, 255, 255, 0.85), inset 0 -1px 2px rgba(23, 117, 100, 0.04)',
+              ? '0 6px 16px rgba(15, 23, 42, 0.055)'
+              : '0 3px 10px rgba(15, 23, 42, 0.03)',
             transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
           }}
           className="lg:hidden flex items-center justify-center w-[40px] h-[40px] text-[#177564] rounded-[13px] relative shrink-0 cursor-pointer"

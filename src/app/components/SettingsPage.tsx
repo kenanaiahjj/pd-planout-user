@@ -16,10 +16,12 @@ import {
   LogOut,
   Plus,
   ReceiptText,
+  RefreshCw,
   ShieldCheck,
   UserRound,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
+import { toast } from 'sonner';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { ConfirmDialog } from './ConfirmDialog';
 import { IconButton } from './IconButton';
@@ -249,7 +251,8 @@ export function SettingsPage({
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchingToOrgId, setSwitchingToOrgId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const { pendingOrgApplication } = useAppContext();
+  const { pendingOrgApplication, resetMockState } = useAppContext();
+  const [isResetOpen, setIsResetOpen] = useState(false);
 
   const displayName = userName || 'Jessica Sanchez';
   const initials =
@@ -434,16 +437,40 @@ export function SettingsPage({
             />
           </SettingsSection>
 
-          {onGoToPassportCases && (
+          {(onGoToPassportCases || resetMockState) && (
             <SettingsSection title="Prototype">
+              {onGoToPassportCases && (
+                <SettingsRow
+                  icon={<LayoutList className="h-[18px] w-[18px]" strokeWidth={1.8} />}
+                  label="Passport Cases Board"
+                  value="34 registration and access scenarios"
+                  onClick={onGoToPassportCases}
+                />
+              )}
               <SettingsRow
-                icon={<LayoutList className="h-[18px] w-[18px]" strokeWidth={1.8} />}
-                label="Passport Cases Board"
-                value="34 registration and access scenarios"
-                onClick={onGoToPassportCases}
+                icon={<RefreshCw className="h-[18px] w-[18px]" strokeWidth={1.8} />}
+                label="Reset demo data"
+                value="Restore registrations, forms, access, QRs, cart, and checkout"
+                onClick={() => setIsResetOpen(true)}
               />
             </SettingsSection>
           )}
+
+          <ConfirmDialog
+            open={isResetOpen}
+            onOpenChange={setIsResetOpen}
+            title="Reset demo data?"
+            description="This restores the prototype's registrations, participant forms, team access, Guest QRs, cart, and checkout. Your account stays signed in."
+            icon={<RefreshCw className="h-6 w-6" />}
+            iconVariant="warning"
+            confirmLabel="Reset demo data"
+            variant="default"
+            onConfirm={() => {
+              resetMockState();
+              setIsResetOpen(false);
+              toast.success('Demo data reset');
+            }}
+          />
 
           <ConfirmDialog
             trigger={

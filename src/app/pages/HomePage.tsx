@@ -24,8 +24,9 @@ import { PlanOutPassportCard } from '@/app/components/PlanOutPassportCard';
 import { PrimaryButton } from '@/app/components/PrimaryButton';
 import { useAppContext } from '@/app/context/AppContext';
 import { MOCK_EVENTS, type EventData } from '@/app/data/events';
-import { ORDERS_PENDING_PATH } from '@/app/data/navigation.js';
-import { getOrderFormActionEntries, MY_TICKETS, type MyTicket, type RegistrationQueueEntry } from '@/app/data/tickets';
+import { getMockEventById, getMockTicketById } from '@/app/data/mockCatalog';
+import { ORDERS_PENDING_PATH, getRegistrationFormPath } from '@/app/data/navigation.js';
+import { getOrderFormActionEntries, getPendingFormCount, type MyTicket, type RegistrationQueueEntry } from '@/app/data/tickets';
 import imgAvatar from '@/assets/abde7b942aa982263d4cf69ea8ef217b427c3047.png';
 import imgNoUpcomingEvents from '@/assets/ChatGPT Image Jun 18, 2026, 10_04_48 AM.png';
 
@@ -45,7 +46,7 @@ function firstName(name?: string) {
 
 function findTicket(entry?: RegistrationQueueEntry) {
   if (!entry) return undefined;
-  return MY_TICKETS.find((ticket) => ticket.id === entry.ticketId);
+  return getMockTicketById(entry.ticketId);
 }
 
 function parseDate(date?: string) {
@@ -89,61 +90,16 @@ function dateParts(date?: string) {
 }
 
 function formProgress(ticket?: ReturnType<typeof findTicket>, entry?: RegistrationQueueEntry) {
-  if (!ticket) {
-    const total = entry?.teamTotalCount ?? entry?.guestTotalCount ?? 1;
-    const completed = entry?.teamAttachedCount ?? entry?.guestCompletedCount ?? 0;
-    const missing = Math.max(0, total - completed);
-    const needsAction = entry?.entryStatus === 'pending_form' || entry?.entryStatus === 'resubmit_required';
-    const formText = missing === 1 ? '1 form needed' : `${missing} forms needed`;
-    const progressText = total > 1 ? `${completed}/${total} complete` : undefined;
-
-    return {
-      primary: needsAction ? (progressText ? `${formText} · ${progressText}` : formText) : 'Registration details pending',
-      secondary: deadlineLabel(entry?.deadline),
-      needsAction,
-    };
-  }
-
-  const total =
-    ticket.ticketType === 'team'
-      ? entry?.teamTotalCount || ticket.maxParticipants || ticket.participants.length
-      : ticket.participants.length || ticket.quantity || 1;
-  const completed =
-    ticket.ticketType === 'team'
-      ? entry?.teamAttachedCount ?? ticket.participants.filter((participant) => participant.formStatus === 'completed').length
-      : ticket.participants.filter((participant) => participant.formStatus === 'completed').length;
-  const missing = Math.max(0, total - completed);
-  const uninvited = ticket.participants.filter((participant) => participant.inviteStatus === 'not_invited').length;
-  const invited = ticket.participants.filter((participant) => participant.inviteStatus === 'invited').length;
-  const needsAction =
-    ticket.status === 'action_required' ||
-    ticket.status === 'pending' ||
-    ticket.entryStatus === 'pending_form' ||
-    ticket.entryStatus === 'resubmit_required' ||
-    missing > 0;
-
-  if (!needsAction) {
-    return {
-      primary: 'All forms complete',
-      secondary: ticket.deadline ? `Deadline met · ${ticket.deadline}` : 'Ready in Orders',
-      needsAction,
-    };
-  }
-
+  const total = entry?.teamTotalCount ?? entry?.guestTotalCount ?? 1;
+  const missing = entry ? getPendingFormCount(entry) : 0;
+  const completed = total - missing;
   const formText = missing === 1 ? '1 form needed' : `${missing} forms needed`;
-  const progressText = total > 1 ? `${completed}/${total} complete` : undefined;
-  const inviteText =
-    ticket.ticketType !== 'single' && (uninvited > 0 || invited > 0)
-      ? [
-          uninvited > 0 ? `${uninvited} unsent` : null,
-          invited > 0 ? `${invited} invited` : null,
-        ].filter(Boolean).join(' · ')
-      : undefined;
-
   return {
-    primary: progressText ? `${formText} · ${progressText}` : formText,
-    secondary: [deadlineLabel(ticket.deadline), inviteText].filter(Boolean).join(' · ') || undefined,
-    needsAction,
+    primary: missing > 0
+      ? total > 1 ? `${formText} · ${completed}/${total} complete` : formText
+      : 'All forms complete',
+    secondary: deadlineLabel(entry?.deadline || ticket?.deadline),
+    needsAction: missing > 0,
   };
 }
 
@@ -399,7 +355,7 @@ function GuestHome({ onGoToEvents, onEventSelect }: HomePageProps) {
                 aria-label="Search events"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search running, cycling, swimming..."
+                placeholder="Search events or sports..."
                 className="h-10 min-w-0 w-full bg-transparent pl-2.5 pr-2 text-[14px] font-medium text-[#181d27] outline-none placeholder:text-[#94a3b8]"
               />
             </div>
@@ -472,22 +428,25 @@ function GuestHome({ onGoToEvents, onEventSelect }: HomePageProps) {
         </div>
       </section>
 
-      <section className="border-t border-black/[0.04] pt-8">
+      <section data-testid="how-it-works" className="border-t border-black/[0.04] pt-8">
         <SectionHeader title="How it works" />
         <div className="grid gap-4 sm:grid-cols-3">
           {[
-            [Search, 'Find an event', 'Pick the sport, date, and organiser that fit.'],
-            [TicketCheck, 'Register', 'Pay and complete the required organiser forms.'],
-            [ShieldCheck, 'Show one QR', 'Staff scan your PlanOut Passport at the gate.'],
-          ].map(([Icon, title, body]) => {
-            const StepIcon = Icon as typeof Search;
+            { step: 1, icon: Search, title: 'Find an event', body: 'Pick the sport, date, and organiser that fit.' },
+            { step: 2, icon: TicketCheck, title: 'Register', body: 'Pay and complete the required organiser forms.' },
+            { step: 3, icon: ShieldCheck, title: 'Show one QR', body: 'Staff scan your PlanOut Passport at the gate.' },
+          ].map(({ step, icon: StepIcon, title, body }, index) => {
             return (
-              <div key={title as string} className="rounded-[22px] border border-black/[0.04] bg-white p-5.5 shadow-premium">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-emerald-50 text-[#177564]">
+              <div key={title} className="relative rounded-[22px] border border-black/[0.04] bg-white p-5.5 shadow-premium">
+                <div data-step={step} className="flex h-10 w-10 items-center justify-center gap-1 rounded-[12px] bg-emerald-50 text-[#177564]">
+                  <span className="text-[10px] font-bold" aria-hidden="true">{step}</span>
                   <StepIcon className="h-4.5 w-4.5" strokeWidth={1.8} />
                 </div>
-                <p className="mt-4 text-[14.5px] font-semibold text-[#181d27]">{title as string}</p>
-                <p className="mt-1.5 text-[12.5px] leading-relaxed text-[#64748b]">{body as string}</p>
+                {index < 2 && (
+                  <span data-testid="how-it-works-connector" aria-hidden="true" className="pointer-events-none absolute right-[-16px] top-10 hidden w-4 border-t border-dashed border-[#b7dcd3] sm:block" />
+                )}
+                <p className="mt-4 text-[14.5px] font-semibold text-[#181d27]">{title}</p>
+                <p className="mt-1.5 text-[12.5px] leading-relaxed text-[#64748b]">{body}</p>
               </div>
             );
           })}
@@ -607,14 +566,14 @@ function UpcomingEventCard({
                 <ClipboardList className="h-3.5 w-3.5" strokeWidth={1.8} />
               </div>
               <div className="min-w-0 pt-0.5">
-                <p className={`text-[13px] font-semibold leading-[1.35] ${
+                <p className={`rounded-[10px] px-2 py-1 text-[13px] font-semibold leading-[1.35] ${
                   progress.needsAction ? 'text-[#92400e]' : 'text-[#177564]'
-                }`}
+                } ${progress.needsAction ? 'bg-amber-50/80 ring-1 ring-amber-200/70' : 'bg-emerald-50/70 ring-1 ring-emerald-100'}`}
                 >
                   {progress.primary}
                 </p>
                 {progress.secondary && (
-                  <p className="mt-0.5 text-[11px] font-medium leading-snug text-slate-550" style={{ color: '#64748b' }}>
+                  <p className={`mt-0.5 text-[11px] font-semibold leading-snug ${progress.needsAction ? 'text-[#9a4f00]' : 'text-[#64748b]'}`}>
                     {progress.secondary}
                   </p>
                 )}
@@ -647,7 +606,8 @@ function FormsToFinishSection({
     .map((entry) => ({ entry, date: parseDate(entry.deadline) }))
     .filter((item): item is { entry: RegistrationQueueEntry; date: Date } => Boolean(item.date))
     .sort((a, b) => a.date.getTime() - b.date.getTime())[0]?.entry.deadline;
-  const countLabel = entries.length === 1 ? '1 form needs attention' : `${entries.length} forms need attention`;
+  const count = entries.reduce((sum, entry) => sum + getPendingFormCount(entry), 0);
+  const countLabel = count === 1 ? '1 form needs attention' : `${count} forms need attention`;
 
   return (
     <section className="flex flex-col gap-3">
@@ -689,6 +649,11 @@ function FormsToFinishSection({
                 <p className="mt-0.5 truncate text-[12px] text-[#64748b]">
                   {progress.primary}
                 </p>
+                {progress.secondary && (
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-[#9a4f00]">
+                    {progress.secondary}
+                  </p>
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-1 text-[#177564]">
                 <span className="text-[13px] font-medium">{actionLabel}</span>
@@ -866,8 +831,7 @@ export function HomePage({ onEventSelect, onGoToEvents, userName }: HomePageProp
   }
 
   const hasPending = pendingEntries.length > 0;
-  const pendingFormCount = pendingEntries.length;
-  const passportStatusLabel = `${pendingFormCount} form${pendingFormCount === 1 ? '' : 's'} to finish`;
+  const passportStatusLabel = hasPending ? 'Forms need attention' : 'All forms complete';
 
   return (
     <>
@@ -903,6 +867,14 @@ export function HomePage({ onEventSelect, onGoToEvents, userName }: HomePageProp
           </div>
         </section>
 
+      {hasPending && (
+        <FormsToFinishSection
+          entries={pendingEntries}
+          onOpenEntry={(entry) => navigate(getRegistrationFormPath(entry, { returnTo: 'home' }))}
+          onOpenAll={() => navigate(ORDERS_PENDING_PATH)}
+        />
+      )}
+
       {nextEntry && (
         <section className="flex flex-col gap-3">
           <h2 className="text-[17px] font-semibold text-[#181d27]">Your upcoming event</h2>
@@ -910,22 +882,15 @@ export function HomePage({ onEventSelect, onGoToEvents, userName }: HomePageProp
             entry={nextEntry}
             onClick={() => {
               if (hasPending) {
-                navigate(`/orders/${nextEntry.ticketId}/form?returnTo=home&entryId=${nextEntry.id}`);
+                navigate(getRegistrationFormPath(nextEntry, { returnTo: 'home' }));
                 return;
               }
-              const event = MOCK_EVENTS.find((item) => item.id === findTicket(nextEntry)?.eventId);
+              const event = findTicket(nextEntry) ? getMockEventById(findTicket(nextEntry)!.eventId) : undefined;
               if (event) onEventSelect(event);
+              else navigate(`/orders/${nextEntry.ticketId}`);
             }}
           />
         </section>
-      )}
-
-      {hasPending && (
-        <FormsToFinishSection
-          entries={pendingEntries}
-          onOpenEntry={(entry) => navigate(`/orders/${entry.ticketId}/form?returnTo=home&entryId=${entry.id}`)}
-          onOpenAll={() => navigate(ORDERS_PENDING_PATH)}
-        />
       )}
 
       {!hasPending && attachedEntries.length > 0 && (
@@ -934,7 +899,7 @@ export function HomePage({ onEventSelect, onGoToEvents, userName }: HomePageProp
           <div className="divide-y divide-[#eef2f6] rounded-[20px] border border-[#e2e8f0] bg-white">
             {attachedEntries.slice(0, 3).map((entry) => {
               const ticket = findTicket(entry);
-              const event = ticket ? MOCK_EVENTS.find((item) => item.id === ticket.eventId) : undefined;
+              const event = ticket ? getMockEventById(ticket.eventId) : undefined;
               return (
                 <button
                   key={entry.id}

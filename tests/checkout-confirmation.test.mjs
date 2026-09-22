@@ -33,7 +33,6 @@ test('pending confirmation places View order inside the order summary', () => {
 test('checkout forms expose the same three completion choices as Orders', () => {
   assert.match(checkoutSource, /type CheckoutEntryOwner = 'self' \| 'guest';/);
   assert.match(checkoutSource, /EntryCompletionChoice/);
-  assert.match(checkoutSource, /value=\{singleSlotData\.deliveryMethod === 'invite' \? 'claim' : singleSlotData\.entryOwner\}/);
   assert.match(checkoutSource, /value=\{data\.deliveryMethod === 'invite' \? 'claim' : data\.entryOwner\}/);
   assert.match(checkoutSource, /choice === 'claim' \? 'invite' : 'fill'/);
   assert.match(checkoutSource, /entryOwner/);

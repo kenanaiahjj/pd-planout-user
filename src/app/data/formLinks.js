@@ -15,6 +15,7 @@ export function getShareableFormEntries(entries = []) {
     entry.status !== 'attached'
     && entry.status !== 'released'
     && entry.status !== 'no_show'
+    && entry.status !== 'pending_payment'
   ));
 }
 

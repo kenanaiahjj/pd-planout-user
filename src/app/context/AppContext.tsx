@@ -7,7 +7,7 @@ import { hasAccountSession } from '@/app/data/session.js';
  * desktop peek panel / drawer state, checkout intent, and constants.
  */
 
-import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
 import { type EventData } from '@/app/data/events';
 import {
   MY_TICKETS,
@@ -15,7 +15,6 @@ import {
   getActionRequiredCount,
   getOrderFormActionEntries,
   getPendingFormCount,
-  retiredRegistrationEntryIds,
   type GuestEntryQR,
   type Participant,
   type RegistrationQueueEntry,
@@ -35,7 +34,6 @@ import {
 import { claimFormEntry, rescindFormInvite } from '@/app/data/formLinks.js';
 import {
   applyParticipantToRegistrationQueue,
-  resolveParticipantEntryStatus,
   shareRegistrationInviteInQueue,
 } from '@/app/data/participantFormState.js';
 import { attachTeamPlayerToPassport, normalizeTeamPlayerState } from '@/app/data/teamAccess.js';
@@ -697,17 +695,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const claimedSource = claimFormEntry(claimSource, claimant);
     if (!claimedSource.ok) return claimedSource;
 
-    if (queueEntry) {
-      const nextQueueEntry = {
-        ...claimedSource.entry,
-        ...(queueEntry.type === 'team' && queueEntry.teamTotalCount
-          ? { teamAttachedCount: Math.min(queueEntry.teamTotalCount, (queueEntry.teamAttachedCount || 0) + 1) }
-          : {}),
-      } as RegistrationQueueEntry;
-      currentState.registrationQueueEntries = currentEntries.map((entry) => entry.id === entryId ? nextQueueEntry : entry);
-    }
-
-    let nextState = currentState;
+    const nextQueueEntry = queueEntry
+      ? {
+          ...claimedSource.entry,
+          ...(queueEntry.type === 'team' && queueEntry.teamTotalCount
+            ? { teamAttachedCount: Math.min(queueEntry.teamTotalCount, (queueEntry.teamAttachedCount || 0) + 1) }
+            : {}),
+        } as RegistrationQueueEntry
+      : undefined;
+    let nextState = {
+      ...currentState,
+      registrationQueueEntries: nextQueueEntry
+        ? currentEntries.map((entry) => entry.id === entryId ? nextQueueEntry : entry)
+        : currentState.registrationQueueEntries,
+    };
     if (ticketId && participantId) {
       if (teamKey) {
         const nextAccess = { ...persistedTeamPlayerAccess, [teamKey]: 'passport' as const };

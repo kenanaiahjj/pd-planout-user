@@ -1,11 +1,11 @@
 /**
  * Route wrapper for Event Detail page.
- * Looks up event by :eventId param from MOCK_EVENTS.
+ * Looks up event by :eventId param from the canonical mock catalog.
  */
 import React from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router';
 import { EventDetailsPage } from '@/app/components/EventDetailsPage';
-import { MOCK_EVENTS } from '@/app/data/events';
+import { getMockEventById } from '@/app/data/mockCatalog';
 import { getOrganizerBySlug } from '@/app/data/organizers';
 import { getCartAdditionDescription } from '@/app/data/cart.js';
 import { useAppContext } from '@/app/context/AppContext';
@@ -16,7 +16,7 @@ export function EventDetailRoute() {
   const navigate = useNavigate();
   const { setCheckoutIntent, addCartItems } = useAppContext();
 
-  const event = MOCK_EVENTS.find((e) => e.id === eventId);
+  const event = eventId ? getMockEventById(eventId) : undefined;
 
   if (!event) {
     return <Navigate to="/" replace />;

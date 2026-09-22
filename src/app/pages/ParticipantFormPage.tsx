@@ -1021,22 +1021,15 @@ export function ParticipantFormPage({
                   Form Progress
                 </span>
               </div>
-              {ticket.status === 'action_required' && (
-                <div className="flex items-center gap-1.5 bg-[#fffbeb] border border-[#fde68a] px-2.5 py-[3px] rounded-full">
-                  <AlertCircle className="w-3 h-3 text-[#d97706]" />
-                  <span className="text-[#92400e] text-[11px] font-semibold tracking-[0.2px]">Action Required</span>
-                </div>
-              )}
-              {ticket.status === 'pending' && (
-                <div className="flex items-center gap-1.5 bg-[#fffbeb] border border-[#fde68a] px-2.5 py-[3px] rounded-full">
-                  <Clock className="w-3 h-3 text-[#d97706]" />
-                  <span className="text-[#92400e] text-[11px] font-semibold tracking-[0.2px]">Pending</span>
-                </div>
-              )}
-              {ticket.status === 'confirmed' && (
+              {currentParticipant?.formStatus === 'completed' ? (
                 <div className="flex items-center gap-1.5 bg-[#ecfdf5] border border-[#a7f3d0] px-2.5 py-[3px] rounded-full">
                   <CheckCircle2 className="w-3 h-3 text-[#059669]" />
-                  <span className="text-[#065f46] text-[11px] font-semibold tracking-[0.2px]">Confirmed</span>
+                  <span className="text-[#065f46] text-[11px] font-semibold tracking-[0.2px]">Complete</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 bg-[#fffbeb] border border-[#fde68a] px-2.5 py-[3px] rounded-full">
+                  <AlertCircle className="w-3 h-3 text-[#d97706]" />
+                  <span className="text-[#92400e] text-[11px] font-semibold tracking-[0.2px]">Form needed</span>
                 </div>
               )}
             </div>
@@ -1053,7 +1046,7 @@ export function ParticipantFormPage({
                     { key: 'waiver', label: 'Waiver Upload', icon: Upload },
                   ];
                   return fields.map(({ key, label, icon: Icon }) => {
-                    const filled = key === 'waiver'
+                    const filled = currentParticipant?.formStatus === 'completed' || (key === 'waiver'
                       ? !!currentForm.waiver
                       : key === 'firstName'
                         ? (currentForm.firstName || '').trim() !== ''
@@ -1061,7 +1054,7 @@ export function ParticipantFormPage({
                           ? (currentForm.lastName || '').trim() !== ''
                           : key === 'email'
                             ? (currentForm.email || '').trim() !== ''
-                            : false;
+                            : false);
                     const preview = key !== 'waiver' && filled
                       ? String(currentForm[key as keyof FormData] ?? '')
                       : '';

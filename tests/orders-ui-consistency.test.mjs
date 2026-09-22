@@ -6,6 +6,11 @@ const ordersSource = fs.readFileSync(
   new URL('../src/app/pages/OrdersPage.tsx', import.meta.url),
   'utf8',
 );
+const registrationSource = fs.readFileSync(
+  new URL('../src/app/components/RegistrationItemComponents.tsx', import.meta.url),
+  'utf8',
+);
+const ordersContractSource = `${ordersSource}\n${registrationSource}`;
 const orderStatusLabelUrl = new URL('../src/app/components/OrderStatusLabel.tsx', import.meta.url);
 const orderStatusLabelSource = fs.existsSync(orderStatusLabelUrl)
   ? fs.readFileSync(orderStatusLabelUrl, 'utf8')
@@ -51,15 +56,15 @@ const stylesSource = fs.readFileSync(
   'utf8',
 );
 test('Orders detail reserves space below fixed navigation', () => {
-  assert.match(ordersSource, /pb-\[calc\(7rem\+env\(safe-area-inset-bottom\)\)\]\s+sm:pb-10/);
+  assert.match(ordersContractSource, /pb-\[calc\(7rem\+env\(safe-area-inset-bottom\)\)\]\s+sm:pb-10/);
 });
 
 test('Orders overview does not render the floating attention card over order content', () => {
   assert.match(floatCardSource, /pathname === '\/orders'/);
 });
 
-test('the floating attention card remains available on Home while task surfaces hide it', () => {
-  assert.doesNotMatch(floatCardSource, /pathname === '\/'/);
+test('the floating attention card is suppressed on Home while task surfaces hide it', () => {
+  assert.match(floatCardSource, /pathname === '\/'/);
   assert.match(floatCardSource, /pathname === '\/orders'/);
   assert.match(floatCardSource, /pathname === '\/passport'/);
   assert.ok(floatCardSource.includes('if (/\\/form(?:\\/|$)/.test(pathname)) return true;'));
@@ -68,10 +73,10 @@ test('the floating attention card remains available on Home while task surfaces 
 test('floating forms shortcut opens Orders with Pending selected', () => {
   assert.match(navigationSource, /export const ORDERS_PENDING_PATH = '\/orders\?filter=pending'/);
   assert.match(rootLayoutSource, /onPress=\{\(\) => navTo\(ORDERS_PENDING_PATH\)\}/);
-  assert.match(ordersSource, /export function getOrderFilterFromSearch\(search: string\): OrderFilter/);
-  assert.match(ordersSource, /const \{ search \} = useLocation\(\);/);
-  assert.match(ordersSource, /useState<OrderFilter>\(\(\) => getOrderFilterFromSearch\(search\)\)/);
-  assert.match(ordersSource, /setActiveFilter\(getOrderFilterFromSearch\(search\)\)/);
+  assert.match(ordersContractSource, /export function getOrderFilterFromSearch\(search: string\): OrderFilter/);
+  assert.match(ordersContractSource, /const \{ search \} = useLocation\(\);/);
+  assert.match(ordersContractSource, /useState<OrderFilter>\(\(\) => getOrderFilterFromSearch\(search\)\)/);
+  assert.match(ordersContractSource, /setActiveFilter\(getOrderFilterFromSearch\(search\)\)/);
 });
 
 test('Orders overview integrates one event image into the complete card surface', () => {
@@ -80,8 +85,8 @@ test('Orders overview integrates one event image into the complete card surface'
     ordersSource.indexOf('function appOrigin'),
   );
 
-  assert.doesNotMatch(ordersSource, /function getOrderGradientClass\(order: OrderRecord\)/);
-  assert.doesNotMatch(ordersSource, /tennis\|pickleball|marathon\|run\|trail\|relay|swim\|coastal/i);
+  assert.doesNotMatch(ordersContractSource, /function getOrderGradientClass\(order: OrderRecord\)/);
+  assert.doesNotMatch(ordersContractSource, /tennis\|pickleball|marathon\|run\|trail\|relay|swim\|coastal/i);
   assert.match(orderCardSource, /getOrderGraphicImages\(order\)\[0\] \|\| ''/);
   assert.match(orderCardSource, /data-testid="order-card-image"/);
   assert.match(orderCardSource, /absolute inset-0 opacity-\[0\.78\]/);
@@ -123,16 +128,16 @@ test('Orders overview keeps status and purchase information in one readable hier
     ordersSource.indexOf('function appOrigin'),
   );
 
-  assert.match(ordersSource, /data-testid="orders-order-list"/);
+  assert.match(ordersContractSource, /data-testid="orders-order-list"/);
   assert.match(orderCardSource, /function OrderCard/);
   assert.match(orderCardSource, /const state = getOrderState\(order\)/);
   assert.match(orderCardSource, /data-testid="order-card-status"/);
   assert.match(orderCardSource, /<OrderStatusLabel label=\{state\.label\} tone=\{state\.tone\}/);
-  assert.match(ordersSource, /Forms needed/);
-  assert.match(ordersSource, /Ready for gate/);
-  assert.match(ordersSource, /Processing/);
-  assert.match(ordersSource, /Shipped/);
-  assert.match(ordersSource, /Refunded/);
+  assert.match(ordersContractSource, /Forms needed/);
+  assert.match(ordersContractSource, /Ready for gate/);
+  assert.match(ordersContractSource, /Processing/);
+  assert.match(ordersContractSource, /Shipped/);
+  assert.match(ordersContractSource, /Refunded/);
   assert.match(orderCardSource, /\{order\.date\}/);
   assert.match(orderCardSource, /aria-label=\{order\.name\}/);
   assert.match(orderCardSource, /getItemSummary\(order\)/);
@@ -146,7 +151,7 @@ test('Orders overview keeps the compact event summary and defers location to det
     ordersSource.indexOf('function appOrigin'),
   );
 
-  assert.match(ordersSource, /formatEventDateOnly/);
+  assert.match(ordersContractSource, /formatEventDateOnly/);
   assert.match(orderCardSource, /function getOrderCardEventDetails\(order: OrderRecord\)/);
   assert.match(orderCardSource, /data-testid="order-event-details"/);
   assert.match(orderCardSource, /data-testid="order-event-ticket-type"/);
@@ -172,11 +177,11 @@ test('Orders overview temporarily hides only the in-progress gear fixture', () =
   );
   assert.match(
     ordersSource,
-    /<FilterTabs active=\{activeFilter\} onChange=\{setActiveFilter\} orders=\{visibleOrders\} \/>/,
+    /<FilterTabs active=\{activeFilter\} onChange=\{handleFilterChange\} orders=\{visibleOrders\} \/>/,
   );
-  assert.match(ordersSource, /id: 'ord-gear-001'/);
-  assert.match(ordersSource, /id: 'ord-refund-001'/);
-  assert.doesNotMatch(ordersSource, /TEMPORARILY_HIDDEN_ORDER_IDS[^\n]*ord-refund-001/);
+  assert.match(ordersContractSource, /id: 'ord-gear-001'/);
+  assert.match(ordersContractSource, /id: 'ord-refund-001'/);
+  assert.doesNotMatch(ordersContractSource, /TEMPORARILY_HIDDEN_ORDER_IDS[^\n]*ord-refund-001/);
 });
 
 test('multi-event overview separates the additional-event count from the primary title', () => {
@@ -221,19 +226,19 @@ test('Orders event cards keep every status complete and readable', () => {
     ordersSource.indexOf('function appOrigin'),
   );
 
-  assert.match(ordersSource, /return \{ label: 'Complete', tone: 'neutral' \}/);
+  assert.match(ordersContractSource, /return \{ label: 'Complete', tone: 'neutral' \}/);
   assert.match(orderStatusLabelSource, /whitespace-nowrap/);
   assert.doesNotMatch(orderCardSource, /className="truncate">\{state\.label\}/);
 });
 
 test('multi-event orders use compact aggregate copy and one first-event image', () => {
-  assert.match(ordersSource, /`\$\{firstTicket\.eventTitle\} \+ \$\{tickets\.length - 1\} more`/);
-  assert.doesNotMatch(ordersSource, /other event\$\{tickets\.length > 2/);
-  assert.match(ordersSource, /function getDistinctEventCount\(order: OrderRecord\)/);
-  assert.match(ordersSource, /function getRegistrationItemCount\(order: OrderRecord\)/);
-  assert.match(ordersSource, /eventCount > 1[\s\S]*?\$\{eventCount\} event\$\{eventCount === 1 \? '' : 's'\} · \$\{registrationItemCount\} registration item/);
-  assert.match(ordersSource, /getOrderGraphicImages\(order\)\[0\] \|\| ''/);
-  assert.doesNotMatch(ordersSource, /Math\.min\(3, Math\.max\(variantDepth, eventCount\)\)/);
+  assert.match(ordersContractSource, /`\$\{firstTicket\.eventTitle\} \+ \$\{tickets\.length - 1\} more`/);
+  assert.doesNotMatch(ordersContractSource, /other event\$\{tickets\.length > 2/);
+  assert.match(ordersContractSource, /function getDistinctEventCount\(order: OrderRecord\)/);
+  assert.match(ordersContractSource, /function getRegistrationItemCount\(order: OrderRecord\)/);
+  assert.match(ordersContractSource, /eventCount > 1[\s\S]*?\$\{eventCount\} event\$\{eventCount === 1 \? '' : 's'\} · \$\{registrationItemCount\} registration item/);
+  assert.match(ordersContractSource, /getOrderGraphicImages\(order\)\[0\] \|\| ''/);
+  assert.doesNotMatch(ordersContractSource, /Math\.min\(3, Math\.max\(variantDepth, eventCount\)\)/);
 });
 
 test('Orders cards reuse the first event theme with an explicit PlanOut fallback', () => {
@@ -247,7 +252,7 @@ test('Orders cards reuse the first event theme with an explicit PlanOut fallback
   assert.match(ticketsSource, /brand\?: EventBrandTheme/);
   assert.match(ticketsSource, /brand: EVENT_BRANDS\.arena/);
   assert.match(ticketsSource, /brand: EVENT_BRANDS\.court/);
-  assert.match(ordersSource, /function getOrderCardBrand\(order: OrderRecord\)/);
+  assert.match(ordersContractSource, /function getOrderCardBrand\(order: OrderRecord\)/);
   assert.match(orderCardSource, /order\.eventEntries\[0\]\?\.ticket\.brand \|\| PLANOUT_EVENT_BRAND/);
   assert.match(orderCardSource, /getEventBrand\(\{ brand \}\)/);
   assert.doesNotMatch(orderCardSource, /eventTitle\.toLowerCase|\.includes\(['"](?:run|tennis|swim|bike)/);
@@ -307,13 +312,13 @@ test('Orders overview defers the order ID to the detail page', () => {
 });
 
 test('Order Details derives one production-ready cover item per distinct event', () => {
-  assert.match(ordersSource, /function getUniqueOrderEvents\(order: OrderRecord\)/);
-  assert.match(ordersSource, /seen\.has\(entry\.ticket\.id\)/);
-  assert.match(ordersSource, /seen\.add\(entry\.ticket\.id\)/);
-  assert.match(ordersSource, /function getOrderCoverPresentation\(order: OrderRecord, registrationCount: number\)/);
-  assert.match(ordersSource, /eventCount > 1 \? `\$\{eventCount\}-event order`/);
-  assert.match(ordersSource, /merchandiseQuantity/);
-  assert.match(ordersSource, /<OrderCover/);
+  assert.match(ordersContractSource, /function getUniqueOrderEvents\(order: OrderRecord\)/);
+  assert.match(ordersContractSource, /seen\.has\(entry\.ticket\.id\)/);
+  assert.match(ordersContractSource, /seen\.add\(entry\.ticket\.id\)/);
+  assert.match(ordersContractSource, /function getOrderCoverPresentation\(order: OrderRecord, registrationCount: number\)/);
+  assert.match(ordersContractSource, /eventCount > 1 \? `\$\{eventCount\}-event order`/);
+  assert.match(ordersContractSource, /merchandiseQuantity/);
+  assert.match(ordersContractSource, /<OrderCover/);
 });
 
 test('Order Details cover adapts across single, double, and mosaic purchases', () => {
@@ -339,38 +344,39 @@ test('Order Details keeps registration as the primary operational section below 
   assert.match(orderDetailSource, /<OrderCover[\s\S]*?>Registration</);
   assert.match(orderDetailSource, /pendingFormCount/);
   assert.match(orderDetailSource, /<ParticipantFormShareControls/);
-  assert.match(orderDetailSource, /<RegistrationItem/);
+  assert.match(orderDetailSource, /<GroupedRegistrationList/);
   assert.match(orderDetailSource, /<PaymentSummary order=\{order\}/);
 });
 
-test('team orders surface unresolved player forms in overview state', () => {
-  assert.match(ordersSource, /entry\.type === 'team'\s*&& entry\.status !== 'attached'/);
+test('Orders overview uses resolved participant status for pending forms', () => {
+  assert.match(ordersContractSource, /isPendingStatus\(entry\.status\)/);
+  assert.doesNotMatch(ordersContractSource, /entry\.type === 'team'\s*&& entry\.status !== 'attached'/);
 });
 
 test('desktop QR actions open an order overlay while mobile keeps the deep-link route', () => {
-  assert.match(ordersSource, /OrderQrOverlay/);
-  assert.match(ordersSource, /const \[qrOverlay, setQrOverlay\]/);
-  assert.match(ordersSource, /if \(isDesktop\(\)\)/);
+  assert.match(ordersContractSource, /OrderQrOverlay/);
+  assert.match(ordersContractSource, /const \[qrOverlay, setQrOverlay\]/);
+  assert.match(ordersContractSource, /if \(isDesktop\(\)\)/);
   assert.match(orderQrOverlaySource, /data-testid="order-qr-overlay"/);
   assert.match(orderQrOverlaySource, /mode="overlay"/);
 });
 
 test('team order rows prioritize the stored participant or Passport name', () => {
-  assert.match(ordersSource, /teamPlayerDisplayName/);
+  assert.match(ordersContractSource, /teamPlayerDisplayName/);
   assert.match(teamAccessSource, /prototypeIdentity/);
-  assert.match(ordersSource, /participantLabel: ticket\.ticketType === 'team'/);
-  assert.match(ordersSource, /teamPlayerDisplayName\(\{ participant, participantIndex, accessPath \}\)/);
-  assert.match(ordersSource, /const playerName = isBuyerPlayer[\s\S]*member\.displayName/);
+  assert.match(ordersContractSource, /participantLabel: ticket\.ticketType === 'team'/);
+  assert.match(ordersContractSource, /teamPlayerDisplayName\(\{ participant, participantIndex, accessPath \}\)/);
+  assert.match(ordersContractSource, /const playerName = isBuyerPlayer[\s\S]*member\.displayName/);
 });
 
 test('individual form sharing is grouped while bulk actions keep the shared secondary treatment', () => {
-  const individualActions = ordersSource.slice(
-    ordersSource.indexOf('function ParticipantFormLinkActions'),
-    ordersSource.indexOf('function ParticipantFormShareControls'),
+  const individualActions = registrationSource.slice(
+    registrationSource.indexOf('function ParticipantFormLinkActions'),
+    registrationSource.indexOf('function ParticipantFormShareControls'),
   );
-  const bulkActions = ordersSource.slice(
-    ordersSource.indexOf('function ParticipantFormShareControls'),
-    ordersSource.indexOf('function RegistrationCardHeader'),
+  const bulkActions = registrationSource.slice(
+    registrationSource.indexOf('function ParticipantFormShareControls'),
+    registrationSource.indexOf('function PassportBanner'),
   );
 
   assert.match(individualActions, /<DropdownMenu>/);
@@ -387,13 +393,13 @@ test('individual form sharing is grouped while bulk actions keep the shared seco
 });
 
 test('team Copy link and Send link use the same sent-state transition', () => {
-  const linkActions = ordersSource.slice(
-    ordersSource.indexOf('function ParticipantFormLinkActions'),
-    ordersSource.indexOf('function ParticipantFormShareControls'),
+  const linkActions = registrationSource.slice(
+    registrationSource.indexOf('function ParticipantFormLinkActions'),
+    registrationSource.indexOf('function ParticipantFormShareControls'),
   );
-  const teamRegistrationSource = ordersSource.slice(
-    ordersSource.indexOf('function TeamRegistrationItem'),
-    ordersSource.indexOf('function ShippingTracker'),
+  const teamRegistrationSource = registrationSource.slice(
+    registrationSource.indexOf('export function TeamRegistrationSectionContent'),
+    registrationSource.indexOf('export function TeamRegistrationItem'),
   );
 
   assert.match(linkActions, /onShare\?\.\(recipient\)/);
@@ -408,13 +414,13 @@ test('order header keeps payment state in the payment summary', () => {
   );
 
   assert.doesNotMatch(orderDetailSource, /order\.paymentStatus/);
-  assert.match(ordersSource, /statusLabel=\{order\.paymentStatus\}/);
+  assert.match(ordersContractSource, /statusLabel=\{order\.paymentStatus\}/);
 });
 
 test('bulk form actions stay compact and do not add a standalone divider', () => {
-  const bulkActions = ordersSource.slice(
-    ordersSource.indexOf('function ParticipantFormShareControls'),
-    ordersSource.indexOf('function RegistrationCardHeader'),
+  const bulkActions = registrationSource.slice(
+    registrationSource.indexOf('function ParticipantFormShareControls'),
+    registrationSource.indexOf('function PassportBanner'),
   );
 
   assert.match(bulkActions, /className="mt-1 flex flex-col gap-2"/);
@@ -423,58 +429,58 @@ test('bulk form actions stay compact and do not add a standalone divider', () =>
 });
 
 test('single, multiple, and team order entries share the same detail primitives', () => {
-  const registrationSource = ordersSource.slice(
-    ordersSource.indexOf('function RegistrationCardHeader'),
-    ordersSource.indexOf('function ShippingTracker'),
+  const registrationSectionSource = registrationSource.slice(
+    registrationSource.indexOf('function RegistrationCardHeader'),
+    registrationSource.length,
   );
 
-  assert.match(registrationSource, /function RegistrationItemShell[\s\S]*<RegistrationCardHeader/);
-  assert.match(registrationSource, /function RegistrationItem[\s\S]*<RegistrationItemShell/);
-  assert.match(registrationSource, /function TeamRegistrationItem[\s\S]*<RegistrationItemShell/);
-  assert.match(registrationSource, /function RegistrationStatePanel/);
-  assert.match(registrationSource, /function ClaimLinkStatePanel/);
+  assert.match(registrationSectionSource, /function RegistrationItemShell[\s\S]*<RegistrationCardHeader/);
+  assert.match(registrationSectionSource, /function RegistrationItem[\s\S]*<RegistrationItemShell/);
+  assert.match(registrationSectionSource, /function TeamRegistrationItem[\s\S]*<RegistrationItemShell/);
+  assert.match(registrationSectionSource, /function RegistrationStatePanel/);
+  assert.match(registrationSectionSource, /function ClaimLinkStatePanel/);
 });
 
 test('registration events share one continuous grouped surface', () => {
-  const registrationSource = ordersSource.slice(
-    ordersSource.indexOf('function RegistrationCardHeader'),
-    ordersSource.indexOf('function ShippingTracker'),
+  const registrationSectionSource = registrationSource.slice(
+    registrationSource.indexOf('function RegistrationCardHeader'),
+    registrationSource.length,
   );
 
-  assert.match(ordersSource, /data-testid="registration-event-list"/);
-  assert.match(ordersSource, /data-testid="registration-event-list"[\s\S]*divide-y divide-\[#e7ecef\]/);
-  assert.match(registrationSource, /data-testid="registration-event-item"/);
-  assert.doesNotMatch(registrationSource, /overflow-hidden rounded-\[16px\] border border-\[#e2e8e7\] bg-white/);
+  assert.match(ordersContractSource, /data-testid="registration-event-list"/);
+  assert.match(ordersContractSource, /data-testid="registration-event-list"[\s\S]*divide-y divide-\[#e7ecef\]/);
+  assert.match(registrationSectionSource, /data-testid="registration-event-item"/);
+  assert.doesNotMatch(registrationSectionSource, /overflow-hidden rounded-\[16px\] border border-\[#e2e8e7\] bg-white/);
 });
 
 test('registration sections use a concise operational heading and keep shared bulk actions', () => {
-  assert.doesNotMatch(ordersSource, /function RegistrationItemsHeader\(/);
-  assert.doesNotMatch(ordersSource, /function ParticipantFormShareCount\(/);
-  assert.doesNotMatch(ordersSource, /<h2[^>]*>\s*Registration items\s*<\/h2>/);
-  assert.match(ordersSource, /<h2[^>]*>Registration<\/h2>/);
-  assert.match(ordersSource, /Forms and access for this order/);
-  assert.match(ordersSource, /aria-label="Registration items"/);
-  assert.match(ordersSource, /!hasTeamRegistration[\s\S]*<ParticipantFormShareControls[\s\S]*order=\{order\}[\s\S]*onShareEntries=\{/);
-  assert.match(ordersSource, /relative flex flex-col gap-4 pb-\[calc\(7rem\+env\(safe-area-inset-bottom\)\)\]/);
+  assert.doesNotMatch(ordersContractSource, /function RegistrationItemsHeader\(/);
+  assert.doesNotMatch(ordersContractSource, /function ParticipantFormShareCount\(/);
+  assert.doesNotMatch(ordersContractSource, /<h2[^>]*>\s*Registration items\s*<\/h2>/);
+  assert.match(ordersContractSource, /<h2[^>]*>Registration<\/h2>/);
+  assert.match(ordersContractSource, /Forms and access for this order/);
+  assert.match(ordersContractSource, /aria-label="Registration items"/);
+  assert.match(ordersContractSource, /!hasTeamRegistration[\s\S]*<ParticipantFormShareControls[\s\S]*order=\{order\}[\s\S]*onShareEntries=\{/);
+  assert.match(ordersContractSource, /relative flex flex-col gap-4 pb-\[calc\(7rem\+env\(safe-area-inset-bottom\)\)\]/);
 });
 
 test('filling an individual form is a secondary action', () => {
-  const fillActionSource = ordersSource.slice(
-    ordersSource.indexOf('fillAction={('),
-    ordersSource.indexOf('viewFormAction={('),
+  const fillActionSource = registrationSource.slice(
+    registrationSource.indexOf('fillAction={('),
+    registrationSource.indexOf('viewFormAction={('),
   );
   assert.match(fillActionSource, /<SecondaryButton[\s\S]*>\s*\n\s*Fill up/);
   assert.doesNotMatch(fillActionSource, /<PrimaryButton/);
 });
 
 test('sharing is emphasized for non-self participant forms', () => {
-  const registrationItemSource = ordersSource.slice(
-    ordersSource.indexOf('function RegistrationItem({'),
-    ordersSource.indexOf('function TeamRegistrationItem'),
+  const registrationItemSource = registrationSource.slice(
+    registrationSource.indexOf('function RegistrationItem({'),
+    registrationSource.indexOf('function TeamRegistrationItem'),
   );
-  const teamItemSource = ordersSource.slice(
-    ordersSource.indexOf('function TeamRegistrationItem'),
-    ordersSource.indexOf('function ShippingTracker'),
+  const teamItemSource = registrationSource.slice(
+    registrationSource.indexOf('export function TeamRegistrationSectionContent'),
+    registrationSource.indexOf('export function TeamRegistrationItem'),
   );
 
   assert.match(registrationItemSource, /primary=\{entry\.type === 'guest'\}/);
@@ -482,13 +488,13 @@ test('sharing is emphasized for non-self participant forms', () => {
 });
 
 test('invite review actions keep one clear primary send action', () => {
-  const individualReviewSource = ordersSource.slice(
-    ordersSource.indexOf('function EmailReviewSheet'),
-    ordersSource.indexOf('function BulkEmailReviewSheet'),
+  const individualReviewSource = registrationSource.slice(
+    registrationSource.indexOf('function EmailReviewSheet'),
+    registrationSource.indexOf('function BulkEmailReviewSheet'),
   );
-  const bulkReviewSource = ordersSource.slice(
-    ordersSource.indexOf('function BulkEmailReviewSheet'),
-    ordersSource.indexOf('function ParticipantFormLinkActions'),
+  const bulkReviewSource = registrationSource.slice(
+    registrationSource.indexOf('function BulkEmailReviewSheet'),
+    registrationSource.indexOf('function ParticipantFormLinkActions'),
   );
 
   assert.match(individualReviewSource, /<SecondaryButton[\s\S]*Cancel/);
@@ -500,17 +506,17 @@ test('invite review actions keep one clear primary send action', () => {
 });
 
 test('all registration variants use one compact status-row composition', () => {
-  const registrationItemSource = ordersSource.slice(
-    ordersSource.indexOf('function RegistrationItem'),
-    ordersSource.indexOf('function TeamRegistrationItem'),
+  const registrationItemSource = registrationSource.slice(
+    registrationSource.indexOf('function RegistrationItem'),
+    registrationSource.indexOf('function TeamRegistrationItem'),
   );
-  const teamItemSource = ordersSource.slice(
-    ordersSource.indexOf('function TeamRegistrationItem'),
-    ordersSource.indexOf('function ShippingTracker'),
+  const teamItemSource = registrationSource.slice(
+    registrationSource.indexOf('export function TeamRegistrationSectionContent'),
+    registrationSource.indexOf('export function TeamRegistrationItem'),
   );
 
-  assert.match(ordersSource, /actions\?: React\.ReactNode/);
-  assert.doesNotMatch(ordersSource, /rounded-\[14px\] border p-3\.5/);
+  assert.match(ordersContractSource, /actions\?: React\.ReactNode/);
+  assert.doesNotMatch(ordersContractSource, /rounded-\[14px\] border p-3\.5/);
   assert.match(registrationItemSource, /shareActions=/);
   assert.doesNotMatch(registrationItemSource, />\s*Form still needed\s*</);
   assert.match(teamItemSource, /<RegistrationStatePanel[\s\S]*tone=\{/);
@@ -518,48 +524,48 @@ test('all registration variants use one compact status-row composition', () => {
 });
 
 test('registration cards use a compact event identity header', () => {
-  assert.match(ordersSource, /function RegistrationCardHeader\(\{ title, date, location, image \}/);
-  const registrationHeaderSource = ordersSource.slice(
-    ordersSource.indexOf('function RegistrationCardHeader'),
-    ordersSource.indexOf('function RegistrationItemShell'),
+  assert.match(ordersContractSource, /export function RegistrationCardHeader\(\{[\s\S]*title,[\s\S]*date,[\s\S]*location,[\s\S]*image/);
+  const registrationHeaderSource = registrationSource.slice(
+    registrationSource.indexOf('function RegistrationCardHeader'),
+    registrationSource.indexOf('function RegistrationItemShell'),
   );
   assert.match(registrationHeaderSource, /formatEventDate\(date, \{ month: 'long' \}\)/);
-  assert.match(ordersSource, /<ImageWithFallback[\s\S]*className="h-10 w-10 shrink-0 rounded-\[10px\] object-cover"/);
-  assert.match(ordersSource, /<RegistrationCardHeader title=\{title\} date=\{date\} location=\{location\} image=\{image\} \/>/);
-  assert.match(ordersSource, /location=\{entry\.ticket\.eventLocation\}/);
-  assert.match(ordersSource, /<MapPin/);
-  assert.match(ordersSource, /image\?: string/);
+  assert.match(ordersContractSource, /<ImageWithFallback[\s\S]*className="size-10 shrink-0 rounded-\[11px\] object-cover"/);
+  assert.match(ordersContractSource, /<RegistrationCardHeader title=\{title\} date=\{date\} location=\{location\} image=\{image\} \/>/);
+  assert.match(ordersContractSource, /location=\{entry\.ticket\.eventLocation\}/);
+  assert.match(ordersContractSource, /<MapPin/);
+  assert.match(ordersContractSource, /image\?: string/);
 });
 
 test('individual registration panels do not add redundant dividers or empty helper copy', () => {
-  const passportBannerSource = ordersSource.slice(
-    ordersSource.indexOf('function PassportBanner'),
-    ordersSource.indexOf('function RegistrationItem({'),
+  const passportBannerSource = registrationSource.slice(
+    registrationSource.indexOf('function PassportBanner'),
+    registrationSource.indexOf('function RegistrationItem({'),
   );
 
-  assert.match(ordersSource, /divider\?: boolean/);
+  assert.match(ordersContractSource, /divider\?: boolean/);
   assert.match(passportBannerSource, /divider=\{false\}/);
-  assert.doesNotMatch(ordersSource, /No unsent forms to email\./);
-  assert.match(ordersSource, /\{canEmailAll && \(/);
+  assert.doesNotMatch(ordersContractSource, /No unsent forms to email\./);
+  assert.match(ordersContractSource, /\{canEmailAll && \(/);
 });
 
 test('Passport-owned entries expose form and QR actions from Orders', () => {
-  const teamItemSource = ordersSource.slice(
-    ordersSource.indexOf('function TeamRegistrationItem'),
-    ordersSource.indexOf('function ShippingTracker'),
+  const teamItemSource = registrationSource.slice(
+    registrationSource.indexOf('export function TeamRegistrationSectionContent'),
+    registrationSource.indexOf('export function TeamRegistrationItem'),
   );
-  assert.match(ordersSource, /viewFormAction\?: React\.ReactNode/);
-  assert.match(ordersSource, /viewFormAction=\{/);
-  assert.match(ordersSource, />\s*View form\s*<\/SecondaryButton>/);
-  assert.match(ordersSource, />\s*View QR\s*<\/PrimaryButton>/);
+  assert.match(ordersContractSource, /viewFormAction\?: React\.ReactNode/);
+  assert.match(ordersContractSource, /viewFormAction=\{/);
+  assert.match(ordersContractSource, />\s*View form\s*<\/SecondaryButton>/);
+  assert.match(ordersContractSource, />\s*View QR\s*<\/PrimaryButton>/);
   assert.match(teamItemSource, /hasPassport && isBuyerPlayer[\s\S]*View QR/);
-  assert.doesNotMatch(ordersSource, />\s*View Passport\s*<\/PrimaryButton>/);
+  assert.doesNotMatch(ordersContractSource, />\s*View Passport\s*<\/PrimaryButton>/);
 });
 
 test('buyer-filled Guest QR entries expose the form and the QR', () => {
-  const passportBannerSource = ordersSource.slice(
-    ordersSource.indexOf('function PassportBanner'),
-    ordersSource.indexOf('function RegistrationItem({'),
+  const passportBannerSource = registrationSource.slice(
+    registrationSource.indexOf('function PassportBanner'),
+    registrationSource.indexOf('function RegistrationItem({'),
   );
   assert.match(passportBannerSource, /isGuestAccessEntry && entry\.status === 'attached'[\s\S]*viewFormAction/);
   assert.match(passportBannerSource, /entry\.guestQR\?\.isActive \? 'View QR'/);

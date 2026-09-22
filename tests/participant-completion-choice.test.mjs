@@ -35,7 +35,6 @@ test('participant forms use one three-choice control instead of separate mode ta
 test('checkout maps the three visible choices to its existing fill and invite state', () => {
   assert.match(checkoutSource, /EntryCompletionChoice/);
   assert.match(checkoutSource, /const updateSlotEntryChoiceGlobal = \(slotId: string, choice: EntryCompletionChoiceValue\)/);
-  assert.match(checkoutSource, /value=\{singleSlotData\.deliveryMethod === 'invite' \? 'claim' : singleSlotData\.entryOwner\}/);
   assert.match(checkoutSource, /value=\{data\.deliveryMethod === 'invite' \? 'claim' : data\.entryOwner\}/);
   assert.match(checkoutSource, /choice === 'claim' \? 'invite' : 'fill'/);
   assert.doesNotMatch(checkoutSource, /function CheckoutEntryOwnerChoice/);

@@ -95,5 +95,5 @@ function CheckoutAuthRedirect() {
     setReturnTo('/checkout');
   }, [setReturnTo]);
 
-  return <Navigate to="/login" replace />;
+  return <Navigate to="/login" replace state={{ returnTo: '/checkout' }} />;
 }

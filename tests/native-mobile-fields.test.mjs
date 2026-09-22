@@ -18,6 +18,10 @@ const formTextFieldSource = fs.readFileSync(
   new URL('../src/app/components/FormTextField.tsx', import.meta.url),
   'utf8',
 );
+const registrationSource = fs.readFileSync(
+  new URL('../src/app/components/RegistrationItemComponents.tsx', import.meta.url),
+  'utf8',
+);
 
 test('the app has no simulated iOS keyboard surface or simulator hooks', () => {
   assert.equal(
@@ -61,7 +65,7 @@ test('search, login, OTP, email, phone, and message fields expose native hints',
   assert.match(readSource('../src/app/components/OnboardingScreen.tsx'), /autoComplete="tel"/);
   assert.match(readSource('../src/app/components/OnboardingScreen.tsx'), /autoComplete="email"/);
   assert.match(readSource('../src/app/components/OrganizerContactWidget.tsx'), /enterKeyHint="send"/);
-  assert.match(readSource('../src/app/pages/OrdersPage.tsx'), /type="email"[\s\S]*autoComplete="email"/);
+  assert.match(registrationSource, /type="email"[\s\S]*autoComplete="email"/);
 });
 
 test('every customer-facing search surface requests the native search keyboard', () => {

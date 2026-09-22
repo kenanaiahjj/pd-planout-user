@@ -32,7 +32,7 @@ import { type CheckoutIntentItem } from '@/app/context/AppContext';
 import { getBrandPanelStyle, getEventBrand } from '@/app/data/eventBrand';
 import { type EventData } from '@/app/data/events';
 import { PrimaryButton } from './PrimaryButton';
-import { GetTicketsModal } from './GetTicketsModal';
+import { GetTicketsModal, getCheapestTicketPriceLabel } from './GetTicketsModal';
 
 const DEFAULT_COVER_IMAGE =
   "data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22800%22%20height%3D%22600%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23f1f5f9%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22system-ui%22%20font-size%3D%2248%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EPlanOut%3C%2Ftext%3E%3C%2Fsvg%3E";
@@ -116,7 +116,7 @@ export function EventPeekPanel({
   const { date: eventDate, time: eventTime } = splitDateTime(event.date);
   const eventVenue = event.location.split(',')[0];
   const attendanceLabel = isPast ? '124 attended' : '124 attending';
-  const ticketPriceLabel = isPast ? 'Registration closed' : 'From ₱0';
+  const ticketPriceLabel = isPast ? 'Registration closed' : getCheapestTicketPriceLabel();
   const salesCloseLabel = isPast ? `Closed after ${eventDate}` : 'Sales end June 15';
   const sessionSummary = getSessionSummary(event);
 
@@ -513,6 +513,7 @@ export function EventPeekPanel({
         <GetTicketsModal
           isOpen={showTicketsModal}
           onClose={() => setShowTicketsModal(false)}
+          brandGradient={brand.buttonGradient}
           onAddToCart={(items) => {
             setShowTicketsModal(false);
             onGoToCart?.(items.map((item) => ({

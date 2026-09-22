@@ -1095,6 +1095,7 @@ function ScannedGuestEntryState({
   claimedAlready,
   revoked,
   prototypeState,
+  isClaiming,
   onClose,
   onClaim,
   onViewPassport,
@@ -1105,8 +1106,9 @@ function ScannedGuestEntryState({
   claimedAlready: boolean;
   revoked: boolean;
   prototypeState: PrototypeGuestState;
+  isClaiming: boolean;
   onClose: () => void;
-  onClaim: () => void;
+  onClaim: () => void | Promise<void>;
   onViewPassport: () => void;
   onScanAgain: () => void;
   onPrototypeStateChange: (state: PrototypeGuestState) => void;
@@ -1207,7 +1209,17 @@ function ScannedGuestEntryState({
           ) : revoked ? (
             <SecondaryButton type="button" onClick={onClose} fullWidth tone="neutral" className="h-12 rounded-[13px]">Return to Passport</SecondaryButton>
           ) : (
-            <PrimaryButton type="button" onClick={onClaim} fullWidth brandGradient={{ from: '#218875', to: '#177564', shadow: 'rgba(23,117,100,0.34)' }} className="h-[52px] rounded-[13px]">{isPastEvent ? 'Add past event to Passport' : 'Add to my Passport'}</PrimaryButton>
+            <PrimaryButton
+              type="button"
+              onClick={onClaim}
+              disabled={isClaiming}
+              aria-busy={isClaiming}
+              fullWidth
+              brandGradient={{ from: '#218875', to: '#177564', shadow: 'rgba(23,117,100,0.34)' }}
+              className="h-[52px] rounded-[13px]"
+            >
+              {isClaiming ? 'Adding…' : isPastEvent ? 'Add past event to Passport' : 'Add to my Passport'}
+            </PrimaryButton>
           )}
           <button
             type="button"
@@ -1229,6 +1241,7 @@ export function AddGuestEntryToPassportPage() {
   const { claimGuestEntryQR, findGuestEntryQRByRef, isDesktop } = useAppContext();
   const submittedCode = searchParams.get('code') || '';
   const [claimed, setClaimed] = useState<GuestEntryQRRecord | null>(null);
+  const [isClaiming, setIsClaiming] = useState(false);
   const isMobile = useIsMobile();
   const requestedPrototypeState = searchParams.get('demoState');
   const prototypeState = isPrototypeGuestState(requestedPrototypeState) ? requestedPrototypeState : undefined;
@@ -1263,20 +1276,28 @@ export function AddGuestEntryToPassportPage() {
     navigate(`/passport/add-entry?code=${encodeURIComponent(nextRef)}&demoState=${nextState}`, { replace: true });
   };
 
-  const claim = () => {
-    const result = claimGuestEntryQR(submittedCode);
-    if (!result.ok) {
-      toast.error(
-        result.reason === 'already_claimed'
-          ? 'This entry has already been claimed.'
-          : result.reason === 'revoked'
-            ? 'This Guest QR is no longer valid.'
-            : 'Guest QR not found.',
-      );
-      return;
+  const claim = async () => {
+    if (isClaiming) return;
+    setIsClaiming(true);
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+
+    try {
+      const result = claimGuestEntryQR(submittedCode);
+      if (!result.ok) {
+        toast.error(
+          result.reason === 'already_claimed'
+            ? 'This entry has already been claimed.'
+            : result.reason === 'revoked'
+              ? 'This Guest QR is no longer valid.'
+              : 'Guest QR not found.',
+        );
+        return;
+      }
+      setClaimed(result.qr);
+      toast.success('Entry added to Passport', { description: result.qr.eventName });
+    } finally {
+      setIsClaiming(false);
     }
-    setClaimed(result.qr);
-    toast.success('Entry added to Passport', { description: result.qr.eventName });
   };
 
   if (claimed) {
@@ -1306,6 +1327,7 @@ export function AddGuestEntryToPassportPage() {
         claimedAlready={claimedAlready}
         revoked={revoked}
         prototypeState={activePrototypeState}
+        isClaiming={isClaiming}
         onClose={() => navigate('/passport')}
         onClaim={claim}
         onViewPassport={() => navigate('/passport')}

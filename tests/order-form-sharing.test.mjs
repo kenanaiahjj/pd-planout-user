@@ -19,6 +19,11 @@ const ordersSource = fs.readFileSync(
   new URL('../src/app/pages/OrdersPage.tsx', import.meta.url),
   'utf8',
 );
+const registrationSource = fs.readFileSync(
+  new URL('../src/app/components/RegistrationItemComponents.tsx', import.meta.url),
+  'utf8',
+);
+const ordersContractSource = `${ordersSource}\n${registrationSource}`;
 const formLinksSource = fs.readFileSync(
   new URL('../src/app/data/formLinks.js', import.meta.url),
   'utf8',
@@ -40,62 +45,62 @@ const participantFormSource = fs.readFileSync(
   'utf8',
 );
 test('Orders exposes individual form email and copy actions', () => {
-  assert.match(ordersSource, /Send link/);
-  assert.match(ordersSource, /Copy link/);
+  assert.match(ordersContractSource, /Send link/);
+  assert.match(ordersContractSource, /Copy link/);
 });
 
 test('Orders exposes a bulk form-link copy action for group chats', () => {
-  assert.match(ordersSource, /Copy all/);
-  assert.match(ordersSource, /buildBulkFormLinkMessage/);
+  assert.match(ordersContractSource, /Copy all/);
+  assert.match(ordersContractSource, /buildBulkFormLinkMessage/);
 });
 
 test('order details unify bulk form sharing with registration items', () => {
-  assert.match(ordersSource, /ParticipantFormShareControls/);
-  assert.doesNotMatch(ordersSource, /<ParticipantFormSharingPanel order=\{order\}/);
+  assert.match(ordersContractSource, /ParticipantFormShareControls/);
+  assert.doesNotMatch(ordersContractSource, /<ParticipantFormSharingPanel order=\{order\}/);
 });
 
 test('team player setup owns its bulk form sharing controls', () => {
-  assert.match(ordersSource, /<ParticipantFormShareControls[\s\S]*order=\{order\}[\s\S]*entries=\{teamEntries\}[\s\S]*onShareEntries=\{sharePlayerInvites\}/);
-  assert.match(ordersSource, /!hasTeamRegistration/);
+  assert.match(ordersContractSource, /<ParticipantFormShareControls[\s\S]*order=\{order\}[\s\S]*entries=\{teamEntries\}[\s\S]*onShareEntries=\{sharePlayerInvites\}/);
+  assert.match(ordersContractSource, /!hasTeamRegistration/);
 });
 
 test('team order copy is concise without removing the ownership cue', () => {
-  assert.match(ordersSource, />\s*Send all\s*</);
-  assert.match(ordersSource, />\s*Copy all\s*</);
-  assert.match(ordersSource, /Fill for Guest QR, or send a link to their Passport\./);
-  assert.match(ordersSource, /bulkEmailCandidates\.length\} unsent form/);
-  assert.doesNotMatch(ordersSource, />\s*Share forms\s*</);
-  assert.doesNotMatch(ordersSource, /Send all by email or copy all participant form links for a chat/);
+  assert.match(ordersContractSource, />\s*Send all\s*</);
+  assert.match(ordersContractSource, />\s*Copy all\s*</);
+  assert.match(ordersContractSource, /Fill for Guest QR, or send a link to their Passport\./);
+  assert.match(ordersContractSource, /bulkEmailCandidates\.length\} unsent form/);
+  assert.doesNotMatch(ordersContractSource, />\s*Share forms\s*</);
+  assert.doesNotMatch(ordersContractSource, /Send all by email or copy all participant form links for a chat/);
 });
 
 test('individual and team registration items share the same visual primitives', () => {
-  assert.match(ordersSource, /function RegistrationItemShell/);
-  assert.match(ordersSource, /function RegistrationCardHeader/);
-  assert.match(ordersSource, /function RegistrationStatePanel/);
-  assert.match(ordersSource, /function RegistrationActionRow/);
-  assert.match(ordersSource, /<RegistrationItemShell[\s\S]*summary\.title/);
-  assert.match(ordersSource, /<RegistrationItemShell[\s\S]*entry\.entryName/);
-  assert.match(ordersSource, /<RegistrationStatePanel[\s\S]*Ready for gate/);
-  assert.match(ordersSource, /<RegistrationStatePanel[\s\S]*Claim link sent/);
-  assert.match(ordersSource, /<RegistrationStatePanel[\s\S]*Guest QR ready/);
-  assert.match(ordersSource, /<RegistrationActionRow/);
-  assert.match(ordersSource, /<PrimaryButton[\s\S]*entry\/\$\{playerEntry\.id\}\/guest-qr[\s\S]*>\s*View QR\s*<\/PrimaryButton>/);
-  assert.doesNotMatch(ordersSource, />\s*Guest QR\s*<\/PrimaryButton>/);
-  assert.doesNotMatch(ordersSource, /<RegistrationStatePanel tone="warning">\s*<p className="text-\[12\.5px\] font-semibold text-\[#92400e\]">Form needed<\/p>/);
-  assert.match(ordersSource, /function RegistrationActionRow[\s\S]*flex flex-wrap items-center justify-end gap-2/);
-  assert.doesNotMatch(ordersSource, /border-t border-\[#f1e4bd\] pt-3/);
-  assert.match(ordersSource, /bg-\[#fff7d6\].*text-\[#8a5b08\]/);
-  assert.match(ordersSource, /order=\{order\}\s*compact(?:\s*primary=\{[^}]+\})?\s*onShare=/);
-  assert.doesNotMatch(ordersSource, /bg-\[linear-gradient\(180deg,#f7fcfb/);
+  assert.match(ordersContractSource, /function RegistrationItemShell/);
+  assert.match(ordersContractSource, /function RegistrationCardHeader/);
+  assert.match(ordersContractSource, /function RegistrationStatePanel/);
+  assert.match(ordersContractSource, /function RegistrationActionRow/);
+  assert.match(ordersContractSource, /<RegistrationItemShell[\s\S]*summary\.title/);
+  assert.match(ordersContractSource, /<RegistrationItemShell[\s\S]*entry\.entryName/);
+  assert.match(ordersContractSource, /<RegistrationStatePanel[\s\S]*Ready for gate/);
+  assert.match(ordersContractSource, /<RegistrationStatePanel[\s\S]*Claim link sent/);
+  assert.match(ordersContractSource, /<RegistrationStatePanel[\s\S]*Guest QR ready/);
+  assert.match(ordersContractSource, /<RegistrationActionRow/);
+  assert.match(ordersContractSource, /<PrimaryButton[\s\S]*entry\/\$\{playerEntry\.id\}\/guest-qr[\s\S]*>\s*View QR\s*<\/PrimaryButton>/);
+  assert.doesNotMatch(ordersContractSource, />\s*Guest QR\s*<\/PrimaryButton>/);
+  assert.doesNotMatch(ordersContractSource, /<RegistrationStatePanel tone="warning">\s*<p className="text-\[12\.5px\] font-semibold text-\[#92400e\]">Form needed<\/p>/);
+  assert.match(ordersContractSource, /function RegistrationActionRow[\s\S]*flex flex-wrap items-center justify-end gap-2/);
+  assert.doesNotMatch(ordersContractSource, /border-t border-\[#f1e4bd\] pt-3/);
+  assert.match(ordersContractSource, /bg-\[#fff7d6\].*text-\[#8a5b08\]/);
+  assert.match(ordersContractSource, /order=\{order\}\s*compact(?:\s*primary=\{[^}]+\})?\s*onShare=/);
+  assert.doesNotMatch(ordersContractSource, /bg-\[linear-gradient\(180deg,#f7fcfb/);
 });
 
 test('ready registration status is concise without losing QR access', () => {
-  const passportBannerSource = ordersSource.slice(
-    ordersSource.indexOf('function PassportBanner'),
-    ordersSource.indexOf('function RegistrationItem({'),
+  const passportBannerSource = registrationSource.slice(
+    registrationSource.indexOf('function PassportBanner'),
+    registrationSource.indexOf('function RegistrationItem({'),
   );
 
-  assert.match(passportBannerSource, />\s*Ready for gate\s*</);
+  assert.match(passportBannerSource, /Ready for gate/);
   assert.match(passportBannerSource, />\s*PlanOut Passport\s*</);
   assert.doesNotMatch(passportBannerSource, />\s*Universal QR\s*</);
   assert.doesNotMatch(passportBannerSource, /Ready for gate - staff scans your universal QR\./);
@@ -103,27 +108,27 @@ test('ready registration status is concise without losing QR access', () => {
 });
 
 test('orders use the shared registration section without a redundant heading', () => {
-  assert.doesNotMatch(ordersSource, /const showRegistrationItemsHeading/);
-  assert.doesNotMatch(ordersSource, /function RegistrationItemsHeader\(/);
-  assert.match(ordersSource, /aria-label="Registration items"/);
+  assert.doesNotMatch(ordersContractSource, /const showRegistrationItemsHeading/);
+  assert.doesNotMatch(ordersContractSource, /function RegistrationItemsHeader\(/);
+  assert.match(ordersContractSource, /aria-label="Registration items"/);
 });
 
 test('unclaimed claim links share one buyer recovery surface across entry types', () => {
-  assert.match(ordersSource, /function ClaimLinkStatePanel/);
-  assert.match(ordersSource, /<ClaimLinkStatePanel[\s\S]*entry=\{entry\}/);
-  assert.match(ordersSource, /<ClaimLinkStatePanel[\s\S]*entry=\{playerEntry\}/);
-  assert.match(ordersSource, /rescindRegistrationInvite/);
-  assert.match(ordersSource, />\s*Revoke\s*</);
-  const claimLinkPanelSource = ordersSource.slice(
-    ordersSource.indexOf('function ClaimLinkStatePanel'),
-    ordersSource.indexOf('function PassportBanner'),
+  assert.match(ordersContractSource, /function ClaimLinkStatePanel/);
+  assert.match(ordersContractSource, /<ClaimLinkStatePanel[\s\S]*entry=\{entry\}/);
+  assert.match(ordersContractSource, /<ClaimLinkStatePanel[\s\S]*entry=\{playerEntry\}/);
+  assert.match(ordersContractSource, /rescindRegistrationInvite/);
+  assert.match(ordersContractSource, /Revoke/);
+  const claimLinkPanelSource = registrationSource.slice(
+    registrationSource.indexOf('export function ClaimLinkStatePanel'),
+    registrationSource.indexOf('export function EmailReviewSheet'),
   );
   assert.doesNotMatch(claimLinkPanelSource, />\s*Fill up\s*</);
   assert.doesNotMatch(claimLinkPanelSource, /indigo|violet|#f5f7ff|#d8ddff/i);
   assert.doesNotMatch(claimLinkPanelSource, /entry\.attendeeEmail/);
-  assert.match(ordersSource, /hasPendingInvite\s*\n?\s*\?\s*\(playerEntry\.attendeeEmail/);
-  assert.match(ordersSource, /const canSharePendingForm = entry\.status !== 'attached'/);
-  assert.match(ordersSource, /entry\.type === 'self'\s*\n\s*\|\| getShareableFormEntries\(\[entry\]\)\.length > 0/);
+  assert.match(ordersContractSource, /hasPendingInvite\s*\n?\s*\?\s*\(playerEntry\.attendeeEmail/);
+  assert.match(ordersContractSource, /const canSharePendingForm = entry\.status !== 'attached'/);
+  assert.match(ordersContractSource, /entry\.type === 'self'\s*\n\s*\|\| getShareableFormEntries\(\[entry\]\)\.length > 0/);
   assert.equal(typeof formLinks.rescindFormInvite, 'function');
   if (typeof formLinks.rescindFormInvite === 'function') {
     const reset = formLinks.rescindFormInvite({
@@ -142,16 +147,16 @@ test('unclaimed claim links share one buyer recovery surface across entry types'
 });
 
 test('buyer recovery reopens the standard form in buyer-filled mode', () => {
-  assert.match(ordersSource, /buyerFill=1/);
+  assert.match(ordersContractSource, /buyerFill=1/);
   assert.match(participantFormRouteSource, /buyerFill/);
   assert.match(participantFormRouteSource, /claimLinkRevoked: true/);
 });
 
 test('submitted Guest QR forms open in review mode', () => {
-  assert.match(ordersSource, /const isBuyerFillRequired = entry\.type === 'guest'/);
-  assert.match(ordersSource, /entry\.status !== 'attached'/);
-  assert.match(ordersSource, /entry\.accessPath !== 'guest_qr'/);
-  assert.match(ordersSource, /isBuyerFillRequired \? '&buyerFill=1'/);
+  assert.match(ordersContractSource, /const isBuyerFillRequired = entry\.type === 'guest'/);
+  assert.match(ordersContractSource, /entry\.status !== 'attached'/);
+  assert.match(ordersContractSource, /entry\.accessPath !== 'guest_qr'/);
+  assert.match(ordersContractSource, /isBuyerFillRequired \? '&buyerFill=1'/);
   assert.match(participantFormRouteSource, /const canBuyerFill = Boolean\(/);
   assert.match(participantFormRouteSource, /formStatus !== 'completed'/);
   assert.match(participantFormRouteSource, /accessPath !== 'guest_qr'/);
@@ -160,9 +165,9 @@ test('submitted Guest QR forms open in review mode', () => {
 });
 
 test('individual sharing actions use compact labels', () => {
-  const individualActionsSource = ordersSource.slice(
-    ordersSource.indexOf('function ParticipantFormLinkActions'),
-    ordersSource.indexOf('function ParticipantFormShareControls'),
+  const individualActionsSource = registrationSource.slice(
+    registrationSource.indexOf('function ParticipantFormLinkActions'),
+    registrationSource.indexOf('function ParticipantFormShareControls'),
   );
   assert.match(individualActionsSource, /<Share2[\s\S]*\/?>[\s\S]*Share form/);
   assert.match(individualActionsSource, /<DropdownMenuItem[\s\S]*>\s*Send link\s*</);
@@ -172,29 +177,29 @@ test('individual sharing actions use compact labels', () => {
 });
 
 test('pending self entries expose direct sharing actions from their own row', () => {
-  const registrationItemSource = ordersSource.slice(
-    ordersSource.indexOf('function RegistrationItem({'),
-    ordersSource.indexOf('function TeamRegistrationItem'),
+  const registrationItemSource = registrationSource.slice(
+    registrationSource.indexOf('function RegistrationItem({'),
+    registrationSource.indexOf('function TeamRegistrationItem'),
   );
   assert.match(registrationItemSource, /entry\.type === 'self'/);
   assert.match(registrationItemSource, /shareActions=\{isShareable \? \([\s\S]*<ParticipantFormLinkActions/);
 });
 
 test('individual email sharing stays in-app after the invite review', () => {
-  assert.match(ordersSource, /EmailReviewSheet/);
-  assert.match(ordersSource, /data-testid="email-review-sheet"/);
-  assert.match(ordersSource, />\s*Send form link\s*</);
-  assert.match(ordersSource, />\s*Send invite\s*</);
-  assert.doesNotMatch(ordersSource, />\s*Continue to email\s*</);
-  assert.match(ordersSource, /setEmailReviewOpen\(true\)/);
-  assert.doesNotMatch(ordersSource, /window\.location\.href\s*=\s*buildFormEmailHref/);
-  assert.match(ordersSource, /toast\.success\('Invite sent'/);
+  assert.match(ordersContractSource, /EmailReviewSheet/);
+  assert.match(ordersContractSource, /data-testid="email-review-sheet"/);
+  assert.match(ordersContractSource, />\s*Send form link\s*</);
+  assert.match(ordersContractSource, /Send invite/);
+  assert.doesNotMatch(ordersContractSource, />\s*Continue to email\s*</);
+  assert.match(ordersContractSource, /setEmailReviewOpen\(true\)/);
+  assert.doesNotMatch(ordersContractSource, /window\.location\.href\s*=\s*buildFormEmailHref/);
+  assert.match(ordersContractSource, /toast\.success\('Invite sent'/);
 });
 
 test('email review keeps the invite template implicit and asks only for the recipient email', () => {
-  const reviewSource = ordersSource.slice(
-    ordersSource.indexOf('function EmailReviewSheet'),
-    ordersSource.indexOf('function ParticipantFormLinkActions'),
+  const reviewSource = registrationSource.slice(
+    registrationSource.indexOf('function EmailReviewSheet'),
+    registrationSource.indexOf('function ParticipantFormLinkActions'),
   );
 
   assert.match(reviewSource, /type="email"/);
@@ -205,16 +210,16 @@ test('email review keeps the invite template implicit and asks only for the reci
 });
 
 test('bulk invite review stays in-app instead of using a mailto handoff', () => {
-  assert.doesNotMatch(ordersSource, /window\.location\.href\s*=\s*buildBulkFormEmailHref/);
-  assert.match(ordersSource, /toast\.success\('Invites sent'/);
-  assert.match(ordersSource, /onShareEntries\?\.\(draftEntries\)/);
+  assert.doesNotMatch(ordersContractSource, /window\.location\.href\s*=\s*buildBulkFormEmailHref/);
+  assert.match(ordersContractSource, /toast\.success\('Invites sent'/);
+  assert.match(ordersContractSource, /onShareEntries\?\.\(draftEntries\)/);
 });
 
 test('individual Orders invites persist through the shared registration state', () => {
-  assert.match(ordersSource, /sendRegistrationInvite/);
-  assert.match(ordersSource, /onShare=\{\(recipient\) => sendRegistrationInvite/);
-  assert.match(ordersSource, /!hasTeamRegistration[\s\S]*onShareEntries=\{/);
-  assert.match(ordersSource, /\^\(\?:Participant\|Guest\) \\d\+/);
+  assert.match(ordersContractSource, /sendRegistrationInvite/);
+  assert.match(ordersContractSource, /onShare=\{\(recipient\) => sendRegistrationInvite/);
+  assert.match(ordersContractSource, /!hasTeamRegistration[\s\S]*onShareEntries=\{/);
+  assert.match(ordersContractSource, /\^\(\?:Participant\|Guest\) \\d\+/);
 });
 
 test('participant forms persist completion and invite changes before returning to Orders', () => {
@@ -225,9 +230,9 @@ test('participant forms persist completion and invite changes before returning t
 });
 
 test('email review does not auto-open the keyboard and stays above it on mobile', () => {
-  const reviewSource = ordersSource.slice(
-    ordersSource.indexOf('function EmailReviewSheet'),
-    ordersSource.indexOf('function ParticipantFormLinkActions'),
+  const reviewSource = registrationSource.slice(
+    registrationSource.indexOf('function EmailReviewSheet'),
+    registrationSource.indexOf('function ParticipantFormLinkActions'),
   );
 
   assert.doesNotMatch(reviewSource, /autoFocus/);
@@ -332,16 +337,16 @@ test('bulk email entries group by event while preserving event and recipient ord
 });
 
 test('bulk email uses a review sheet before handing off to the email app', () => {
-  assert.match(ordersSource, /BulkEmailReviewSheet/);
-  assert.match(ordersSource, /entries\.length === 1 \? 'Send invite' : `Send \$\{entries\.length\} invites`/);
-  assert.match(ordersSource, /getBulkEmailCandidates/);
-  assert.doesNotMatch(ordersSource, /disabled=!canEmailAll/);
+  assert.match(ordersContractSource, /BulkEmailReviewSheet/);
+  assert.match(ordersContractSource, /entries\.length === 1 \? 'Send invite' : `Send \$\{entries\.length\} invites`/);
+  assert.match(ordersContractSource, /getBulkEmailCandidates/);
+  assert.doesNotMatch(ordersContractSource, /disabled=!canEmailAll/);
 });
 
 test('bulk email review uses a compact event-first recipient hierarchy', () => {
-  const reviewSource = ordersSource.slice(
-    ordersSource.indexOf('function BulkEmailReviewSheet'),
-    ordersSource.indexOf('function ParticipantFormLinkActions'),
+  const reviewSource = registrationSource.slice(
+    registrationSource.indexOf('function BulkEmailReviewSheet'),
+    registrationSource.indexOf('function ParticipantFormLinkActions'),
   );
 
   assert.match(reviewSource, /const eventGroups = groupBulkEmailEntriesByEvent\(draftEntries\)/);

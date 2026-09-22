@@ -1,3 +1,29 @@
+// Ticket status summarizes a purchase; form completion belongs to a participant.
+export function resolveParticipantEntryStatus(ticket = {}, participant = {}, entry, accessPath) {
+  if (entry) {
+    // Older queues copied pending_form from the ticket onto completed people.
+    // Explicit invite/revoke/access changes remain authoritative.
+    const legacyPending = entry.entryStatus === 'pending_form'
+      && participant.formStatus === 'completed'
+      && !entry.accessPath
+      && entry.claimLinkRevoked === undefined
+      && (!entry.inviteStatus || entry.inviteStatus === participant.inviteStatus)
+      && entry.inviteStatus !== 'invited';
+    return legacyPending ? 'attached' : entry.entryStatus;
+  }
+  if (ticket.ticketType === 'team') {
+    return accessPath && accessPath !== 'pending'
+      ? 'attached'
+      : participant.formStatus === 'completed' && participant.inviteStatus !== 'invited'
+        ? 'attached'
+        : 'pending_form';
+  }
+  if (['released', 'no_show', 'resubmit_required', 'pending_payment'].includes(ticket.entryStatus)) {
+    return ticket.entryStatus;
+  }
+  return participant.formStatus === 'completed' ? 'attached' : 'pending_form';
+}
+
 function trimmed(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -96,7 +122,11 @@ export function hydrateParticipantFromRegistrationEntry(participant, entry) {
     ...participant,
     name: meaningfulName || null,
     email: inviteEmail || participant.email || null,
-    formStatus: entry.entryStatus === 'attached' ? 'completed' : participant.formStatus,
+    formStatus: resolveParticipantEntryStatus({}, participant, entry) === 'attached'
+      ? 'completed'
+      : ['pending_form', 'resubmit_required'].includes(entry.entryStatus)
+        ? 'not_started'
+        : participant.formStatus,
     inviteStatus,
     sentToEmail: inviteStatus === 'invited' ? inviteEmail || participant.sentToEmail || null : null,
     claimLinkRevoked: entry.claimLinkRevoked ?? participant.claimLinkRevoked,

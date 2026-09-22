@@ -1,3 +1,5 @@
+import { ticketFromRegistrationEntry } from '@/app/data/registrationTickets';
+import { resolveParticipantEntryStatus } from '@/app/data/participantFormState.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import {
@@ -27,7 +29,6 @@ import {
   useAppContext,
 } from '@/app/context/AppContext';
 import {
-  MY_TICKETS,
   type EntryStatus,
   type InviteStatus,
   type MyTicket,
@@ -35,6 +36,7 @@ import {
   type RegistrationQueueEntry,
   type TeamPlayerAccessPath,
 } from '@/app/data/tickets';
+import { getMockTicketById, getTicketParticipants, MOCK_TICKETS } from '@/app/data/mockCatalog';
 import { resolveTeamPlayerAccess, teamPlayerDisplayName, teamPlayerLabel } from '@/app/data/teamAccess.js';
 import {
   RegistrationItem,
@@ -217,9 +219,16 @@ export function buildOrders({
     queueByTicket.set(entry.ticketId, existing);
   });
 
-  // Group MY_TICKETS by confirmationRef to support orders with multiple events
+  // Group the canonical ticket catalog by confirmationRef to support orders with multiple events.
   const ticketsByRef = new Map<string, MyTicket[]>();
-  MY_TICKETS.forEach((ticket) => {
+  const ticketsForOrders = [...MOCK_TICKETS];
+  for (const [ticketId, queueEntries] of queueByTicket) {
+    if (ticketsForOrders.some((ticket) => ticket.id === ticketId)) continue;
+    const summaryEntry = queueEntries.find((entry) => !entry.participantId) || queueEntries[0];
+    const canonicalTicket = getMockTicketById(ticketId);
+    ticketsForOrders.push(canonicalTicket || ticketFromRegistrationEntry(summaryEntry));
+  }
+  ticketsForOrders.forEach((ticket) => {
     const ref = ticket.confirmationRef;
     const existing = ticketsByRef.get(ref) || [];
     existing.push(ticket);
@@ -235,10 +244,11 @@ export function buildOrders({
 
     tickets.forEach((ticket) => {
       const queueEntries = queueByTicket.get(ticket.id) || [];
-      const participants = ticket.ticketType === 'team'
-        ? teamPlayerRoster[ticket.id] || ticket.participants
-        : ticket.participants;
-      const basePrice = getTicketPrice(ticket);
+      const participants = getTicketParticipants(ticket, {
+        registrationQueueEntries,
+        teamPlayerRoster,
+      });
+      const basePrice = queueEntries.find((entry) => entry.price != null)?.price ?? getTicketPrice(ticket);
       const teamAttachedCount = participants.filter((participant) => {
         if (ticket.ticketType !== 'team') return false;
         const key = `${ticket.id}:${participant.id}`;
@@ -272,12 +282,9 @@ export function buildOrders({
                   email: participant.email || undefined,
                 })
               : matchingQueue?.accessPath || participant.accessPath;
-            const participantStatus: EntryStatus =
-              ticket.ticketType === 'team' && accessPath !== 'pending'
-                ? 'attached'
-                : matchingQueue?.entryStatus ||
-              ticket.entryStatus ||
-              (participant.formStatus === 'completed' ? 'attached' : 'pending_form');
+            const participantStatus: EntryStatus = resolveParticipantEntryStatus(
+              ticket, participant, matchingQueue, accessPath,
+            );
             const isGuest = ticket.ticketType !== 'team' && !effectiveIsPrimary;
             const isBuyerManagedGuest = isGuest && accessPath === 'guest_qr';
             const playerLabel = ticket.ticketType === 'team' ? teamPlayerLabel(participantIndex) : undefined;
@@ -289,7 +296,7 @@ export function buildOrders({
                 || `Guest ${participantIndex + 1}`
               : meaningfulQueueName || participant.name || effectiveInviteEmail || playerLabel || `Guest ${participantIndex + 1}`;
             return {
-              id: entryId,
+              id: matchingQueue?.id || entryId,
               ticket,
               entryName: ticket.ticketType === 'team'
                 ? `${ticket.eventTitle} - ${ticket.ticketTypeName} · ${playerLabel}`
@@ -471,9 +478,6 @@ function getItemSummary(order: OrderRecord) {
 function orderHasPending(order: OrderRecord) {
   return order.eventEntries.some((entry) => (
     isPendingStatus(entry.status)
-    // Team rows resolve form/access state per player. Keep the overview aligned
-    // with the detail card when the ticket-level status is stale or released.
-    || (entry.type === 'team' && entry.status !== 'attached')
   ));
 }
 
@@ -522,7 +526,7 @@ function FilterTabs({
 }
 
 type OrderState = {
-  label: 'Forms needed' | 'Ready for gate' | 'Complete' | MerchStatus | 'Refunded';
+  label: 'Pending payment' | 'Forms needed' | 'Ready for gate' | 'Complete' | MerchStatus | 'Refunded';
   tone: 'warning' | 'ready' | 'neutral' | 'refunded';
 } | null;
 
@@ -531,8 +535,11 @@ function getOrderState(order: OrderRecord): OrderState {
     return { label: 'Refunded', tone: 'refunded' };
   }
 
-  if (orderHasPending(order)) {
+  if (order.eventEntries.some((entry) => entry.status === 'pending_form' || entry.status === 'resubmit_required')) {
     return { label: 'Forms needed', tone: 'warning' };
+  }
+  if (order.eventEntries.some((entry) => entry.status === 'pending_payment')) {
+    return { label: 'Pending payment', tone: 'warning' };
   }
 
   const hasAttachedEvents = order.eventEntries.length > 0 && order.eventEntries.every((entry) => isAttachedStatus(entry.status));
@@ -794,6 +801,13 @@ export function OrdersPage() {
     setActiveFilter(getOrderFilterFromSearch(search));
   }, [search]);
 
+  const handleFilterChange = (nextFilter: OrderFilter) => {
+    const searchParams = new URLSearchParams();
+    if (nextFilter !== 'all') searchParams.set('filter', nextFilter);
+    const nextSearch = searchParams.toString();
+    navigate(`/orders${nextSearch ? `?${nextSearch}` : ''}`, { replace: true });
+  };
+
   const visibleOrders = orders.filter((order) => !TEMPORARILY_HIDDEN_ORDER_IDS.has(order.id));
 
   const filteredOrders = visibleOrders.filter((order) => {
@@ -809,11 +823,22 @@ export function OrdersPage() {
           Orders
         </h1>
         <p className="mt-2 max-w-[560px] text-[13px] font-medium leading-relaxed text-[#64748b]">
-          Forms, access, and delivery in one place.
+          Track participant forms, event access, and ticket delivery.
         </p>
       </div>
 
-      <FilterTabs active={activeFilter} onChange={setActiveFilter} orders={visibleOrders} />
+      <FilterTabs active={activeFilter} onChange={handleFilterChange} orders={visibleOrders} />
+
+      <details data-testid="orders-status-guide" className="rounded-[14px] border border-[#dce7e4] bg-white/80 px-3.5 py-2.5 text-[12px] text-[#64748b]">
+        <summary className="cursor-pointer list-none font-semibold text-[#315f57] marker:hidden">
+          Status guide
+        </summary>
+        <div className="mt-2 grid gap-1.5 leading-relaxed sm:grid-cols-3 sm:gap-3">
+          <p><strong className="text-[#92400e]">Forms needed</strong> means a participant form still needs action.</p>
+          <p><strong className="text-[#177564]">Ready for gate</strong> means the entry is attached to your Passport.</p>
+          <p><strong className="text-[#475569]">Complete</strong> means the order has no pending participant work.</p>
+        </div>
+      </details>
 
       <section data-testid="orders-order-list" className="grid grid-cols-1 lg:grid-cols-2 gap-4" aria-label="Orders">
         {filteredOrders.map((order) => (
@@ -1042,7 +1067,7 @@ export function OrderDetailPage() {
               )}
               <GroupedRegistrationList
                 order={order}
-                entries={registrationEntries}
+                entries={order.eventEntries}
                 onContactOrganizer={(entry) => openOrganizerContact(entry)}
               />
             </section>

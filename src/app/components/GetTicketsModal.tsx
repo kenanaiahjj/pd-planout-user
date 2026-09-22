@@ -7,7 +7,7 @@
  * Matches Figma designs for GetTickets guided flow & ticket list.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Plus, Minus, ChevronRight, ArrowLeft, RotateCcw, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PrimaryButton } from '@/app/components/PrimaryButton';
@@ -154,14 +154,14 @@ function CompactStepper({ qty, onAdd, onRemove }: { qty: number; onAdd: () => vo
       <button
         onClick={onRemove}
         disabled={qty <= 0}
-        className="w-[24px] h-[24px] bg-white rounded-[6px] flex items-center justify-center shrink-0 text-slate-650 disabled:text-slate-300 disabled:bg-white/40 disabled:cursor-not-allowed shadow-[0_0.5px_1px_rgba(15,23,42,0.05)] border border-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        className="w-[24px] h-[24px] bg-white rounded-[6px] flex items-center justify-center shrink-0 text-slate-600 disabled:text-slate-300 disabled:bg-white/40 disabled:cursor-not-allowed shadow-[0_0.5px_1px_rgba(15,23,42,0.05)] border border-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 transition-all cursor-pointer"
       >
         <Minus className="w-3 h-3" />
       </button>
       <span className="text-[13px] font-bold text-slate-800 leading-none text-center min-w-[18px] tabular-nums select-none px-1">{qty}</span>
       <button
         onClick={onAdd}
-        className="w-[24px] h-[24px] bg-white rounded-[6px] flex items-center justify-center shrink-0 text-slate-650 shadow-[0_0.5px_1px_rgba(15,23,42,0.05)] border border-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        className="w-[24px] h-[24px] bg-white rounded-[6px] flex items-center justify-center shrink-0 text-slate-600 shadow-[0_0.5px_1px_rgba(15,23,42,0.05)] border border-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 transition-all cursor-pointer"
       >
         <Plus className="w-3 h-3" />
       </button>
@@ -176,14 +176,14 @@ function ReviewStepper({ qty, onAdd, onRemove }: { qty: number; onAdd: () => voi
       <button
         onClick={onRemove}
         disabled={qty <= 0}
-        className="w-[30px] h-[30px] bg-white rounded-[8px] flex items-center justify-center shrink-0 text-slate-650 disabled:text-slate-300 disabled:bg-white/40 disabled:cursor-not-allowed shadow-[0_1px_2px_rgba(15,23,42,0.05)] border border-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        className="w-[30px] h-[30px] bg-white rounded-[8px] flex items-center justify-center shrink-0 text-slate-600 disabled:text-slate-300 disabled:bg-white/40 disabled:cursor-not-allowed shadow-[0_1px_2px_rgba(15,23,42,0.05)] border border-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 transition-all cursor-pointer"
       >
         <Minus className="w-3.5 h-3.5" />
       </button>
       <span className="text-[16px] font-bold text-slate-800 leading-none text-center min-w-[24px] tabular-nums select-none">{qty}</span>
       <button
         onClick={onAdd}
-        className="w-[30px] h-[30px] bg-white rounded-[8px] flex items-center justify-center shrink-0 text-slate-650 shadow-[0_1px_2px_rgba(15,23,42,0.05)] border border-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        className="w-[30px] h-[30px] bg-white rounded-[8px] flex items-center justify-center shrink-0 text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.05)] border border-slate-100 hover:text-slate-900 hover:scale-105 active:scale-95 transition-all cursor-pointer"
       >
         <Plus className="w-3.5 h-3.5" />
       </button>
@@ -199,6 +199,7 @@ function ModalFooter({
   onAddToCart,
   onCheckout,
   isProcessing,
+  brandGradient,
 }: {
   totalAmount: number;
   totalItems: number;
@@ -206,6 +207,7 @@ function ModalFooter({
   onAddToCart: () => void;
   onCheckout: () => void;
   isProcessing: 'cart' | 'checkout' | null;
+  brandGradient?: { from: string; to: string; shadow?: string };
 }) {
   const disabled = !hasItems || !!isProcessing;
   const itemLabel = `${totalItems} ${totalItems === 1 ? 'ticket' : 'tickets'}`;
@@ -253,6 +255,7 @@ function ModalFooter({
           <PrimaryButton
             onClick={onCheckout}
             disabled={disabled}
+            brandGradient={brandGradient}
             className="h-[46px] min-w-0 rounded-[14px] px-2 text-[13px] font-bold sm:text-[14px]"
           >
             {isProcessing === 'checkout' ? (
@@ -446,7 +449,7 @@ function TicketCard({
     <div className="relative p-[1.5px] rounded-[14px] bg-slate-100/80 border border-slate-200/40 shadow-[0_2px_8px_rgba(0,0,0,0.01)] transition-all duration-300">
       <div className="relative rounded-[calc(14px-1.5px)] bg-white p-4 flex gap-3 relative">
         <div className="pt-1 shrink-0">
-          <ChevronRight className="w-4 h-4 text-slate-350" />
+          <ChevronRight className="w-4 h-4 text-slate-400" />
         </div>
         <div className="flex-1 min-w-0 flex flex-col gap-2">
           <div className="flex flex-wrap gap-1.5">
@@ -499,10 +502,28 @@ interface GetTicketsModalProps {
   onClose: () => void;
   onAddToCart?: (items: CartItem[], totalAmount: number) => void;
   onCheckout?: (items: CartItem[], totalAmount: number) => void;
+  brandGradient?: { from: string; to: string; shadow?: string };
 }
 
-export function GetTicketsModal({ isOpen, onClose, onAddToCart, onCheckout }: GetTicketsModalProps) {
-  const [view, setView] = useState<'guided' | 'list'>('guided');
+export function GetTicketsModal({ isOpen, onClose, onAddToCart, onCheckout, brandGradient }: GetTicketsModalProps) {
+  const [view, setView] = useState<'guided' | 'list'>('list');
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   // -- Guided state --
   const [guidedStep, setGuidedStep] = useState<GuidedStep>('start');
@@ -860,6 +881,7 @@ export function GetTicketsModal({ isOpen, onClose, onAddToCart, onCheckout }: Ge
                               <button
                                 key={key}
                                 onClick={() => setActiveFilter(key)}
+                                style={isActive && brandGradient ? { backgroundColor: brandGradient.to, borderColor: brandGradient.to } : undefined}
                                 className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold leading-[16.5px] whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                                   isActive
                                     ? 'bg-[#177564] text-white border border-[#177564] shadow-[0_2px_8px_rgba(23,117,100,0.2)]'
@@ -896,6 +918,7 @@ export function GetTicketsModal({ isOpen, onClose, onAddToCart, onCheckout }: Ge
                 onAddToCart={handleAddToCart}
                 onCheckout={handleCheckout}
                 isProcessing={isProcessing}
+                brandGradient={brandGradient}
               />
             </div>
           </motion.div>

@@ -13,12 +13,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      setReturnTo(`${location.pathname}${location.search}`);
+      setReturnTo(`${location.pathname}${location.search}${location.hash}`);
     }
-  }, [isAuthenticated, location.pathname, location.search, setReturnTo]);
+  }, [isAuthenticated, location.pathname, location.search, location.hash, setReturnTo]);
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ returnTo: `${location.pathname}${location.search}${location.hash}` }} />;
   }
 
   return <>{children}</>;

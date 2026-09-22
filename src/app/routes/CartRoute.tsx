@@ -10,10 +10,17 @@ import { useAppContext } from '@/app/context/AppContext';
 export function CartRoute() {
   const navigate = useNavigate();
   const { setCheckoutIntent } = useAppContext();
+  const handleClose = () => {
+    if (window.history.state?.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
 
   return (
     <CartPage
-      onClose={() => navigate('/')}
+      onClose={handleClose}
       onCheckout={(items, totalAmount) => {
         const firstItem = items[0];
         setCheckoutIntent({

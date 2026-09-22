@@ -2152,6 +2152,7 @@ export function CheckoutPage({
                   {shouldShowInlineConfirmationForm ? (() => {
                     const singleSlot = formSlots[0];
                     const singleSlotData = slotsData[singleSlot?.id] || createEmptySlotFormData();
+                    const data = singleSlotData;
                     return (
                       <section className="participant-form-premium participant-form-card rounded-[22px] border border-[#d9e8e5] bg-white p-5 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.52)] sm:p-6 flex flex-col gap-5">
                         <PendingFormsHeroCard
@@ -2163,7 +2164,7 @@ export function CheckoutPage({
                         <div className="flex flex-col gap-4">
                           <EntryCompletionChoice
                             name={`checkout-entry-completion-${singleSlot.id}`}
-                            value={singleSlotData.deliveryMethod === 'invite' ? 'claim' : singleSlotData.entryOwner}
+                            value={data.deliveryMethod === 'invite' ? 'claim' : data.entryOwner}
                             onChange={(choice) => updateSlotEntryChoiceGlobal(singleSlot.id, choice)}
                             selfTakenByAnotherEntry={isSelfOwnerTakenByAnotherEntry(singleSlot.id)}
                           />
@@ -2272,7 +2273,7 @@ export function CheckoutPage({
                             onClick={handleInlineSubmit}
                             disabled={isSubmittingForm}
                             fullWidth
-                            className="h-11 rounded-[12px] px-8 text-sm mt-1"
+                            className="h-14 rounded-[12px] px-8 text-sm mt-1"
                           >
                             {isSubmittingForm ? (
                               <div className="flex items-center gap-2">
@@ -2280,7 +2281,7 @@ export function CheckoutPage({
                                 <span>{singleSlotData.deliveryMethod === 'invite' ? 'Sending...' : 'Submitting...'}</span>
                               </div>
                             ) : (
-                              singleSlotData.deliveryMethod === 'invite' ? 'Send claim link' : 'Save details'
+                              singleSlotData.deliveryMethod === 'invite' ? 'Send claim link' : 'Save details and continue'
                             )}
                           </PrimaryButton>
                         </div>
@@ -2853,14 +2854,15 @@ export function CheckoutPage({
           )}
 
           {showPreCheckoutForms && (
-            <div className="flex flex-col gap-6" data-pre-payment-gate>
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="participant-form-premium space-y-4 pt-[124px] lg:pt-0 flex flex-col gap-6" data-pre-payment-gate>
+              <div className="fixed inset-x-0 top-[70px] z-40 border-b border-[#d9e8e5] bg-white shadow-none">
+                <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
                 <div>
                   <h1 className="text-[28px] sm:text-[36px] font-semibold text-[#181d27] leading-none tracking-tight">
                     Registration
                   </h1>
                   <p className="mt-2 text-[13px] font-medium text-[#64748b]">
-                    Forms required by organizer before payment
+                    Required before payment · forms required by the organizer
                   </p>
                 </div>
 
@@ -2877,6 +2879,7 @@ export function CheckoutPage({
                     });
                   }}
                 />
+                </div>
               </div>
 
               <GroupedRegistrationList

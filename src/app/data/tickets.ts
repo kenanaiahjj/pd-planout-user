@@ -12,6 +12,7 @@
  *            an app-less Guest QR when the buyer completes the details.
  */
 
+import { resolveParticipantEntryStatus } from './participantFormState.js';
 import { EVENT_BRANDS, type EventBrandTheme } from '@/app/data/events';
 
 // ---------------------------------------------------------------------------
@@ -190,7 +191,7 @@ export const MY_TICKETS: MyTicket[] = [
   // ── 1. TEAM TICKET ─ Pickleball Coaching Certification Series ──────────
   {
     id: 'tkt-002',
-    eventId: '2',
+    eventId: 'pga-coaching',
     eventTitle: 'Pickleball Coaching Certification Series',
     eventDate: 'June 5, 2026 at 9:00 AM',
     eventLocation: 'Araw Sports Club Dumaguete, Valencia, Negros Oriental',
@@ -295,7 +296,7 @@ export const MY_TICKETS: MyTicket[] = [
   // ── 3. MULTIPLE TICKETS ─ VisMin Super Cup Basketball Finals (Action Required) ──
   {
     id: 'tkt-008',
-    eventId: '8',
+    eventId: 'vismin-finals',
     eventTitle: 'VisMin Super Cup Basketball Finals',
     eventDate: 'July 10, 2026 at 7:00 PM',
     eventLocation: 'Lamberto Macias Sports Complex, Dumaguete City',
@@ -359,7 +360,7 @@ export const MY_TICKETS: MyTicket[] = [
   // ── 4. MULTIPLE TICKETS ─ Dumaguete City Night Run (Mixed: self + invite + guest QR) ──
   {
     id: 'tkt-011',
-    eventId: '11',
+    eventId: 'dgt-night-run',
     eventTitle: 'Dumaguete City Night Run',
     eventDate: 'August 14, 2026 at 6:30 PM',
     eventLocation: 'Rizal Boulevard, Dumaguete City',
@@ -411,7 +412,7 @@ export const MY_TICKETS: MyTicket[] = [
   // ── 5. MULTIPLE TICKETS ─ Dumaguete City Night Run (Prior state: self + invite + undecided guest) ──
   {
     id: 'tkt-012',
-    eventId: '11',
+    eventId: 'dgt-night-run',
     eventTitle: 'Dumaguete City Night Run - setup in progress',
     eventDate: 'August 14, 2026 at 6:30 PM',
     eventLocation: 'Rizal Boulevard, Dumaguete City',
@@ -462,7 +463,7 @@ export const MY_TICKETS: MyTicket[] = [
   // ── 6. TEAM TICKET ─ Dumaguete Futsal Cup Season 4 (Player forms needed) ──
   {
     id: 'tkt-013',
-    eventId: '13',
+    eventId: 'futsal-season-4',
     eventTitle: 'Dumaguete Futsal Cup Season 4',
     eventDate: 'August 22, 2026 at 4:00 PM',
     eventLocation: 'Foundation University Gym, Dumaguete City',
@@ -558,7 +559,7 @@ export const MY_TICKETS: MyTicket[] = [
   // ── 7. TEAM TICKET ─ Grand Slam Tennis Open (Player access ready) ──────
   {
     id: 'tkt-014',
-    eventId: '14',
+    eventId: 'grand-slam-tennis',
     eventTitle: 'Grand Slam Tennis Open',
     eventDate: 'August 29, 2026 at 8:00 AM',
     eventLocation: 'Green Court Club, Taguig, Metro Manila',
@@ -644,7 +645,7 @@ export const MY_TICKETS: MyTicket[] = [
   // ── 8. TEAM TICKET ─ Cebu Coastal Relay (Lead transferred to this user) ──
   {
     id: 'tkt-015',
-    eventId: '15',
+    eventId: 'cebu-coastal-relay',
     eventTitle: 'Cebu Coastal Relay',
     eventDate: 'September 12, 2026 at 6:00 AM',
     eventLocation: 'South Road Properties, Cebu City',
@@ -714,7 +715,7 @@ export const MY_TICKETS: MyTicket[] = [
   // ── 6. SINGLE TICKET ─ Emerald Pickleball Cup (Pending form) ───────────
   {
     id: 'tkt-003',
-    eventId: '3',
+    eventId: 'emerald-pickleball',
     eventTitle: 'Emerald Pickleball Cup',
     eventDate: 'June 11, 2026 at 5:00 PM',
     eventLocation: 'FRNDS 2.0 Pickleball, Sibulan, Negros Oriental',
@@ -755,7 +756,7 @@ export const MY_TICKETS: MyTicket[] = [
   // ── 5. TEAM TICKET ─ Liptong Woodland 20th Anniversary (Action Required) ──
   {
     id: 'tkt-004',
-    eventId: '4',
+    eventId: 'liptong-anniversary',
     eventTitle: 'Liptong Woodland 20th Anniversary',
     eventDate: 'June 5, 2026 at 9:00 PM',
     eventLocation: 'Liptong Woodland, Bacong, Negros Oriental',
@@ -847,7 +848,7 @@ export const MY_TICKETS: MyTicket[] = [
   // ── 7. MULTIPLE TICKETS ─ Canlaon Marathon 2026 (Confirmed - all done) ──
   {
     id: 'tkt-010',
-    eventId: '7',
+    eventId: 'canlaon-marathon',
     eventTitle: 'Canlaon Marathon 2026',
     eventDate: 'June 27, 2026 at 5:00 AM',
     eventLocation: 'Canlaon City Sports Complex, Negros Oriental',
@@ -891,7 +892,7 @@ export const MY_TICKETS: MyTicket[] = [
   // ── 8. SINGLE TICKET ─ Asia Mountain Bike Series – Dirt Heroes International (Confirmed) ──
   {
     id: 'tkt-005',
-    eventId: '5',
+    eventId: 'dirt-heroes',
     eventTitle: 'Asia Mountain Bike Series – Dirt Heroes International',
     eventDate: 'June 18, 2026 at 8:00 AM',
     eventLocation: 'Balili Bike Park, Sibulan, Negros Oriental',
@@ -1027,6 +1028,7 @@ export function isPassportFormActionEntry(entry: RegistrationQueueEntry) {
 }
 
 export const retiredRegistrationEntryIds = new Set([
+  'team-futsal-league',
   'guest-obstacle-race',
   'self-cycling-sportive',
   'guest-trail-buddy',
@@ -1040,9 +1042,32 @@ export function isOrderFormActionEntry(entry: RegistrationQueueEntry) {
 }
 
 export function getOrderFormActionEntries(entries: RegistrationQueueEntry[]): RegistrationQueueEntry[] {
+  const guestGroups = entries.filter(entry => entry.type === 'guest' && !entry.participantId && (entry.guestTotalCount || 0) > 1);
   return entries
+    .filter(entry => !entry.participantId || !guestGroups.some(group => group.ticketId === entry.ticketId))
+    .map(entry => {
+      if (!guestGroups.includes(entry)) return entry;
+      const participants = entries.filter(item => item.ticketId === entry.ticketId && item.participantId);
+      let completed = 0;
+      for (let index = 0; index < (entry.guestTotalCount || 0); index++) {
+        const saved = participants.find(item => item.participantId === `${entry.id}-guest-${index + 1}`);
+        const originalComplete = index === 0
+          ? (entry.guestCompletedCount || 0) > 0
+          : Boolean(entry.guestDetails?.[index - 1]?.name);
+        if (saved ? saved.entryStatus === 'attached' : originalComplete) completed++;
+      }
+      return { ...entry, guestCompletedCount: completed, entryStatus: completed === entry.guestTotalCount ? 'attached' as const : entry.entryStatus };
+    })
     .filter(isOrderFormActionEntry)
     .sort((a, b) => parseEntryDeadline(a.deadline) - parseEntryDeadline(b.deadline));
+}
+
+/** Count participant forms, including the unfinished slots in a group. */
+export function getPendingFormCount(entry: RegistrationQueueEntry): number {
+  if (!isOrderFormActionEntry(entry)) return 0;
+  const total = entry.teamTotalCount ?? entry.guestTotalCount ?? 1;
+  const complete = entry.teamAttachedCount ?? entry.guestCompletedCount ?? 0;
+  return Math.max(0, total - complete);
 }
 
 const passportFormKindOrder: RegistrationQueueEntryType[] = ['self', 'guest', 'team'];
@@ -1106,7 +1131,6 @@ export function getPassportPendingSummary(tickets: MyTicket[] = MY_TICKETS) {
 
 export function createRegistrationQueueEntries(tickets: MyTicket[] = MY_TICKETS): RegistrationQueueEntry[] {
   const entries = tickets
-    .filter((ticket) => Boolean(ticket.entryStatus))
     .flatMap((ticket) => {
       if (ticket.ticketType === 'team') {
         const attachedCount = ticket.participants.filter((participant) => participant.formStatus === 'completed').length;
@@ -1118,7 +1142,7 @@ export function createRegistrationQueueEntries(tickets: MyTicket[] = MY_TICKETS)
           personName: ticket.eventTitle,
           category: ticket.ticketTypeName,
           type: 'team' as const,
-          entryStatus: ticket.entryStatus || 'pending_form',
+          entryStatus: attachedCount === ticket.participants.length ? 'attached' : 'pending_form',
           deadline: ticket.deadline,
           formRoute: `/orders/${ticket.id}/form`,
           inviteEmail: undefined,
@@ -1129,13 +1153,6 @@ export function createRegistrationQueueEntries(tickets: MyTicket[] = MY_TICKETS)
 
       return ticket.participants.map((participant, index) => {
         const isGuest = !participant.isPrimary && ticket.ticketType !== 'team';
-        const ticketWideStatus =
-          ticket.entryStatus === 'released' ||
-          ticket.entryStatus === 'no_show';
-        const isPendingParticipant =
-          ticket.entryStatus === 'pending_form' ||
-          ticket.entryStatus === 'resubmit_required' ||
-          participant.formStatus !== 'completed';
 
         return {
           id: `${ticket.id}-${participant.id || index}`,
@@ -1145,7 +1162,7 @@ export function createRegistrationQueueEntries(tickets: MyTicket[] = MY_TICKETS)
           personName: participant.name || participant.email || `Participant ${index + 1}`,
           category: ticket.ticketTypeName,
           type: isGuest ? 'guest' as const : 'self' as const,
-          entryStatus: ticketWideStatus ? ticket.entryStatus! : isPendingParticipant ? (ticket.entryStatus || 'pending_form') : 'attached',
+          entryStatus: resolveParticipantEntryStatus(ticket, participant) as EntryStatus,
           deadline: ticket.deadline,
           formRoute: `/orders/${ticket.id}/form`,
           participantId: participant.id,
@@ -1175,23 +1192,6 @@ export function createRegistrationQueueEntries(tickets: MyTicket[] = MY_TICKETS)
       guestCompletedCount: 0,
       guestTotalCount: 2,
     },
-    // ── Standalone fixture: player forms still need to be set up ─────────
-    {
-      id: 'team-futsal-league',
-      ticketId: 'team-futsal-league',
-      orderRef: 'FUT-2026-002390',
-      eventName: 'Dumaguete Futsal Cup Season 4',
-      personName: 'Jessica Williams',
-      category: 'Team of 8',
-      type: 'team' as const,
-      entryStatus: 'pending_form' as const,
-      deadline: 'June 20, 2026',
-      formRoute: '/orders/team-futsal-league/form',
-      inviteEmail: 'jessica@email.com',
-      teamAttachedCount: 3,
-      teamTotalCount: 8,
-    },
-
     {
       id: 'released-tennis-form',
       ticketId: 'released-tennis-form',

@@ -25,7 +25,7 @@ test('all aggregate pending-form shortcuts use Orders Pending', () => {
 });
 
 test('Home keeps direct entry-level participant form links', () => {
-  assert.match(homeSource, /orders\/\$\{entry\.ticketId\}\/form\?returnTo=home&entryId=/);
+  assert.match(homeSource, /getRegistrationFormPath\(entry, \{ returnTo: 'home' \}\)/);
 });
 
 test('the legacy route documentation names the Orders Pending destination', () => {

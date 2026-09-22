@@ -316,16 +316,20 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
   const [contactNumber, setContactNumber] = useState(userProfile.phone || '');
   const [documents, setDocuments] = useState<DocumentField[]>(INITIAL_DOCUMENTS);
   const [submitted, setSubmitted] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   // Validation
   const requiredDocsFilled = documents.filter((d) => d.required).every((d) => d.file !== null);
-  const canSubmit =
+  const emailIsValid = /^\S+@\S+\.\S+$/.test(email.trim());
+  const phoneIsValid = contactNumber.replace(/\D/g, '').length >= 7;
+  const canSubmit = Boolean(
     orgName.trim() &&
     orgBio.trim() &&
     fullName.trim() &&
-    email.trim() &&
-    contactNumber.trim() &&
-    requiredDocsFilled;
+    emailIsValid &&
+    phoneIsValid &&
+    requiredDocsFilled,
+  );
 
   // Completion progress
   const totalSteps = 6; // org name, bio, name, email, phone, docs
@@ -371,6 +375,23 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
 
   const handleDragLeave = (docId: string) => {
     setDocuments((prev) => prev.map((d) => (d.id === docId ? { ...d, dragOver: false } : d)));
+  };
+
+  const handleSubmit = () => {
+    setSubmitAttempted(true);
+    if (!canSubmit) {
+      toast.error('Complete the required fields', {
+        description: 'Check the highlighted fields and upload the required documents.',
+      });
+      return;
+    }
+
+    setPendingOrgApplication({
+      orgName: orgName.trim(),
+      orgType: 'Event Company',
+      submittedAt: new Date().toISOString(),
+    });
+    setSubmitted(true);
   };
 
   if (submitted) {
@@ -450,8 +471,15 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
               placeholder="e.g. Metro Manila Runners"
               value={orgName}
               onChange={(e) => setOrgName(e.target.value)}
+              aria-invalid={Boolean(submitAttempted && !orgName.trim())}
+              aria-describedby="organizer-name-error"
               className={INPUT_CLS}
             />
+            {submitAttempted && !orgName.trim() && (
+              <p id="organizer-name-error" role="alert" className="text-[11px] font-medium text-[#b42318]">
+                Enter your organization name.
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -461,12 +489,19 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
               placeholder="Describe your organization, its mission, and the events you plan to host"
               value={orgBio}
               onChange={(e) => setOrgBio(e.target.value)}
+              aria-invalid={Boolean(submitAttempted && !orgBio.trim())}
+              aria-describedby="organizer-description-error"
               rows={4}
               className={`${INPUT_CLS} resize-none`}
             />
             <p className="text-[#94a3b8] text-[11px]">
               {orgBio.length}/500 characters
             </p>
+            {submitAttempted && !orgBio.trim() && (
+              <p id="organizer-description-error" role="alert" className="text-[11px] font-medium text-[#b42318]">
+                Add a short description of your organization.
+              </p>
+            )}
           </div>
         </div>
       </SectionCard>
@@ -490,8 +525,15 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
               placeholder="Enter your full name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
+              aria-invalid={Boolean(submitAttempted && !fullName.trim())}
+              aria-describedby="organizer-full-name-error"
               className={INPUT_CLS}
             />
+            {submitAttempted && !fullName.trim() && (
+              <p id="organizer-full-name-error" role="alert" className="text-[11px] font-medium text-[#b42318]">
+                Enter your full name.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -506,8 +548,15 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                aria-invalid={Boolean(submitAttempted && !emailIsValid)}
+                aria-describedby="organizer-email-error"
                 className={INPUT_CLS}
               />
+              {submitAttempted && !emailIsValid && (
+                <p id="organizer-email-error" role="alert" className="text-[11px] font-medium text-[#b42318]">
+                  Enter a valid email address.
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <FieldLabel required>Contact Number</FieldLabel>
@@ -520,8 +569,15 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
                 placeholder="+63 XXX XXX XXXX"
                 value={contactNumber}
                 onChange={(e) => setContactNumber(e.target.value)}
+                aria-invalid={Boolean(submitAttempted && !phoneIsValid)}
+                aria-describedby="organizer-phone-error"
                 className={INPUT_CLS}
               />
+              {submitAttempted && !phoneIsValid && (
+                <p id="organizer-phone-error" role="alert" className="text-[11px] font-medium text-[#b42318]">
+                  Enter a valid contact number.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -546,21 +602,18 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
               onDragLeave={handleDragLeave}
             />
           ))}
+          {submitAttempted && !requiredDocsFilled && (
+            <p role="alert" className="text-[11px] font-medium text-[#b42318]">
+              Upload each required document before submitting.
+            </p>
+          )}
         </div>
       </SectionCard>
 
       {/* ══ Agreement + Submit ══ */}
       <SectionCard>
         <PrimaryButton
-          onClick={() => {
-            setPendingOrgApplication({
-              orgName: orgName.trim(),
-              orgType: 'Event Company',
-              submittedAt: new Date().toISOString(),
-            });
-            setSubmitted(true);
-          }}
-          disabled={!canSubmit}
+          onClick={handleSubmit}
           fullWidth
           className="py-3"
         >

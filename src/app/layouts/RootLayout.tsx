@@ -9,7 +9,8 @@
  * the current route path, replacing the old `activePage` state machine.
  */
 
-import React, { useCallback, useEffect, useLayoutEffect } from 'react';
+import { createGuestProfile } from '@/app/data/session.js';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { AnimatePresence } from 'motion/react';
 
@@ -29,10 +30,11 @@ import { OrganizerContactWidget } from '@/app/components/OrganizerContactWidget'
 
 // Data
 import { MOCK_EVENTS } from '@/app/data/events';
+import { getMockEventById } from '@/app/data/mockCatalog';
 import { getOrganizerBySlug } from '@/app/data/organizers';
 import { getCartAdditionDescription } from '@/app/data/cart.js';
 import { getEventBrand, getBrandSurfaceStyle } from '@/app/data/eventBrand';
-import { ORDERS_PENDING_PATH } from '@/app/data/navigation.js';
+import { ORDERS_PENDING_PATH, getBackDestination } from '@/app/data/navigation.js';
 import { toast } from 'sonner';
 
 // Context
@@ -116,6 +118,7 @@ export function RootLayout() {
   } = useAppContext();
 
   const pathname = location.pathname;
+  const [isPendingFormCardDismissed, setIsPendingFormCardDismissed] = useState(false);
   const activePage = getActivePage(pathname);
   const activeTab = getActiveTab(pathname);
   const isGuestQrPage = /^\/orders\/[^/]+\/entry\/[^/]+\/(guest-qr|temporary-guest-qr)$/.test(pathname);
@@ -130,16 +133,21 @@ export function RootLayout() {
     !pathname.startsWith('/cart') &&
     !pathname.startsWith('/settings') &&
     !pathname.startsWith('/checkout') &&
+    !isPendingFormCardDismissed &&
     !shouldHideFloatCardOnRoute(pathname);
 
   const isTabRoot = pathname === '/' || pathname === '/events' || pathname === '/orders' || pathname === '/settings';
-  const showBack = !isTabRoot;
+  const hasLocalSettingsBack =
+    pathname === '/settings/account' ||
+    pathname === '/settings/transactions' ||
+    pathname === '/settings/inbox';
+  const showBack = !isTabRoot && !hasLocalSettingsBack;
   const hasTopBanner = (pathname.startsWith('/events/') && pathname !== '/events') || pathname.startsWith('/organizers/');
 
   // Derive dark-header flag from the current event brand
   const eventDetailMatch = pathname.match(/^\/events\/([^/]+)$/);
   const currentEventId = eventDetailMatch?.[1];
-  const currentEvent = currentEventId ? MOCK_EVENTS.find((e) => e.id === currentEventId) : null;
+  const currentEvent = currentEventId ? getMockEventById(currentEventId) || null : null;
   const isEventDetailPage = Boolean(currentEvent);
   const organizerRouteMatch = pathname.match(/^\/organizers\/(.+)$/);
   const organizerProfileSlug = organizerRouteMatch?.[1];
@@ -151,25 +159,27 @@ export function RootLayout() {
     ? getOrganizerBySlug(currentEvent.organizer)
     : organizerProfile ?? peekOrganizer;
   const shouldShowOrganizerContact =
-    isAuthenticated &&
     !useFullScreenOverlay &&
     Boolean(currentOrganizer) &&
     (isEventDetailPage || Boolean(organizerProfile) || Boolean(peekEvent));
   const isDarkHeader = currentEvent ? getEventBrand(currentEvent).isDarkPage : false;
 
   const handleHeaderBack = useCallback(() => {
-    const params = new URLSearchParams(location.search);
-    const returnTo = params.get('returnTo');
-    if (returnTo === 'home') {
-      navigate('/');
+    const returnTo = new URLSearchParams(location.search).get('returnTo');
+    if (returnTo || !(window.history.state?.idx > 0)) {
+      navigate(getBackDestination(pathname, location.search));
     } else {
       navigate(-1);
     }
-  }, [location.search, navigate]);
+  }, [pathname, location.search, navigate]);
 
   // -----------------------------------------------------------------------
   // iOS viewport-fit=cover — ensures env(safe-area-inset-*) are exposed
   // -----------------------------------------------------------------------
+  useEffect(() => {
+    setIsPendingFormCardDismissed(false);
+  }, [pathname]);
+
   useEffect(() => {
     const meta = document.querySelector('meta[name="viewport"]');
     if (meta) {
@@ -285,7 +295,7 @@ export function RootLayout() {
           onSettingsClick={() => navTo('/settings')}
           onSignOut={() => {
             // Clear user profile to "log out"
-            setUserProfile({ name: '', email: '', phone: '', loginMethod: 'email' });
+            setUserProfile(createGuestProfile());
             navigate('/login');
           }}
           userName={userProfile.name}
@@ -295,7 +305,7 @@ export function RootLayout() {
           onCreateOrganization={() => navTo('/settings/apply-organizer')}
           isAuthenticated={isAuthenticated}
           onLoginClick={() => {
-            setReturnTo(pathname);
+            setReturnTo(`${pathname}${location.search}${location.hash}`);
             navigate('/login');
           }}
           onBackClick={showBack ? handleHeaderBack : undefined}
@@ -339,6 +349,7 @@ export function RootLayout() {
       {shouldShowOrganizerContact && currentOrganizer && (
         <OrganizerContactWidget
           contact={currentOrganizer}
+          contextSummary={currentEvent?.title}
           hasPendingFormCard={showPendingFormCard}
         />
       )}
@@ -348,6 +359,7 @@ export function RootLayout() {
           pendingCount={passportPendingCount}
           nearestDeadline={nearestPassportDeadline}
           onPress={() => navTo(ORDERS_PENDING_PATH)}
+          onDismiss={() => setIsPendingFormCardDismissed(true)}
           accentColor={currentEvent ? getEventBrand(currentEvent).accent : undefined}
           accentDarkColor={currentEvent ? getEventBrand(currentEvent).accentDark : undefined}
         />

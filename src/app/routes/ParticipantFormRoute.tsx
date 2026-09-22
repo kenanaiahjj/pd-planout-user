@@ -1,127 +1,23 @@
+import { ticketFromRegistrationEntry } from '@/app/data/registrationTickets';
 /**
  * Route wrapper for the Participant Form page.
  * Auth-guarded — redirects to login if not authenticated.
- * Looks up ticket by :ticketId param from MY_TICKETS.
+ * Looks up ticket by :ticketId param from the canonical mock catalog.
  */
 import React from 'react';
 import { useParams, useNavigate, Navigate, useSearchParams } from 'react-router';
 import { ParticipantFormPage } from '@/app/pages/ParticipantFormPage';
 import {
-  MY_TICKETS,
   type MyTicket,
   type Participant,
   type RegistrationQueueEntry,
 } from '@/app/data/tickets';
+import { getMockTicketById, getTicketParticipants } from '@/app/data/mockCatalog';
 import { AuthGuard } from '@/app/components/AuthGuard';
 import { useAppContext } from '@/app/context/AppContext';
 import { shareTeamPlayerInvite, unsendTeamPlayerInvite } from '@/app/data/teamPlayers.js';
-import {
-  hydrateParticipantFromRegistrationEntry,
-  resolveNonTeamCompletionAccess,
-} from '@/app/data/participantFormState.js';
+import { resolveNonTeamCompletionAccess } from '@/app/data/participantFormState.js';
 
-const fallbackImage = MY_TICKETS.find((ticket) => ticket.image)?.image || '';
-
-function buildParticipantsFromEntry(entry: RegistrationQueueEntry): Participant[] {
-  if (entry.type === 'self') {
-    const isCompleted = entry.entryStatus === 'attached';
-    const isInvited = !!(entry.inviteEmail && entry.personName.toLowerCase().includes('guest'));
-    return [{
-      id: entry.id,
-      name: isInvited ? null : entry.personName,
-      email: entry.inviteEmail || null,
-      formStatus: isCompleted ? 'completed' : 'not_started',
-      inviteStatus: isInvited ? 'invited' : 'not_invited',
-      isPrimary: true,
-      sentToEmail: isInvited ? entry.inviteEmail : null,
-    }];
-  }
-
-  if (entry.type === 'guest') {
-    const total = Math.max(entry.guestTotalCount || 2, 1);
-    const emails = entry.guestEmails || [];
-    const details = entry.guestDetails || [];
-
-    return Array.from({ length: total }, (_, index) => {
-      const isBuyer = index === 0;
-      
-      if (isBuyer) {
-        const isInvited = !!(entry.inviteEmail && entry.personName.toLowerCase().includes('guest'));
-        return {
-          id: `${entry.id}-guest-1`,
-          name: isInvited ? null : entry.personName,
-          email: entry.inviteEmail || null,
-          formStatus: isInvited ? ('not_started' as const) : ('completed' as const),
-          inviteStatus: isInvited ? ('invited' as const) : ('not_invited' as const),
-          isPrimary: true,
-          sentToEmail: isInvited ? entry.inviteEmail : null,
-        };
-      }
-
-      const guestEmail = emails[index - 1] || null;
-      const guestDetail = details.find(d => d && d.email === guestEmail) || details[index - 1] || null;
-      const hasDetail = !!(guestDetail && guestDetail.name);
-
-      return {
-        id: `${entry.id}-guest-${index + 1}`,
-        name: hasDetail ? guestDetail.name : null,
-        email: hasDetail ? guestDetail.email : guestEmail,
-        formStatus: hasDetail ? ('completed' as const) : ('not_started' as const),
-        inviteStatus: hasDetail
-          ? ('accepted' as const)
-          : guestEmail 
-            ? ('invited' as const) 
-            : ('not_invited' as const),
-        isPrimary: false,
-        sentToEmail: guestEmail,
-      };
-    });
-  }
-
-  const total = Math.max(entry.teamTotalCount || 1, 1);
-  const completed = Math.min(entry.teamAttachedCount || 0, total);
-
-  return Array.from({ length: total }, (_, index) => ({
-    id: `${entry.id}-member-${index + 1}`,
-    name: index === 0 ? entry.personName : null,
-    email: index === 0 ? entry.inviteEmail || null : null,
-    formStatus: index < completed ? 'completed' : 'not_started',
-    inviteStatus: index === 0 && entry.inviteEmail ? 'invited' : 'not_invited',
-    isPrimary: index === 0,
-    sentToEmail: index === 0 ? entry.inviteEmail || null : null,
-  }));
-}
-
-function ticketFromRegistrationEntry(entry: RegistrationQueueEntry): MyTicket {
-  const isTeam = entry.type === 'team';
-  const isMultiple = entry.type === 'guest';
-  const participants = buildParticipantsFromEntry(entry);
-  const sourceTicket = MY_TICKETS.find((ticket) => ticket.id === entry.ticketId);
-
-  return {
-    id: entry.ticketId,
-    eventId: entry.ticketId,
-    entryStatus: entry.entryStatus,
-    eventTitle: entry.eventName,
-    eventDate: entry.deadline ? `Date to be announced` : 'Date to be announced',
-    eventLocation: 'Location to be announced',
-    organizer: 'PlanOut Organizer',
-    image: fallbackImage,
-    labels: [entry.category],
-    ticketType: isTeam ? 'team' : isMultiple ? 'multiple' : 'single',
-    ticketTypeName: entry.category,
-    status: entry.entryStatus === 'attached' ? 'completed' : 'action_required',
-    quantity: isTeam ? 1 : participants.length,
-    participants,
-    confirmationRef: entry.orderRef,
-    purchaseDate: 'Registration in progress',
-    deadline: entry.deadline,
-    coachName: isTeam ? entry.personName : undefined,
-    coachEmail: isTeam ? entry.inviteEmail : undefined,
-    minParticipants: isTeam ? sourceTicket?.minParticipants ?? 1 : undefined,
-    maxParticipants: isTeam ? sourceTicket?.maxParticipants ?? (entry.teamTotalCount || participants.length) : undefined,
-  };
-}
 
 function registrationQueueFallback(
   ticket: MyTicket,
@@ -188,9 +84,20 @@ export function ParticipantFormRoute() {
     (entryId && item.id === entryId) || (!entryId && ticketId && item.ticketId === ticketId),
   );
   
+  const summaryEntry = registrationQueueEntries.find((item) => item.ticketId === ticketId && !item.participantId)
+    || registrationQueueEntries.find((item) => item.ticketId === ticketId);
+  const canonicalTicket = ticketId ? getMockTicketById(ticketId) : undefined;
   const rawTicket = (entryId && entry && entry.id.startsWith('checkout-'))
     ? ticketFromRegistrationEntry(entry)
-    : (MY_TICKETS.find((t) => t.id === ticketId) || (entry ? ticketFromRegistrationEntry(entry) : undefined));
+    : (canonicalTicket
+      ? {
+          ...canonicalTicket,
+          participants: getTicketParticipants(canonicalTicket, {
+            registrationQueueEntries,
+            teamPlayerRoster,
+          }),
+        }
+      : (summaryEntry ? ticketFromRegistrationEntry(summaryEntry) : undefined));
   const buyerFillParticipantId = participantId || entry?.participantId;
   const buyerFillParticipant = rawTicket?.participants.find(
     (participant) => participant.id === buyerFillParticipantId,
@@ -236,7 +143,7 @@ export function ParticipantFormRoute() {
     : resolveNonTeamCompletionAccess(completionParticipant);
 
   const persistBuyerCompletion = () => {
-    if (!isInvite && completionEntryId) {
+    if (!isInvite && completionEntryId && ticket?.ticketType === 'single') {
       completeRegistrationEntry(completionEntryId, completionAccessPath);
     }
   };
@@ -281,14 +188,10 @@ export function ParticipantFormRoute() {
     return <Navigate to={`/orders/${ticket.id}`} replace />;
   }
 
-  const formParticipants = ticket.ticketType === 'team'
-    ? teamPlayerRoster[ticket.id] || ticket.participants
-    : ticket.participants.map((participant) => {
-        const queueEntry = registrationQueueEntries.find((item) => (
-          item.ticketId === ticket.id && item.participantId === participant.id
-        ));
-        return hydrateParticipantFromRegistrationEntry(participant, queueEntry) as Participant;
-      });
+  const formParticipants = getTicketParticipants(ticket, {
+    registrationQueueEntries,
+    teamPlayerRoster,
+  });
   const formParticipantsWithAccess = formParticipants.map((participant) => ({
     ...participant,
     accessPath: ticket.ticketType === 'team'
@@ -317,13 +220,13 @@ export function ParticipantFormRoute() {
         coachName: undefined,
         coachEmail: undefined,
       }
-    : selectedParticipant && (ticket.ticketType === 'team' || ticket.ticketType === 'multiple')
+    : selectedParticipant
     ? {
         ...ticket,
         quantity: 1,
         participants: [selectedParticipant],
       }
-    : ticket;
+    : { ...ticket, participants: formParticipantsWithAccess };
 
   const formPage = (
       <ParticipantFormPage
@@ -346,8 +249,7 @@ export function ParticipantFormRoute() {
         onParticipantAccessChange={(participantId, accessPath) => {
           if (ticket.ticketType === 'team') return;
           const targetEntry = registrationQueueEntries.find((item) => item.ticketId === ticket.id && item.participantId === participantId)
-            || (entryId ? registrationQueueEntries.find((item) => item.id === entryId) : undefined)
-            || entry;
+            || (entry?.participantId || ticket.ticketType === 'single' ? entry : undefined);
           if (targetEntry) setRegistrationEntryAccessPath(targetEntry.id, accessPath);
         }}
         onParticipantChange={(nextParticipant) => {
@@ -360,12 +262,11 @@ export function ParticipantFormRoute() {
             return;
           }
           const targetEntry = registrationQueueEntries.find((item) => item.ticketId === ticket.id && item.participantId === nextParticipant.id)
-            || (entryId ? registrationQueueEntries.find((item) => item.id === entryId) : undefined)
-            || entry;
+            || (entry?.participantId || ticket.ticketType === 'single' ? entry : undefined);
           const fallbackEntry = registrationQueueFallback(
             ticket,
             nextParticipant,
-            entryId || `${ticket.id}-${nextParticipant.id}`,
+            ticket.ticketType === 'single' && entryId ? entryId : `${ticket.id}-${nextParticipant.id}`,
           );
           updateRegistrationParticipant(targetEntry?.id || fallbackEntry.id, nextParticipant, fallbackEntry);
         }}
@@ -386,12 +287,11 @@ export function ParticipantFormRoute() {
           const invitedParticipant = formParticipantsWithAccess.find((participant) => participant.id === nextParticipantId);
           if (!invitedParticipant) return;
           const targetEntry = registrationQueueEntries.find((item) => item.ticketId === ticket.id && item.participantId === nextParticipantId)
-            || (entryId ? registrationQueueEntries.find((item) => item.id === entryId) : undefined)
-            || entry;
+            || (entry?.participantId || ticket.ticketType === 'single' ? entry : undefined);
           const fallbackEntry = registrationQueueFallback(
             ticket,
             invitedParticipant,
-            entryId || `${ticket.id}-${nextParticipantId}`,
+            ticket.ticketType === 'single' && entryId ? entryId : `${ticket.id}-${nextParticipantId}`,
           );
           sendRegistrationInvite(targetEntry?.id || fallbackEntry.id, recipient, fallbackEntry);
         }}
@@ -405,8 +305,7 @@ export function ParticipantFormRoute() {
             return;
           }
           const targetEntry = registrationQueueEntries.find((item) => item.ticketId === ticket.id && item.participantId === nextParticipantId)
-            || (entryId ? registrationQueueEntries.find((item) => item.id === entryId) : undefined)
-            || entry;
+            || (entry?.participantId || ticket.ticketType === 'single' ? entry : undefined);
           if (targetEntry) rescindRegistrationInvite(targetEntry.id);
         }}
         onInviteSubmit={isInvite ? () => claimRegistrationEntry({

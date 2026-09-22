@@ -125,7 +125,7 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
   const toggleNotification = () => {
     setIsNotifyOn((prev) => {
       const next = !prev;
-      toast(next ? 'Notifications on' : 'Notifications off', {
+      toast(next ? 'Event reminders on' : 'Event reminders off', {
         icon: next ? <BellRing className="w-4 h-4" style={{ color: brand.accent }} /> : <Bell className="w-4 h-4 text-[#94a3b8]" />,
         duration: 2000,
       });
@@ -629,6 +629,7 @@ export function EventDetailsPage({ event, onBack, onOrganizerClick, onGoToCart, 
         <GetTicketsModal
           isOpen={showTicketsModal}
           onClose={() => setShowTicketsModal(false)}
+          brandGradient={brand.buttonGradient}
           onAddToCart={(items) => {
             setShowTicketsModal(false);
             onGoToCart?.(items.map((item) => ({

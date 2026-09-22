@@ -379,7 +379,7 @@ export function EventsPage({ onEventSelect }: EventsPageProps) {
                       enterKeyHint="search"
                       autoComplete="off"
                       aria-label="Search events, sports, or organizers"
-                  placeholder="Search events, sports, organizers..."
+                      placeholder="Search events or sports..."
                   className="w-full bg-white border border-slate-200/80 rounded-xl py-2.5 pl-10 pr-10 text-[13px] font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#177564] focus:ring-1 focus:ring-[#177564]/20 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.015)]"
                   style={{ color: '#181d27' }}
                   value={searchQuery}

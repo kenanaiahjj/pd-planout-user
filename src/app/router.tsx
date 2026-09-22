@@ -23,7 +23,7 @@
  *    /guest-entry/:guestQRRef -> PublicGuestEntryPage
  *    /ticket-claim/:claimRef -> GuestTicketClaimPage
  *    /registration-queue    -> Legacy redirect to Orders Pending
- *    /passport/entry/:entryId/guest-qr -> Guest QR stub
+ *    /passport/entry/:entryId/guest-qr -> Legacy redirect to order Guest QR
  *    /orders/:orderId       -> OrderDetailPage
  *    /passport              -> PassportPage
  *    /profile               -> ProfilePage
@@ -35,7 +35,7 @@
  *    /settings/transactions/:txnId -> TransactionDetailPage
  *    /settings/apply-organizer -> ApplyOrganizerPage
  *    /organizers/:slug      -> OrganizerProfilePage
- *    *                      -> 404 -> redirect to /
+ *    *                      -> Page not found with recovery links
  */
 
 import { createBrowserRouter } from 'react-router';

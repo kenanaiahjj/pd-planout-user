@@ -22,6 +22,10 @@ const ordersSource = fs.readFileSync(
   new URL('../src/app/pages/OrdersPage.tsx', import.meta.url),
   'utf8',
 );
+const registrationSource = fs.readFileSync(
+  new URL('../src/app/components/RegistrationItemComponents.tsx', import.meta.url),
+  'utf8',
+);
 const participantFormSource = fs.readFileSync(
   new URL('../src/app/pages/ParticipantFormPage.tsx', import.meta.url),
   'utf8',
@@ -158,22 +162,22 @@ test('Order details contact the organizer for the specific registration item', (
   assert.match(widgetSource, /export function ContactOrganizerButton[\s\S]*<SecondaryButton/);
   assert.match(ordersSource, /ContactOrganizerButton,[\s\S]*OrganizerContactWidget,[\s\S]*type ContactTarget/);
   assert.match(ordersSource, /import \{ getOrganizerBySlug \}/);
-  assert.match(ordersSource, /onContactOrganizer\?: \(\) => void/);
-  assert.match(ordersSource, /contactAction\?: React\.ReactNode/);
+  assert.match(registrationSource, /onContactOrganizer\?: \(\) => void/);
+  assert.match(registrationSource, /contactAction\?: React\.ReactNode/);
   assert.match(ordersSource, /getOrganizerBySlug\(entry\.ticket\.organizer\)/);
   assert.match(ordersSource, /contextSummary: `\$\{entry\.ticket\.eventTitle\} · Order \$\{order\.ref\}`/);
-  assert.match(ordersSource, /<ContactOrganizerButton/);
+  assert.match(registrationSource, /<ContactOrganizerButton/);
   assert.match(ordersSource, /initiallyOpen[\s\S]*showLauncher=\{false\}/);
 });
 
 test('Team organizer support is scoped to the roster header', () => {
-  const shareControlsSource = ordersSource.slice(
-    ordersSource.indexOf('function ParticipantFormShareControls'),
-    ordersSource.indexOf('function RegistrationCardHeader'),
+  const shareControlsSource = registrationSource.slice(
+    registrationSource.indexOf('export function ParticipantFormShareControls'),
+    registrationSource.indexOf('export function PassportBanner'),
   );
-  const teamSource = ordersSource.slice(
-    ordersSource.indexOf('function TeamRegistrationItem'),
-    ordersSource.indexOf('function ShippingTracker'),
+  const teamSource = registrationSource.slice(
+    registrationSource.indexOf('export function TeamRegistrationSectionContent'),
+    registrationSource.indexOf('export function TeamRegistrationItem'),
   );
   const playerRowsSource = teamSource.slice(teamSource.indexOf('{teamEntries.map'));
 
