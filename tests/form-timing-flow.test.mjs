@@ -8,6 +8,7 @@ const cart = read('../src/app/data/cart.js');
 const details = read('../src/app/components/EventDetailsPage.tsx');
 const peek = read('../src/app/components/EventPeekPanel.tsx');
 const cartPage = read('../src/app/components/CartPage.tsx');
+const checkout = read('../src/app/components/CheckoutPage.tsx');
 
 test('checkout and cart item types carry the shared form timing', () => {
   assert.match(context, /import \{ type EventData, type FormTiming \}/);
@@ -25,4 +26,21 @@ test('event detail and peek selections attach the resolved event timing', () => 
 test('cart creation and checkout handoff preserve the timing field', () => {
   assert.match(cart, /formTiming: item\.formTiming/);
   assert.match(cartPage, /formTiming: item\.formTiming/);
+});
+
+test('checkout imports and uses the shared timing resolver', () => {
+  assert.match(checkout, /getEventFormTiming/);
+  assert.match(checkout, /const getItemFormTiming = useCallback\(/);
+  assert.match(checkout, /return getEventFormTiming\(item\)/);
+});
+
+test('checkout does not assign before-checkout timing by item position', () => {
+  assert.doesNotMatch(checkout, /formTiming: lineIndex === 0 \? 'before_checkout'/);
+  assert.match(checkout, /const formTiming = line\.formTiming \?\?/);
+  assert.match(checkout, /formTiming,/);
+});
+
+test('single-event checkout uses the event fixture policy', () => {
+  assert.match(checkout, /MOCK_EVENTS\.find\(\(event\) => event\.title === checkoutIntent\.eventName\)/);
+  assert.match(checkout, /const formTiming = getEventFormTiming\(eventFixture\)/);
 });

@@ -10,6 +10,11 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import { ORDERS_PENDING_PATH } from '@/app/data/navigation.js';
 import {
+  MOCK_EVENTS,
+  getEventFormTiming,
+  type FormTiming,
+} from '@/app/data/events';
+import {
   ArrowUpRight,
   ListChecks,
   AlertCircle,
@@ -41,6 +46,7 @@ import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { PrimaryButton } from './PrimaryButton';
 import { SecondaryButton } from './SecondaryButton';
 import { IconButton } from './IconButton';
+import { ConfirmDialog } from './ConfirmDialog';
 import { SegmentedChoice } from './SegmentedChoice';
 import {
   EntryCompletionChoice,
@@ -387,6 +393,15 @@ function DeferredCheckoutFormsSummary({ items }: { items: DeferredFormPreviewIte
   );
 }
 
+const PENDING_FORMS_WARNING = {
+  gradient: 'linear-gradient(135deg, oklch(0.66 0.14 72) 0%, oklch(0.50 0.14 45) 100%)',
+  border: 'oklch(0.78 0.12 78 / 0.72)',
+  shadow: '0 24px 44px -28px oklch(0.42 0.14 42 / 0.78)',
+  ctaText: 'oklch(0.45 0.15 35)',
+  pillBackground: 'oklch(0.97 0.03 78)',
+  pillBorder: 'oklch(0.90 0.08 78)',
+} as const;
+
 function PendingFormsHeroCard({
   eyebrow,
   title,
@@ -399,7 +414,14 @@ function PendingFormsHeroCard({
   progress?: string;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-[22px] border border-[rgba(89,200,184,0.45)] bg-[linear-gradient(135deg,#28b99e_0%,#177564_100%)] px-5 py-4 text-left text-white shadow-[0_24px_44px_-28px_rgba(23,117,100,0.85)] sm:px-6 sm:py-5">
+    <div
+      className="relative overflow-hidden rounded-[22px] border px-5 py-4 text-left text-white sm:px-6 sm:py-5"
+      style={{
+        background: PENDING_FORMS_WARNING.gradient,
+        border: `1px solid ${PENDING_FORMS_WARNING.border}`,
+        boxShadow: PENDING_FORMS_WARNING.shadow,
+      }}
+    >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(255,255,255,0.18),transparent_34%)]" />
       <div className="pointer-events-none absolute -left-5 -top-5 h-32 w-32 text-white opacity-[0.07]">
         <ClipboardList className="h-full w-full" strokeWidth={1.2} />
@@ -424,7 +446,10 @@ function PendingFormsHeroCard({
               {progress}
             </div>
           )}
-          <div className="shrink-0 rounded-full bg-white px-5 py-2.5 text-[#177564] shadow-[0_12px_22px_-16px_rgba(15,23,42,0.42)]">
+          <div
+            className="shrink-0 rounded-full bg-white px-5 py-2.5 shadow-[0_12px_22px_-16px_rgba(15,23,42,0.42)]"
+            style={{ color: PENDING_FORMS_WARNING.ctaText }}
+          >
             <span className="text-[14px] font-semibold leading-none">Finish Forms</span>
           </div>
         </div>
@@ -652,8 +677,6 @@ export function CheckoutPage({
   };
 
   // Multiple order items with per-ticket form status
-  type FormTiming = 'before_checkout' | 'after_checkout';
-
   type OrderItem = {
     id: string;
     label: string;
@@ -663,7 +686,7 @@ export function CheckoutPage({
     image?: string;
     requiresForm: boolean;
     formComplete: boolean;
-    formTiming?: FormTiming | string;
+    formTiming?: FormTiming;
     requireFormsBeforeCheckout?: boolean;
   };
 
@@ -686,14 +709,11 @@ export function CheckoutPage({
   const displayedItems = itemMode === 'single' ? [orderItems[0]] : orderItems;
 
   const getItemFormTiming = useCallback((item: OrderItem): FormTiming => {
-    if (item.formTiming === 'before_checkout') return 'before_checkout';
-    if (item.formTiming === 'after_checkout') return 'after_checkout';
-    return item.requireFormsBeforeCheckout ? 'before_checkout' : 'after_checkout';
+    return getEventFormTiming(item);
   }, []);
 
   useEffect(() => {
     if (checkoutIntent) {
-      const isNutriRun = checkoutIntent.eventName.includes('NUTRI-RUN 65');
       const isFormFilledQuery = new URLSearchParams(window.location.search).get('formFilled') === '1';
       const ticketTypeCountMatch = checkoutIntent.category.match(/^(\d+)\s+ticket types?$/i);
       const fallbackTicketTypes = [
@@ -732,14 +752,21 @@ export function CheckoutPage({
 	                category: item.category,
 	                price: item.price,
 	                image: item.image,
+	                formTiming: item.formTiming,
 	              }));
 
         const expandedItems = intentLines.flatMap((line, lineIndex) => {
           const lineFallback = fallbackTicketTypes[lineIndex] ?? fallbackTicketTypes[fallbackTicketTypes.length - 1];
+          const lineEvent = MOCK_EVENTS.find(
+            (event) => event.title === (line.eventName || lineFallback.eventName),
+          );
           const qty = Math.max(1, line.qty || 1);
           return Array.from({ length: qty }, (_, qtyIndex) => {
             const category = line.category || lineFallback.category;
-            const requiresForm = isNutriRun || /beginner|intermediate|advanced|single|double/i.test(category);
+            const formTiming = line.formTiming ?? getEventFormTiming(lineEvent);
+            const requiresForm = Boolean(
+              line.formTiming || lineEvent?.formTiming || lineEvent?.requireFormsBeforeCheckout,
+            ) || /beginner|intermediate|advanced|single|double/i.test(category);
 	            return {
 	              id: `PBL-${9901 + lineIndex}-${qtyIndex}`,
 	              label: category.includes('Team') ? 'Team Entry' : 'Singles Entry',
@@ -749,7 +776,7 @@ export function CheckoutPage({
 	              image: line.image || lineFallback.image || checkoutIntent.image,
 	              requiresForm,
               formComplete: lineIndex === 0 && qtyIndex === 0 ? isFormFilledQuery : false,
-              formTiming: lineIndex === 0 ? 'before_checkout' : (lineFallback.formTiming ?? 'after_checkout'),
+              formTiming,
             } satisfies OrderItem;
           });
         });
@@ -757,6 +784,11 @@ export function CheckoutPage({
         setOrderItems(expandedItems);
         setItemMode('multiple');
       } else {
+        const eventFixture = MOCK_EVENTS.find((event) => event.title === checkoutIntent.eventName);
+        const formTiming = getEventFormTiming(eventFixture);
+        const requiresForm = Boolean(
+          eventFixture?.formTiming || eventFixture?.requireFormsBeforeCheckout,
+        );
         const newItem: OrderItem = {
           id: 'PBL-9901',
           label: checkoutIntent.category.includes('Team') ? 'Team Entry' : 'Singles Entry',
@@ -764,9 +796,9 @@ export function CheckoutPage({
           category: checkoutIntent.category,
           price: checkoutIntent.price,
           image: checkoutIntent.image,
-          requiresForm: isNutriRun,
+          requiresForm,
           formComplete: isFormFilledQuery,
-          formTiming: isNutriRun ? 'before_checkout' : 'after_checkout',
+          formTiming,
         };
         setOrderItems([newItem]);
         setItemMode('single');
@@ -2350,7 +2382,14 @@ export function CheckoutPage({
                                       {entry.category}
                                     </p>
                                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                      <span className="rounded-full bg-[#eef8f5] px-2 py-0.5 text-[11px] font-semibold leading-4 text-[#177564]">
+                                      <span
+                                        className="rounded-full px-2 py-0.5 text-[11px] font-semibold leading-4"
+                                        style={{
+                                          background: PENDING_FORMS_WARNING.pillBackground,
+                                          border: `1px solid ${PENDING_FORMS_WARNING.pillBorder}`,
+                                          color: PENDING_FORMS_WARNING.ctaText,
+                                        }}
+                                      >
                                         {statusLabel}
                                       </span>
                                       {entry.deadline && (
@@ -2361,7 +2400,11 @@ export function CheckoutPage({
                                       )}
                                     </div>
                                   </div>
-                                  <div className="flex shrink-0 items-center gap-1 text-[#177564]" aria-hidden="true">
+                                  <div
+                                    className="flex shrink-0 items-center gap-1"
+                                    style={{ color: PENDING_FORMS_WARNING.ctaText }}
+                                    aria-hidden="true"
+                                  >
                                     <span className="hidden text-[13px] font-medium sm:inline">
                                       {entry.type === 'team' ? 'Complete player details' : 'Finish form'}
                                     </span>
