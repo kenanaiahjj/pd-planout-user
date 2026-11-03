@@ -35,6 +35,7 @@ import {
   type Participant,
   type RegistrationQueueEntry,
   type TeamPlayerAccessPath,
+  retiredRegistrationEntryIds,
 } from '@/app/data/tickets';
 import { getMockTicketById, getTicketParticipants, MOCK_TICKETS } from '@/app/data/mockCatalog';
 import { resolveTeamPlayerAccess, teamPlayerDisplayName, teamPlayerLabel } from '@/app/data/teamAccess.js';
@@ -126,7 +127,7 @@ import { getOrganizerBySlug } from '@/app/data/organizers';
 
 type OrderFilter = 'all' | 'pending' | 'complete';
 type MerchStatus = 'Processing' | 'Shipped' | 'Delivered';
-type PaymentStatus = 'Paid' | 'Refunded';
+type PaymentStatus = 'Paid' | 'Pending' | 'Refunded';
 
 export function getOrderFilterFromSearch(search: string): OrderFilter {
   const requestedFilter = new URLSearchParams(search).get('filter');
@@ -213,7 +214,11 @@ export function buildOrders({
   teamPlayerRoster?: Record<string, Participant[] | undefined>;
 }): OrderRecord[] {
   const queueByTicket = new Map<string, RegistrationQueueEntry[]>();
-  registrationQueueEntries.forEach((entry) => {
+  const activeQueueEntries = registrationQueueEntries.filter((entry) => (
+    !retiredRegistrationEntryIds.has(entry.id)
+    && !retiredRegistrationEntryIds.has(entry.ticketId)
+  ));
+  activeQueueEntries.forEach((entry) => {
     const existing = queueByTicket.get(entry.ticketId) || [];
     existing.push(entry);
     queueByTicket.set(entry.ticketId, existing);
@@ -245,7 +250,7 @@ export function buildOrders({
     tickets.forEach((ticket) => {
       const queueEntries = queueByTicket.get(ticket.id) || [];
       const participants = getTicketParticipants(ticket, {
-        registrationQueueEntries,
+        registrationQueueEntries: activeQueueEntries,
         teamPlayerRoster,
       });
       const basePrice = queueEntries.find((entry) => entry.price != null)?.price ?? getTicketPrice(ticket);
@@ -328,6 +333,13 @@ export function buildOrders({
       allEntries.push(...entries);
     });
 
+    const hasCheckoutDraft = tickets.some((ticket) =>
+      (queueByTicket.get(ticket.id) || []).some((entry) => entry.orderRef === 'CHECKOUT-PENDING'),
+    );
+    const paymentPending = ref === 'CHECKOUT-PENDING'
+      || hasCheckoutDraft
+      || allEntries.some((entry) => entry.status === 'pending_payment');
+
     eventOrders.push({
       id: firstTicket.id,
       ref: ref,
@@ -337,9 +349,9 @@ export function buildOrders({
         : firstTicket.eventTitle,
       eventEntries: allEntries,
       merchItems: [],
-      paymentStatus: 'Paid',
-      paymentMethod: orderIndex % 2 === 0 ? 'Visa ending 4532' : 'GCash',
-      paymentDate: firstTicket.purchaseDate,
+      paymentStatus: paymentPending ? 'Pending' : 'Paid',
+      paymentMethod: paymentPending ? 'Awaiting payment' : orderIndex % 2 === 0 ? 'Visa ending 4532' : 'GCash',
+      paymentDate: paymentPending ? 'Not submitted' : firstTicket.purchaseDate,
       fees: 95 * tickets.length,
       image: firstTicket.image,
     });
@@ -439,7 +451,7 @@ function getOrderTotal(order: OrderRecord) {
 function getOrderEventGroups(order: OrderRecord) {
   const eventGroups = new Map<string, { count: number; category: string }>();
   order.eventEntries.forEach((entry) => {
-    const key = `${entry.ticket.eventTitle} - ${entry.category}`;
+    const key = `${getOrderEventIdentity(entry.ticket)}:${entry.category.trim().toLowerCase()}`;
     if (entry.type === 'team' && eventGroups.has(key)) return;
     const existing = eventGroups.get(key) || { count: 0, category: entry.category };
     existing.count++;
@@ -450,7 +462,7 @@ function getOrderEventGroups(order: OrderRecord) {
 }
 
 function getDistinctEventCount(order: OrderRecord) {
-  return new Set(order.eventEntries.map((entry) => entry.ticket.id)).size;
+  return new Set(order.eventEntries.map((entry) => getOrderEventIdentity(entry.ticket))).size;
 }
 
 function getRegistrationItemCount(order: OrderRecord) {
@@ -476,7 +488,7 @@ function getItemSummary(order: OrderRecord) {
 }
 
 function orderHasPending(order: OrderRecord) {
-  return order.eventEntries.some((entry) => (
+  return order.paymentStatus === 'Pending' || order.eventEntries.some((entry) => (
     isPendingStatus(entry.status)
   ));
 }
@@ -577,16 +589,24 @@ function getOrderAmbientImage(order: OrderRecord) {
   return getOrderGraphicImages(order)[0] || '';
 }
 
+function getOrderEventIdentity(ticket: MyTicket) {
+  const eventId = ticket.eventId?.trim();
+  return eventId
+    ? `id:${eventId.toLowerCase()}`
+    : `title:${ticket.eventTitle.trim().toLowerCase().replace(/\s+/g, ' ')}`;
+}
+
 function getUniqueOrderEvents(order: OrderRecord): OrderCoverItem[] {
   const seen = new Set<string>();
   const events: OrderCoverItem[] = [];
 
   order.eventEntries.forEach((entry) => {
-    if (seen.has(entry.ticket.id)) return;
-    seen.add(entry.ticket.id);
+    const eventIdentity = getOrderEventIdentity(entry.ticket);
+    if (seen.has(eventIdentity)) return;
+    seen.add(eventIdentity);
     const brand = getEventBrand({ brand: entry.ticket.brand || PLANOUT_EVENT_BRAND });
     events.push({
-      id: entry.ticket.id,
+      id: entry.ticket.eventId?.trim() || entry.ticket.id,
       title: entry.ticket.eventTitle,
       image: entry.ticket.image,
       gradientFrom: brand.pageBackground,
@@ -829,17 +849,6 @@ export function OrdersPage() {
 
       <FilterTabs active={activeFilter} onChange={handleFilterChange} orders={visibleOrders} />
 
-      <details data-testid="orders-status-guide" className="rounded-[14px] border border-[#dce7e4] bg-white/80 px-3.5 py-2.5 text-[12px] text-[#64748b]">
-        <summary className="cursor-pointer list-none font-semibold text-[#315f57] marker:hidden">
-          Status guide
-        </summary>
-        <div className="mt-2 grid gap-1.5 leading-relaxed sm:grid-cols-3 sm:gap-3">
-          <p><strong className="text-[#92400e]">Forms needed</strong> means a participant form still needs action.</p>
-          <p><strong className="text-[#177564]">Ready for gate</strong> means the entry is attached to your Passport.</p>
-          <p><strong className="text-[#475569]">Complete</strong> means the order has no pending participant work.</p>
-        </div>
-      </details>
-
       <section data-testid="orders-order-list" className="grid grid-cols-1 lg:grid-cols-2 gap-4" aria-label="Orders">
         {filteredOrders.map((order) => (
           <OrderCard
@@ -951,10 +960,10 @@ function PaymentSummary({ order }: { order: OrderRecord }) {
       subtotal={subtotal}
       fees={order.fees}
       total={getOrderTotal(order)}
-      paymentMeta={`${order.paymentMethod} - ${order.paymentDate}`}
-          title="Payment summary"
+      paymentMeta={order.paymentStatus === 'Pending' ? 'Awaiting payment' : `${order.paymentMethod} - ${order.paymentDate}`}
+      title="Payment summary"
       statusLabel={order.paymentStatus}
-      statusTone={order.paymentStatus === 'Paid' ? 'ready' : 'danger'}
+      statusTone={order.paymentStatus === 'Paid' ? 'ready' : order.paymentStatus === 'Pending' ? 'pending' : 'danger'}
     />
   );
 }
@@ -1068,6 +1077,7 @@ export function OrderDetailPage() {
               <GroupedRegistrationList
                 order={order}
                 entries={order.eventEntries}
+                contactOrganizerAtHeader
                 onContactOrganizer={(entry) => openOrganizerContact(entry)}
               />
             </section>

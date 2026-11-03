@@ -473,9 +473,13 @@ function GuestHome({ onGoToEvents, onEventSelect }: HomePageProps) {
   );
 }
 
-function getEventImageUrl(entry: RegistrationQueueEntry, ticket?: MyTicket): string {
-  if (ticket?.image) return ticket.image;
-  
+function getEventImageUrl(
+  entry: RegistrationQueueEntry,
+  ticket?: MyTicket,
+  preferEventTypeImage = false,
+): string {
+  if (ticket?.image && !preferEventTypeImage) return ticket.image;
+
   const name = (entry.eventName || '').toLowerCase();
   if (name.includes('swim') || name.includes('water') || name.includes('aquathlon')) {
     return 'https://images.unsplash.com/photo-1530541930197-ff16ac917b0e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
@@ -495,7 +499,7 @@ function getEventImageUrl(entry: RegistrationQueueEntry, ticket?: MyTicket): str
   if (name.includes('yoga')) {
     return 'https://images.unsplash.com/photo-1623182965637-e2e2f32818d3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
   }
-  return 'https://images.unsplash.com/photo-1517649763962-0c623066013b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
+  return ticket?.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
 }
 
 function UpcomingEventCard({
@@ -637,26 +641,32 @@ function FormsToFinishSection({
               key={entry.id}
               type="button"
               onClick={() => onOpenEntry(entry)}
-              className={`group flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors hover:bg-[#fafafa] active:bg-[#f5f5f5] ${i > 0 ? 'border-t border-[#f1f5f9]' : ''}`}
+              className={`group flex w-full flex-col px-4 py-3.5 text-left transition-colors hover:bg-[#fafafa] active:bg-[#f5f5f5] ${i > 0 ? 'border-t border-[#f1f5f9]' : ''}`}
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-amber-50 text-amber-600">
-                <ClipboardList className="h-[18px] w-[18px]" strokeWidth={1.7} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-semibold text-[#181d27]">
-                  {entry.eventName}
-                </p>
-                <p className="mt-0.5 truncate text-[12px] text-[#64748b]">
-                  {progress.primary}
-                </p>
-                {progress.secondary && (
-                  <p className="mt-0.5 truncate text-[11px] font-semibold text-[#9a4f00]">
-                    {progress.secondary}
+              <div className="flex w-full items-start gap-3.5">
+                <div className="mt-0.5 h-10 w-10 shrink-0 overflow-hidden rounded-[12px] bg-slate-100">
+                  <ImageWithFallback
+                    src={getEventImageUrl(entry, ticket, true)}
+                    alt={entry.eventName}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-[14px] font-semibold leading-snug text-[#181d27]">
+                    {entry.eventName}
                   </p>
-                )}
+                  <p className="mt-0.5 whitespace-normal text-[12px] text-[#64748b]">
+                    {progress.primary}
+                  </p>
+                  {progress.secondary && (
+                    <p className="mt-0.5 whitespace-normal text-[11px] font-semibold text-[#9a4f00]">
+                      {progress.secondary}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1 text-[#177564]">
-                <span className="text-[13px] font-medium">{actionLabel}</span>
+              <div className="mt-3 flex w-full items-center justify-end gap-1 text-[#177564]">
+                <span className="whitespace-nowrap text-[13px] font-medium">{actionLabel}</span>
                 <ArrowUpRight className="h-3.5 w-3.5 opacity-70" strokeWidth={2} />
               </div>
             </button>

@@ -779,39 +779,45 @@ export function ParticipantFormShareControls({
 
   return (
     <>
-      <div className="mt-1 flex flex-col gap-2">
+      <div className="mt-3 flex flex-col gap-2.5">
         {canEmailAll && (
-          <p className="text-right text-[11px] font-medium leading-4 text-[#6a817b]">
+          <p className="text-[11px] font-semibold leading-4 text-[#6a817b]">
             {bulkEmailCandidates.length} unsent form{bulkEmailCandidates.length === 1 ? '' : 's'}
           </p>
         )}
         {shareableEntries.length > 0 && (
-          <div className="flex shrink-0 flex-wrap justify-end gap-2">
-            <SecondaryButton
+          <div className="grid w-full max-w-[380px] shrink-0 grid-cols-2 gap-2">
+            <PrimaryButton
               type="button"
               disabled={!canEmailAll}
               title={canEmailAll ? 'Review unsent pending forms before sending' : 'No unsent pending forms to email'}
               onClick={() => setBulkEmailReviewOpen(true)}
-              className="text-[12px]"
+              compact
+              fullWidth
+              appearance="gradient"
+              className="min-h-11 rounded-[12px] px-3 text-[12px] shadow-[0_8px_18px_-14px_rgba(23,117,100,0.6)]"
             >
-              <Send className="h-4 w-4" />
+              <Send className="h-4 w-4 shrink-0" />
               Send all
-            </SecondaryButton>
+            </PrimaryButton>
             <SecondaryButton
               type="button"
               onClick={() => copyText(
                 buildBulkFormLinkMessage(order as any, shareableEntries, appOrigin()),
                 'Links copied',
               )}
-              className="text-[12px]"
+              tone="neutral"
+              compact
+              fullWidth
+              className="min-h-11 whitespace-nowrap rounded-[12px] px-3 text-[12px]"
             >
-              <Copy className="h-4 w-4" />
-              Copy all
+              <Copy className="h-4 w-4 shrink-0" />
+              Copy links
             </SecondaryButton>
           </div>
         )}
         {contactAction && (
-          <div className="flex justify-end">
+          <div className="flex justify-start">
             {contactAction}
           </div>
         )}
@@ -1402,7 +1408,7 @@ export function TeamRegistrationSectionContent({
           contactAction={onContactOrganizer ? (
             <ContactOrganizerButton
               onClick={onContactOrganizer}
-              className="text-[11px]"
+              variant="tertiary"
             />
           ) : undefined}
         />
@@ -1677,8 +1683,10 @@ export function groupRegistrationEntriesByEventAndTicketType(
 
   entries.forEach((entry) => {
     const eventTitle = entry.ticket?.eventTitle?.trim() || 'Event';
-    const eventId = entry.ticket?.eventId || eventTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const eventKey = eventTitle.toLowerCase().replace(/\s+/g, ' ').trim();
+    const eventId = entry.ticket?.eventId?.trim() || eventTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const eventKey = entry.ticket?.eventId?.trim()
+      ? `id:${eventId.toLowerCase()}`
+      : `title:${eventTitle.toLowerCase().replace(/\s+/g, ' ').trim()}`;
 
     let eventGroup = eventMap.get(eventKey);
     if (!eventGroup) {
@@ -1973,6 +1981,7 @@ export function EventRegistrationGroupCard({
   order,
   allEntries,
   isPreCheckout = false,
+  contactOrganizerAtHeader = false,
   onContactOrganizer,
   onFill,
 }: {
@@ -1980,11 +1989,13 @@ export function EventRegistrationGroupCard({
   order: OrderRecord;
   allEntries: OrderEventEntry[];
   isPreCheckout?: boolean;
+  contactOrganizerAtHeader?: boolean;
   onContactOrganizer?: (entry: OrderEventEntry) => void;
   onFill?: (entry: OrderEventEntry) => void;
 }) {
   const formattedDate = formatEventDate(eventGroup.eventDate, { month: 'long' });
   const isAllReady = eventGroup.completedEntriesCount >= eventGroup.totalEntriesCount && eventGroup.totalEntriesCount > 0;
+  const contactEntry = eventGroup.ticketTypeGroups[0]?.entries[0];
 
   return (
     <article className="rounded-[20px] border border-[#d5e3df] bg-white shadow-[0_12px_32px_-24px_rgba(15,23,42,0.35)] overflow-hidden">
@@ -2017,7 +2028,7 @@ export function EventRegistrationGroupCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex w-full items-center justify-between gap-2 shrink-0 sm:w-auto">
           <span
             className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
               isAllReady
@@ -2029,6 +2040,13 @@ export function EventRegistrationGroupCard({
               ? (isPreCheckout ? 'Ready' : 'Ready for gate')
               : `${eventGroup.completedEntriesCount} of ${eventGroup.totalEntriesCount} ready`}
           </span>
+          {contactOrganizerAtHeader && onContactOrganizer && contactEntry && (
+            <ContactOrganizerButton
+              variant="tertiary"
+              onClick={() => onContactOrganizer(contactEntry)}
+              className="text-[11px]"
+            />
+          )}
         </div>
       </header>
 
@@ -2044,7 +2062,7 @@ export function EventRegistrationGroupCard({
             order={order}
             allEntries={allEntries}
             isPreCheckout={isPreCheckout}
-            onContactOrganizer={onContactOrganizer}
+            onContactOrganizer={contactOrganizerAtHeader ? undefined : onContactOrganizer}
             onFill={onFill}
           />
         ))}
@@ -2057,12 +2075,14 @@ export function GroupedRegistrationList({
   order,
   entries,
   isPreCheckout = false,
+  contactOrganizerAtHeader = false,
   onContactOrganizer,
   onFill,
 }: {
   order: OrderRecord;
   entries: OrderEventEntry[];
   isPreCheckout?: boolean;
+  contactOrganizerAtHeader?: boolean;
   onContactOrganizer?: (entry: OrderEventEntry) => void;
   onFill?: (entry: OrderEventEntry) => void;
 }) {
@@ -2080,6 +2100,7 @@ export function GroupedRegistrationList({
           order={order}
           allEntries={entries}
           isPreCheckout={isPreCheckout}
+          contactOrganizerAtHeader={contactOrganizerAtHeader}
           onContactOrganizer={onContactOrganizer}
           onFill={onFill}
         />

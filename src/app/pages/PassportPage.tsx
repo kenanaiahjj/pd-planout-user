@@ -47,12 +47,37 @@ function isLocked(entry: RegistrationQueueEntry) {
   return entry.entryStatus === 'pending_form' || entry.entryStatus === 'pending_payment';
 }
 
-function isUpcomingEntry(entry: RegistrationQueueEntry) {
-  return entry.entryStatus !== 'no_show';
-}
-
 function findTicket(entry: RegistrationQueueEntry) {
   return getMockTicketById(entry.ticketId);
+}
+
+function parseEventDay(value?: string) {
+  if (!value) return null;
+  const dateOnly = value.split(' at ')[0].trim();
+  const parsed = new Date(dateOnly);
+  if (Number.isNaN(parsed.getTime())) return null;
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
+function isPastEvent(entry: RegistrationQueueEntry) {
+  const ticket = findTicket(entry);
+  if (!ticket) return false;
+
+  const dates = ticket.schedule?.sessions.length
+    ? ticket.schedule.sessions.map((session) => parseEventDay(session.date))
+    : [parseEventDay(ticket.eventDate)];
+  const validDates = dates.filter((date): date is Date => date !== null);
+  if (validDates.length === 0) return false;
+
+  const lastSession = validDates.reduce((latest, date) => date > latest ? date : latest);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return lastSession < today;
+}
+
+function isUpcomingEntry(entry: RegistrationQueueEntry) {
+  return entry.entryStatus !== 'no_show' && !isPastEvent(entry);
 }
 
 function buildTeamPassportEntries(
@@ -628,7 +653,11 @@ function uniqueByTicket(entries: RegistrationQueueEntry[]) {
 
 function isCompletedOrPastEntry(entry: RegistrationQueueEntry) {
   const ticket = findTicket(entry);
-  return entry.type === 'self' && (entry.entryStatus === 'no_show' || ticket?.status === 'completed');
+  return entry.type === 'self' && (
+    entry.entryStatus === 'no_show'
+    || ticket?.status === 'completed'
+    || isPastEvent(entry)
+  );
 }
 
 function isReadyAccessEntry(entry: RegistrationQueueEntry) {

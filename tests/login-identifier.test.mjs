@@ -58,8 +58,8 @@ const otpInputSnippet = extractSnippet(
 const identifierControlSnippet = [
   extractSnippet(
     loginPageSource,
-    /<label htmlFor="login-identifier"[\s\S]*?<\/div>\n\n        <PrimaryButton/,
-    'identifier field',
+    /<label htmlFor="login-phone"[\s\S]*?<\/div>\n\n        <PrimaryButton/,
+    'mobile number field',
   ),
   extractSnippet(
     loginPageSource,
@@ -70,16 +70,29 @@ const identifierControlSnippet = [
 
 const nonPrimaryControlSnippets = [socialButtonSnippet, otpInputSnippet, identifierControlSnippet].join('\n');
 
-test('LoginPage uses one autodetected identifier field instead of a selector', () => {
+test('LoginPage shows the phone field before SSO and guest access', () => {
   assert.match(loginPageSource, /import \{ detectLoginMethod \} from '@\/app\/data\/login';/);
   assert.match(loginPageSource, /const \[identifier, setIdentifier\] = useState\(''\);/);
-  assert.match(loginPageSource, /const \[otpTarget, setOtpTarget\] = useState<\{ method: LoginMethod; value: string \} \| null>\(null\);/);
+  assert.match(loginPageSource, /const \[otpTarget, setOtpTarget\] = useState<\{ method: 'phone'; value: string \} \| null>\(null\);/);
   assert.doesNotMatch(loginPageSource, /setInputMode/);
   assert.doesNotMatch(loginPageSource, /Segmented tab toggle/);
-  assert.match(loginPageSource, /type="text"/);
-  assert.match(loginPageSource, /inputMode=\{detectedMethod === 'phone' \? 'tel' : 'email'\}/);
-  assert.match(loginPageSource, /aria-label="Email or phone number"/);
-  assert.match(loginPageSource, /placeholder="Email or phone number"/);
+  assert.match(loginPageSource, /type="tel"/);
+  assert.match(loginPageSource, /inputMode="tel"/);
+  assert.match(loginPageSource, /autoComplete="tel"/);
+  assert.match(loginPageSource, /aria-label="Mobile number"/);
+  assert.match(loginPageSource, /placeholder="Enter your mobile number"/);
+  assert.doesNotMatch(loginPageSource, /Email or phone number|EmailIcon|maskEmail/);
+  assert.match(loginPageSource, /Use your mobile number to continue/);
+  assert.doesNotMatch(loginPageSource, /showPhoneForm|Continue with mobile number/);
+
+  const mobileIndex = loginPageSource.indexOf('aria-label="Mobile number"');
+  const continueIndex = loginPageSource.indexOf('<PrimaryButton');
+  const googleIndex = loginPageSource.indexOf('label="Continue with Google"');
+  const facebookIndex = loginPageSource.indexOf('label="Continue with Facebook"');
+  const guestIndex = loginPageSource.indexOf('Continue as Guest');
+  assert.ok(mobileIndex >= 0 && mobileIndex < continueIndex);
+  assert.ok(continueIndex < googleIndex && googleIndex < facebookIndex);
+  assert.ok(facebookIndex < guestIndex);
 });
 
 test('PrimaryButton exposes an opt-in solid appearance for native actions', () => {

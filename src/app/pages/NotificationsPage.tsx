@@ -285,7 +285,7 @@ function NotificationItem({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-[18px] transition-all ${
+      className={`group relative overflow-hidden rounded-[18px] transition-all ${
         dismissed ? 'max-h-0 opacity-0 mb-0' : 'max-h-[240px] opacity-100 mb-2'
       }`}
       style={{
@@ -295,16 +295,16 @@ function NotificationItem({
     >
       {/* ---- Delete action behind the card (mobile) ---- */}
       <div
-        className="absolute inset-y-0 right-0 flex w-[80px] items-center justify-center rounded-r-[18px] bg-[#ef4444] transition-opacity sm:hidden"
-        style={{
-          opacity: offsetX < -4 ? 1 : 0,
-          pointerEvents: offsetX < -4 ? 'auto' : 'none',
-        }}
+        className={`absolute inset-y-0 right-0 flex w-[80px] items-center justify-center rounded-r-[18px] bg-[#ef4444] transition-opacity sm:hidden ${
+          offsetX < -4
+            ? 'opacity-100 pointer-events-auto'
+            : 'opacity-0 pointer-events-none focus-within:opacity-100 focus-within:pointer-events-auto'
+        }`}
       >
         <button
           onClick={handleDeleteClick}
           className="w-full h-full flex items-center justify-center"
-          aria-label="Delete notification"
+          aria-label={`Delete ${n.title} notification`}
         >
           <Trash2 className="w-5 h-5 text-white" />
         </button>
@@ -312,11 +312,20 @@ function NotificationItem({
 
       {/* ---- Swipeable card surface ---- */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-label={`Open notification: ${n.title}`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onClick={handleCardClick}
-        className="relative z-10 w-full text-left flex items-start gap-3 p-4 rounded-[18px] border border-neutral-100 bg-white group cursor-pointer"
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleCardClick();
+          }
+        }}
+        className="relative z-10 w-full text-left flex items-start gap-3 p-4 sm:pr-12 rounded-[18px] border border-neutral-100 bg-white group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#177564]/40"
         style={{
           transform: `translateX(${offsetX}px)`,
           transition: swiping ? 'none' : 'transform 300ms cubic-bezier(0.25, 1, 0.5, 1)',
@@ -376,13 +385,15 @@ function NotificationItem({
           <p className="text-[#cbd5e1] text-[11px] mt-1.5">{n.time}</p>
         </div>
 
-        {/* Desktop hover trash */}
+      </div>
+
+      {/* Desktop hover trash */}
+      <div className="absolute right-3 top-1/2 z-20 hidden -translate-y-1/2 sm:block">
         <ConfirmDialog
           trigger={
             <button
-              onClick={(e) => e.stopPropagation()}
-              className="hidden sm:flex w-7 h-7 items-center justify-center rounded-[6px] text-[#cbd5e1] hover:text-[#ef4444] hover:bg-[#fef2f2] opacity-0 group-hover:opacity-100 transition-all shrink-0 self-center"
-              aria-label="Delete notification"
+              className="hidden sm:flex w-7 h-7 items-center justify-center rounded-[6px] text-[#cbd5e1] hover:text-[#ef4444] hover:bg-[#fef2f2] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/40 transition-all shrink-0 self-center"
+              aria-label={`Delete ${n.title} notification`}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>

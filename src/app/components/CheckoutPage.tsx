@@ -407,11 +407,13 @@ function PendingFormsHeroCard({
   title,
   description,
   progress,
+  showFinishFormsLabel = true,
 }: {
   eyebrow: string;
   title: string;
   description: string;
   progress?: string;
+  showFinishFormsLabel?: boolean;
 }) {
   return (
     <div
@@ -440,19 +442,23 @@ function PendingFormsHeroCard({
           </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          {progress && (
-            <div className="hidden rounded-full bg-white/12 px-3 py-2 text-[12px] font-semibold text-white/86 sm:block">
-              {progress}
-            </div>
-          )}
-          <div
-            className="shrink-0 rounded-full bg-white px-5 py-2.5 shadow-[0_12px_22px_-16px_rgba(15,23,42,0.42)]"
-            style={{ color: PENDING_FORMS_WARNING.ctaText }}
-          >
-            <span className="text-[14px] font-semibold leading-none">Finish Forms</span>
+        {(progress || showFinishFormsLabel) && (
+          <div className="flex shrink-0 items-center gap-2">
+            {progress && (
+              <div className="hidden rounded-full bg-white/12 px-3 py-2 text-[12px] font-semibold text-white/86 sm:block">
+                {progress}
+              </div>
+            )}
+            {showFinishFormsLabel && (
+              <div
+                className="shrink-0 rounded-full bg-white px-5 py-2.5 shadow-[0_12px_22px_-16px_rgba(15,23,42,0.42)]"
+                style={{ color: PENDING_FORMS_WARNING.ctaText }}
+              >
+                <span className="text-[14px] font-semibold leading-none">Finish Forms</span>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -1384,7 +1390,7 @@ export function CheckoutPage({
           }
         }
 
-        if (confirmationState === 'pending') {
+        if (confirmationState === 'pending' || confirmationState === 'failed' || confirmationState === 'expired') {
           status = 'pending_payment';
         } else {
           status = isInvited ? 'pending_form' : (item.requiresForm && !item.formComplete ? 'pending_form' : 'attached');
@@ -1413,7 +1419,7 @@ export function CheckoutPage({
         }).length;
 
         let status: EntryStatus = 'attached';
-        if (confirmationState === 'pending') {
+        if (confirmationState === 'pending' || confirmationState === 'failed' || confirmationState === 'expired') {
           status = 'pending_payment';
         } else {
           status = completedCount === itemQuantity ? 'attached' : 'pending_form';
@@ -1499,7 +1505,7 @@ export function CheckoutPage({
 
     const ticketId = isTeam ? 'tkt-004' : 'tkt-001';
     let status: EntryStatus = 'attached';
-    if (confirmationState === 'pending') {
+    if (confirmationState === 'pending' || confirmationState === 'failed' || confirmationState === 'expired') {
       status = 'pending_payment';
     } else {
       status = isInvited ? 'pending_form' : (item.requiresForm && !item.formComplete ? 'pending_form' : 'attached');
@@ -1546,7 +1552,7 @@ export function CheckoutPage({
   const confirmationEntriesJson = JSON.stringify(confirmationEntries);
   useEffect(() => {
     if (isConfirmation) {
-      seedRegistrationQueue(confirmationEntries, confirmRef);
+      seedRegistrationQueue(confirmationEntries, confirmRef, ['CHECKOUT-PENDING']);
     }
   }, [isConfirmation, confirmationEntriesJson, confirmRef, seedRegistrationQueue]);
 
@@ -1556,7 +1562,7 @@ export function CheckoutPage({
   }, [isConfirmation]);
 
   const openFirstRequiredForm = () => {
-    seedRegistrationQueue(confirmationEntries, confirmRef);
+    seedRegistrationQueue(confirmationEntries, confirmRef, ['CHECKOUT-PENDING']);
     const firstPending = pendingConfirmationEntries[0];
     if (firstPending) {
       navigate(getConfirmationFormPath(firstPending));
@@ -2191,6 +2197,7 @@ export function CheckoutPage({
                           eyebrow="1 form needs your attention"
                           title="Finish the required forms to complete your registration."
                           description="Your spot is reserved. Choose who will complete this entry, then add details or send a claim link."
+                          showFinishFormsLabel={false}
                         />
 
                         <div className="flex flex-col gap-4">
@@ -2361,7 +2368,7 @@ export function CheckoutPage({
                                   type="button"
                                   aria-label={`${entry.eventName}, ${entry.category}, ${statusLabel}${entry.deadline ? `, due ${entry.deadline}` : ''}`}
                                   onClick={() => {
-                                    seedRegistrationQueue(confirmationEntries, confirmRef);
+                                    seedRegistrationQueue(confirmationEntries, confirmRef, ['CHECKOUT-PENDING']);
                                     navigate(getConfirmationFormPath(entry));
                                   }}
                                 className="group flex w-full min-w-0 items-center gap-3 rounded-[16px] border border-[#e4edf0] bg-white p-3 text-left shadow-[0_12px_26px_-24px_rgba(15,23,42,0.38)] transition-all hover:border-[#cfe4df] hover:bg-[#fbfdfc] active:scale-[0.99]"
@@ -2897,31 +2904,31 @@ export function CheckoutPage({
           )}
 
           {showPreCheckoutForms && (
-            <div className="participant-form-premium space-y-4 pt-[124px] lg:pt-0 flex flex-col gap-6" data-pre-payment-gate>
+            <div className="participant-form-premium space-y-4 flex flex-col gap-6 pt-[164px] sm:pt-[132px]" data-pre-payment-gate>
               <div className="fixed inset-x-0 top-[70px] z-40 border-b border-[#d9e8e5] bg-white shadow-none">
-                <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
-                <div>
-                  <h1 className="text-[28px] sm:text-[36px] font-semibold text-[#181d27] leading-none tracking-tight">
-                    Registration
-                  </h1>
-                  <p className="mt-2 text-[13px] font-medium text-[#64748b]">
-                    Required before payment · forms required by the organizer
-                  </p>
-                </div>
+                <div className="flex flex-col items-start px-4 py-4 sm:px-6">
+                  <div>
+                    <h1 className="text-[28px] sm:text-[36px] font-semibold text-[#181d27] leading-none tracking-tight">
+                      Registration
+                    </h1>
+                    <p className="mt-2 text-[13px] font-medium text-[#64748b]">
+                      Required before payment · forms required by the organizer
+                    </p>
+                  </div>
 
-                <ParticipantFormShareControls
-                  order={preCheckoutOrder}
-                  entries={preCheckoutEntries}
-                  onShareEntries={(draftEntries) => {
-                    draftEntries.forEach((draft) => {
-                      sendRegistrationInvite(
-                        draft.queueEntry?.id || draft.id,
-                        draft.attendeeEmail || '',
-                        draft.queueEntry || registrationQueueFallback(draft, preCheckoutOrder),
-                      );
-                    });
-                  }}
-                />
+                  <ParticipantFormShareControls
+                    order={preCheckoutOrder}
+                    entries={preCheckoutEntries}
+                    onShareEntries={(draftEntries) => {
+                      draftEntries.forEach((draft) => {
+                        sendRegistrationInvite(
+                          draft.queueEntry?.id || draft.id,
+                          draft.attendeeEmail || '',
+                          draft.queueEntry || registrationQueueFallback(draft, preCheckoutOrder),
+                        );
+                      });
+                    }}
+                  />
                 </div>
               </div>
 

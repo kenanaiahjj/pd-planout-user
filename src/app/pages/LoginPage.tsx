@@ -1,6 +1,6 @@
 /**
  * @file LoginPage.tsx
- * @description Focused two-step login flow (Email/phone → OTP).
+ * @description Focused two-step mobile number login flow (Phone → OTP).
  *
  * The visual shell stays intentionally quiet so the authentication task is
  * clear on both mobile and desktop. The state machine and callbacks remain
@@ -66,29 +66,35 @@ function PhoneIcon() {
   );
 }
 
-function EmailIcon() {
-  return (
-    <svg className="w-[13px] h-[10px] shrink-0" viewBox="0 0 14 11" fill="none">
-      <path
-        d="M1 1L7 6L13 1M1 1H13V10H1V1Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Mask email for OTP screen: "ken****ah@gmail.com" */
-function maskEmail(email: string): string {
-  const [local, domain] = email.split('@');
-  if (!domain || local.length <= 4) return email;
-  return `${local.slice(0, 3)}${'*'.repeat(Math.min(4, local.length - 5))}${local.slice(-2)}@${domain}`;
+type LoginProvider = 'google' | 'facebook' | 'phone';
+
+const LAST_USED_LOGIN_PROVIDER_KEY = 'planout:last-used-login-provider';
+
+function readLastUsedLoginProvider(): LoginProvider {
+  if (typeof window === 'undefined') return 'google';
+
+  try {
+    const provider = window.localStorage.getItem(LAST_USED_LOGIN_PROVIDER_KEY);
+    return provider === 'google' || provider === 'facebook' || provider === 'phone'
+      ? provider
+      : 'google';
+  } catch {
+    return 'google';
+  }
+}
+
+function storeLastUsedLoginProvider(provider: LoginProvider) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(LAST_USED_LOGIN_PROVIDER_KEY, provider);
+  } catch {
+    // The sign-in flow should keep working when browser storage is unavailable.
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -99,19 +105,26 @@ function SocialButton({
   icon,
   label,
   onClick,
+  lastUsed = false,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick?: () => void;
+  lastUsed?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-12 w-full items-center justify-center gap-3 rounded-[12px] border border-[#dbe6e2] bg-white px-4 text-[14px] font-semibold text-[#24342f] transition-colors duration-150 hover:bg-[#f7faf8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/40 focus-visible:ring-offset-2 active:bg-[#f0f7f4] motion-reduce:transition-none"
+      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[12px] border border-[#dbe6e2] bg-white px-3 text-[14px] font-semibold text-[#24342f] transition-colors duration-150 hover:bg-[#f7faf8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/40 focus-visible:ring-offset-2 active:bg-[#f0f7f4] motion-reduce:transition-none"
     >
       {icon}
-      <span className="tracking-[-0.01em]">{label}</span>
+      <span className="whitespace-nowrap tracking-[-0.01em]">{label}</span>
+      {lastUsed && (
+        <span className="shrink-0 rounded bg-[#eaf5f1] px-1 py-0.5 text-[9px] font-semibold leading-none text-[#177564]">
+          Last used
+        </span>
+      )}
     </button>
   );
 }
@@ -237,12 +250,19 @@ interface LoginPageProps {
 // ---------------------------------------------------------------------------
 
 export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps) {
-  const [step, setStep] = useState<'email' | 'otp'>('email');
+  const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [identifier, setIdentifier] = useState('');
-  const [otpTarget, setOtpTarget] = useState<{ method: LoginMethod; value: string } | null>(null);
+  const [lastUsedProvider, setLastUsedProvider] = useState<LoginProvider>(readLastUsedLoginProvider);
+  const [otpTarget, setOtpTarget] = useState<{ method: 'phone'; value: string } | null>(null);
   const [otp, setOtp] = useState<string[]>(Array(6).fill(''));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+
+  const completeLogin = useCallback((provider: LoginProvider, value: string) => {
+    storeLastUsedLoginProvider(provider);
+    setLastUsedProvider(provider);
+    onLoginComplete(provider === 'phone' ? 'phone' : 'email', value);
+  }, [onLoginComplete]);
 
   // Start resend countdown when entering OTP step
   useEffect(() => {
@@ -263,17 +283,16 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
 
     setIsSubmitting(true);
     const timeout = setTimeout(() => {
-      onLoginComplete(otpTarget.method, otpTarget.value);
+      completeLogin('phone', otpTarget.value);
     }, 800);
     return () => clearTimeout(timeout);
-  }, [otp, onLoginComplete, otpTarget]);
+  }, [otp, completeLogin, otpTarget]);
 
   const handleContinue = useCallback(() => {
     const value = identifier.trim();
-    const method = detectLoginMethod(value);
-    if (!value || !method) return;
+    if (!value || detectLoginMethod(value) !== 'phone') return;
 
-    setOtpTarget({ method, value });
+    setOtpTarget({ method: 'phone', value });
     setIsSubmitting(true);
     // Simulate sending OTP
     setTimeout(() => {
@@ -288,17 +307,15 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
     setResendTimer(30);
   }, [resendTimer]);
 
-  const detectedMethod = detectLoginMethod(identifier);
+  const canContinueWithPhone = detectLoginMethod(identifier) === 'phone';
   const maskedIdentifier = otpTarget
-    ? otpTarget.method === 'email'
-      ? maskEmail(otpTarget.value)
-      : `${otpTarget.value.slice(0, 4)}****${otpTarget.value.slice(-2)}`
+    ? `${otpTarget.value.slice(0, 4)}****${otpTarget.value.slice(-2)}`
     : '';
 
   // -----------------------------------------------------------------------
-  // Render: Email / Phone step
+  // Render: Phone step
   // -----------------------------------------------------------------------
-  const renderEmailStep = () => (
+  const renderPhoneStep = () => (
     <div className="flex w-full flex-col items-center">
       <BrandLockup />
 
@@ -306,30 +323,38 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
         Sign in to PlanOut
       </h1>
       <p className="mt-2 max-w-[300px] text-center text-[14px] leading-5 text-[#5f7188]">
-        Use your email or phone number to continue.
+        Use your mobile number to continue.
       </p>
 
       <div className="mt-7 w-full">
-        <label htmlFor="login-identifier" className="block text-[12px] font-semibold text-[#34485d]">
-          Email or phone number
-        </label>
-        <div className="group relative mt-2 mb-3">
+        <div className="mb-2 flex items-center justify-between">
+          <label htmlFor="login-phone" className="block text-[12px] font-semibold text-[#34485d]">
+            Mobile number
+          </label>
+          {lastUsedProvider === 'phone' && (
+            <span className="shrink-0 rounded bg-[#eaf5f1] px-1 py-0.5 text-[9px] font-semibold leading-none text-[#177564]">
+              Last used
+            </span>
+          )}
+        </div>
+
+        <div className="group relative mb-3">
           <div className="relative flex min-h-[52px] items-center gap-3 rounded-[12px] border border-[#d8e3df] bg-white px-4 transition-colors duration-150 hover:border-[#b8cbc4] focus-within:border-[#177564] focus-within:ring-2 focus-within:ring-[#177564]/15">
             <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[#8798a8] transition-colors duration-150 group-focus-within:text-[#177564]">
-              {detectedMethod === 'phone' ? <PhoneIcon /> : detectedMethod === 'email' ? <EmailIcon /> : null}
+              <PhoneIcon />
             </span>
 
             <input
-              id="login-identifier"
-              type="text"
-              inputMode={detectedMethod === 'phone' ? 'tel' : 'email'}
-              autoComplete="username"
-              enterKeyHint="next"
-              aria-label="Email or phone number"
+              id="login-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              enterKeyHint="go"
+              aria-label="Mobile number"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleContinue()}
-              placeholder="Email or phone number"
+              placeholder="Enter your mobile number"
               className="native-mobile-field w-full min-h-11 min-w-0 border-none bg-transparent p-0 text-[15px] font-medium text-[#1b2835] outline-none placeholder:text-[#8798a8] focus:ring-0"
             />
           </div>
@@ -337,7 +362,7 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
 
         <PrimaryButton
           onClick={handleContinue}
-          disabled={isSubmitting || !identifier.trim()}
+          disabled={isSubmitting || !canContinueWithPhone}
           fullWidth
           appearance="gradient"
           brandGradient={{ from: '#28b99e', to: '#177564' }}
@@ -357,18 +382,6 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
             </>
           )}
         </PrimaryButton>
-
-        <p className="mx-auto mt-2.5 max-w-[300px] px-2 text-center text-[11px] leading-[1.45] text-[#62766f]">
-          By continuing, you agree to PlanOut&apos;s{' '}
-          <span className="font-semibold text-[#177564] underline decoration-[#177564]/35 underline-offset-2">
-            Terms of Service
-          </span>{' '}
-          and{' '}
-          <span className="font-semibold text-[#177564] underline decoration-[#177564]/35 underline-offset-2">
-            Privacy Policy
-          </span>
-          .
-        </p>
       </div>
 
       <div className="mt-6 flex w-full items-center gap-3 text-[#87958f]">
@@ -381,14 +394,28 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
         <SocialButton
           icon={<GoogleIcon />}
           label="Continue with Google"
-          onClick={() => onLoginComplete('email', 'google-test@planout.com')}
+          onClick={() => completeLogin('google', 'google-test@planout.com')}
+          lastUsed={lastUsedProvider === 'google'}
         />
         <SocialButton
           icon={<FacebookIcon />}
           label="Continue with Facebook"
-          onClick={() => onLoginComplete('email', 'fb-test@planout.com')}
+          onClick={() => completeLogin('facebook', 'fb-test@planout.com')}
+          lastUsed={lastUsedProvider === 'facebook'}
         />
       </div>
+
+      <p className="mx-auto mt-4 max-w-[300px] px-2 text-center text-[11px] leading-[1.45] text-[#62766f]">
+        By continuing, you agree to PlanOut&apos;s{' '}
+        <span className="font-semibold text-[#177564] underline decoration-[#177564]/35 underline-offset-2">
+          Terms of Service
+        </span>{' '}
+        and{' '}
+        <span className="font-semibold text-[#177564] underline decoration-[#177564]/35 underline-offset-2">
+          Privacy Policy
+        </span>
+        .
+      </p>
 
       {onContinueAsGuest && (
         <button
@@ -439,14 +466,14 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
       <button
         type="button"
         onClick={() => {
-          setStep('email');
+          setStep('phone');
           setOtp(Array(6).fill(''));
           setIsSubmitting(false);
         }}
         className="mt-5 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold text-[#5f7188] transition-colors hover:text-[#177564] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/35 focus-visible:ring-offset-2 motion-reduce:transition-none"
       >
         <ArrowLeft className="h-4 w-4" />
-        <span>Change {otpTarget?.method === 'email' ? 'email' : 'phone number'}</span>
+        <span>Change phone number</span>
       </button>
     </div>
   );
@@ -458,7 +485,7 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
         <main className="min-h-[100dvh] overflow-y-auto bg-[#f7faf9] px-5 py-7 font-sans sm:px-8 sm:py-10">
           <div className="mx-auto flex min-h-[calc(100dvh-3.5rem)] w-full max-w-[360px] items-center justify-center">
             <div className="w-full py-5 sm:py-6">
-              {step === 'email' ? renderEmailStep() : renderOtpStep()}
+              {step === 'phone' ? renderPhoneStep() : renderOtpStep()}
             </div>
           </div>
         </main>

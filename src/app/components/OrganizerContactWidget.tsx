@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   Camera,
+  ExternalLink,
   FileText,
   Headset,
   Image as ImageIcon,
@@ -16,11 +17,13 @@ import {
 import imgPlanOutLogo from '@/assets/5a332411061613331a1ffc8c7aa2ccf247ff8699.png';
 import imgMessengerLogo from '@/assets/messenger-logo-transparent.png';
 import { SecondaryButton } from '@/app/components/SecondaryButton';
+import type { OrganizerSocial } from '@/app/data/organizers';
 export interface ContactTarget {
   id: string;
   name: string;
   email?: string;
   phone?: string;
+  socials?: OrganizerSocial[];
   logoColor: string;
   logoInitials: string;
 }
@@ -59,22 +62,25 @@ const EMOJI_OPTIONS = ['👍', '❤️', '😂', '🎉', '👏', '🙌', '🔥',
 
 function getInitialMessages(
   contact: ContactTarget,
-  recipientLabel: string,
   showContactMethods: boolean,
   contextSummary?: string,
 ): ContactMessage[] {
-  const instruction = showContactMethods
-    ? `Choose a contact method below, or type a message to prepare your question for ${recipientLabel}.`
-    : `Type a message to chat directly with ${contact.name}.`;
+  if (showContactMethods) return [];
+
   const context = contextSummary ? ` about ${contextSummary}` : '';
 
   return [
     {
       id: `welcome-${contact.id}`,
       role: 'assistant',
-      text: `Hi! You’re contacting ${contact.name}${context}. ${instruction}`,
+      text: `Hi! You’re chatting with ${contact.name}${context}. Type a message to get started.`,
     },
   ];
+}
+
+function getSocialLabel(platform: OrganizerSocial['platform']): string {
+  if (platform === 'x') return 'X';
+  return `${platform.charAt(0).toUpperCase()}${platform.slice(1)}`;
 }
 
 function getPhoneHref(phone: string): string {
@@ -102,7 +108,7 @@ export function OrganizerContactWidget({
   onOpenChange,
 }: OrganizerContactWidgetProps) {
   const [isOpen, setIsOpen] = useState(initiallyOpen);
-  const [messages, setMessages] = useState<ContactMessage[]>(() => getInitialMessages(contact, recipientLabel, showContactMethods, contextSummary));
+  const [messages, setMessages] = useState<ContactMessage[]>(() => getInitialMessages(contact, showContactMethods, contextSummary));
   const [messageInput, setMessageInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -188,7 +194,7 @@ export function OrganizerContactWidget({
     replyTimerRef.current = null;
     isOpenRef.current = initiallyOpen;
     setIsOpen(initiallyOpen);
-    setMessages(getInitialMessages(contact, recipientLabel, showContactMethods, contextSummary));
+    setMessages(getInitialMessages(contact, showContactMethods, contextSummary));
     setMessageInput('');
     setIsTyping(false);
     setUnreadCount(0);
@@ -312,7 +318,9 @@ export function OrganizerContactWidget({
                         alt={isMessengerLogo ? 'Messenger logo' : 'PlanOut logo'}
                         className={isMessengerLogo ? 'size-8 object-contain' : 'size-[29px] object-contain'}
                       />
-                  <span className={`absolute bottom-0 right-0 size-2.5 rounded-full border-2 ${themeStyles.status}`} aria-hidden="true" />
+                  {!showContactMethods && (
+                    <span className={`absolute bottom-0 right-0 size-2.5 rounded-full border-2 ${themeStyles.status}`} aria-hidden="true" />
+                  )}
                 </div>
                 <div className="min-w-0">
                   <h2 id={titleId} className={`truncate text-[15px] font-semibold leading-tight ${themeStyles.heading}`}>
@@ -358,7 +366,7 @@ export function OrganizerContactWidget({
                   </p>
                 </div>
               )}
-              {messages.map((message) => (
+              {!showContactMethods && messages.map((message) => (
                 <div
                   key={message.id}
                   className={message.role === 'user'
@@ -369,7 +377,7 @@ export function OrganizerContactWidget({
                 </div>
               ))}
 
-              {isTyping && (
+              {!showContactMethods && isTyping && (
                 <div className={`max-w-[84%] rounded-[18px] rounded-tl-md border px-3.5 py-3 text-[12px] ${themeStyles.meta} ${themeStyles.assistantBubble}`} aria-live="polite">
                   {isMessengerTheme ? 'PlanOut Support is typing…' : 'PlanOut is preparing a response…'}
                 </div>
@@ -400,9 +408,12 @@ export function OrganizerContactWidget({
               {showContactMethods && (
                 <div className={`rounded-[18px] border p-3.5 ${themeStyles.card}`}>
                   <div className="mb-2.5 flex items-center gap-2 text-[12px] font-semibold text-[#0f172a]">
-                    <MessageSquare className={`h-4 w-4 ${themeStyles.accentText}`} aria-hidden="true" />
-                    <span>Choose how to contact {contact.name}</span>
+                    <ExternalLink className={`h-4 w-4 ${themeStyles.accentText}`} aria-hidden="true" />
+                    <span>Contact options</span>
                   </div>
+                  <p className={`mb-3 text-[11px] leading-[1.45] ${themeStyles.meta}`}>
+                    Choose an email, phone, or social link to reach this organizer outside PlanOut.
+                  </p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {contact.email && (
                       <a
@@ -430,11 +441,38 @@ export function OrganizerContactWidget({
                         </span>
                       </a>
                     )}
+                    {contact.socials?.map((social) => {
+                      const label = getSocialLabel(social.platform);
+                      const opensExternalSite = /^https?:\/\//i.test(social.url);
+
+                      return (
+                        <a
+                          key={social.platform}
+                          href={social.url}
+                          target={opensExternalSite ? '_blank' : undefined}
+                          rel={opensExternalSite ? 'noopener noreferrer' : undefined}
+                          aria-label={`Open ${contact.name} on ${label}`}
+                          className={`flex min-w-0 items-center gap-2.5 rounded-[13px] border px-3 py-2.5 transition-colors focus-visible:outline-none active:scale-[0.98] ${themeStyles.border} ${themeStyles.borderHover} ${themeStyles.soft} ${themeStyles.accentText} ${themeStyles.softHover} ${themeStyles.focusRing}`}
+                        >
+                          <ExternalLink className="size-4 shrink-0" aria-hidden="true" />
+                          <span className="min-w-0">
+                            <span className="block text-[12px] font-semibold leading-tight">{label}</span>
+                            <span className={`mt-0.5 block truncate text-[10px] ${themeStyles.meta}`}>Open {label} page</span>
+                          </span>
+                        </a>
+                      );
+                    })}
+                    {!contact.email && !contact.phone && !contact.socials?.length && (
+                      <p className={`col-span-full rounded-[12px] px-3 py-2.5 text-[12px] ${themeStyles.soft} ${themeStyles.meta}`}>
+                        No contact links are available yet.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
             </div>
 
+            {!showContactMethods && (
             <div className={`relative shrink-0 border-t bg-white px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 md:px-5 md:pb-4 ${themeStyles.composerBorder}`}>
               <AnimatePresence initial={false}>
                 {composerMenu === 'attachments' && (
@@ -604,6 +642,7 @@ export function OrganizerContactWidget({
                 </div>
               </form>
             </div>
+            )}
           </motion.aside>
         )}
       </AnimatePresence>
@@ -643,10 +682,27 @@ export function OrganizerContactWidget({
 export function ContactOrganizerButton({
   onClick,
   className = '',
+  variant = 'secondary',
 }: {
   onClick: () => void;
   className?: string;
+  variant?: 'secondary' | 'tertiary';
 }) {
+  if (variant === 'tertiary') {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Contact organizer"
+        title="Contact organizer"
+        className={`inline-flex min-h-11 items-center gap-2 rounded-[10px] px-2.5 text-[12px] font-semibold text-[#64748b] transition-colors hover:bg-[#f1f5f4] hover:text-[#315f57] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30 focus-visible:ring-offset-2 ${className}`}
+      >
+        <Headset className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+        Contact organizer
+      </button>
+    );
+  }
+
   return (
     <SecondaryButton
       type="button"

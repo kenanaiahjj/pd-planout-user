@@ -26,6 +26,7 @@ function getDaysLeft(deadline?: Date): number | null {
 export function shouldHideFloatCardOnRoute(pathname: string): boolean {
   // Event discovery and detail pages need the full viewport for browsing and purchase actions.
   if (pathname === '/events' || pathname.startsWith('/events/')) return true;
+  if (pathname === '/notifications') return true;
   if (pathname === '/orders') return true;
   if (pathname === '/passport' || pathname.startsWith('/passport/')) return true;
   if (pathname === '/registration-queue') return true;
@@ -46,7 +47,7 @@ export function FloatCard({ pendingCount, nearestDeadline, onPress, onDismiss, a
   const daysLeft = getDaysLeft(nearestDeadline);
   const showDeadline = daysLeft != null && daysLeft <= 7;
   const ctaLabel = 'Finish Forms';
-  const bottomOffset = 'bottom-[calc(104px+env(safe-area-inset-bottom))] sm:bottom-6';
+  const positionClasses = 'fixed left-4 right-4 z-30 mx-auto max-w-[380px] bottom-[calc(104px+env(safe-area-inset-bottom))] md:left-auto md:right-8 md:mx-0 md:w-[360px] md:bottom-8';
   const deadlineLabel = showDeadline ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left` : '';
 
   // Use event brand gradient if on an event page, otherwise use warning colors for pending forms.
@@ -64,7 +65,7 @@ export function FloatCard({ pendingCount, nearestDeadline, onPress, onDismiss, a
     <div
       role="status"
       aria-label="Forms need your attention"
-      className={`fixed left-4 right-4 md:left-auto md:right-8 z-30 mx-auto md:mx-0 max-w-[380px] md:w-[360px] ${bottomOffset} md:bottom-8 overflow-hidden rounded-[18px] px-4 py-3 text-left text-white`}
+      className={`${positionClasses} overflow-hidden rounded-[18px] px-4 py-3 text-left text-white`}
       style={{ background: gradientBg, border: `1px solid ${borderColor}`, boxShadow }}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(255,255,255,0.18),transparent_34%)]" />
@@ -101,7 +102,7 @@ export function FloatCard({ pendingCount, nearestDeadline, onPress, onDismiss, a
         </div>
 
         <div
-          className="shrink-0 rounded-full bg-white px-4 py-2 shadow-[0_12px_22px_-16px_rgba(15,23,42,0.42)]"
+          className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-white px-4 shadow-[0_12px_22px_-16px_rgba(15,23,42,0.42)]"
           style={{ color: ctaTextColor }}
         >
           <span className="text-[12px] font-semibold leading-none">{ctaLabel}</span>

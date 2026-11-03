@@ -712,6 +712,67 @@ export const MY_TICKETS: MyTicket[] = [
     purchaseDate: 'Feb 11, 2026',
   },
 
+  // Mixed-event order fixture: a second event shares the futsal order reference.
+  {
+    id: 'tkt-016',
+    eventId: 'grand-slam-tennis',
+    eventTitle: 'Grand Slam Tennis Open',
+    eventDate: 'August 29, 2026 at 8:00 AM',
+    eventLocation: 'Green Court Club, Taguig, Metro Manila',
+    organizer: 'Green Court Athletic Club',
+    brand: EVENT_BRANDS.court,
+    image:
+      'https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
+    labels: ['Tennis', 'Team'],
+    ticketType: 'team',
+    ticketTypeName: 'Team of 8',
+    schedule: {
+      type: 'single_day',
+      accessScope: 'all_sessions',
+      sessions: [{ id: 'grand-slam-team-of-8', date: 'August 29, 2026 at 8:00 AM' }],
+    },
+    entryStatus: 'pending_form',
+    status: 'action_required',
+    quantity: 1,
+    coachName: 'Jessica Williams',
+    coachEmail: 'jessica@email.com',
+    minParticipants: 4,
+    maxParticipants: 8,
+    deadline: 'August 25, 2026',
+    participants: [
+      {
+        id: 'p1',
+        name: 'Jessica Williams',
+        email: 'jessica@email.com',
+        formStatus: 'completed',
+        inviteStatus: 'accepted',
+        isPrimary: true,
+        accessPath: 'passport',
+        passportMemberId: 'member-jessica-williams',
+        passportDisplayName: 'Jessica Williams',
+      },
+      {
+        id: 'p2',
+        name: 'Emily Park',
+        email: 'emily.p@email.com',
+        formStatus: 'completed',
+        inviteStatus: 'accepted',
+        accessPath: 'passport',
+        passportMemberId: 'member-emily-park',
+        passportDisplayName: 'Emily Park',
+      },
+      ...Array.from({ length: 6 }, (_, index) => ({
+        id: `p${index + 3}`,
+        name: null,
+        email: null,
+        formStatus: 'not_started' as const,
+        inviteStatus: 'not_invited' as const,
+      })),
+    ],
+    confirmationRef: 'FUT-2026-002390',
+    purchaseDate: 'Feb 13, 2026',
+  },
+
   // ── 6. SINGLE TICKET ─ Emerald Pickleball Cup (Pending form) ───────────
   {
     id: 'tkt-003',

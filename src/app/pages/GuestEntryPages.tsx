@@ -1824,7 +1824,35 @@ export function GuestTicketClaimPage() {
   const orderId = searchParams.get('order') || undefined;
   const entryId = searchParams.get('entry') || undefined;
   const { entry } = findOrderEntry({ orderId, entryId, registrationQueueEntries, entryAttendance, guestEntryQRs, teamPlayerAccess, teamPlayerRoster });
-  if (!entry) return <Navigate to="/orders" replace />;
+  if (!entry) {
+    return (
+      <div className="mx-auto flex w-full max-w-[480px] flex-col justify-center px-4 py-12 sm:py-20">
+        <section
+          role="status"
+          aria-labelledby="claim-link-unavailable-title"
+          className="rounded-[20px] border border-slate-200 bg-white p-6 text-center shadow-[0_18px_45px_-35px_rgba(15,23,42,0.35)] sm:p-8"
+        >
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
+            <Ticket className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <h1 id="claim-link-unavailable-title" className="mt-4 text-[22px] font-semibold tracking-tight text-slate-900">
+            This claim link can’t be opened
+          </h1>
+          <p className="mt-2 text-[14px] leading-6 text-slate-600">
+            Ask the person who shared it to send a new guest entry link.
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            <PrimaryButton fullWidth onClick={() => navigate('/events')}>
+              Browse events
+            </PrimaryButton>
+            <SecondaryButton fullWidth tone="neutral" onClick={() => navigate('/')}>
+              Go to home
+            </SecondaryButton>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   const params = new URLSearchParams({
     entryId: entry.queueEntry?.id || entry.id,

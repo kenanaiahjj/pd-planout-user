@@ -139,6 +139,7 @@ export function ApplyOrganizerModal({ onClose }: ApplyOrganizerModalProps) {
                 orgName: orgName.trim(),
                 orgType,
                 submittedAt: new Date().toISOString(),
+                reviewStatus: 'under_review',
               });
               setSubmitted(true);
             }}

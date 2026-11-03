@@ -9,8 +9,10 @@ const source = fs.readFileSync(
 
 test('login keeps one focused product shell for both steps', () => {
   assert.match(source, /Sign in to PlanOut/);
-  assert.match(source, /Use your email or phone number to continue/);
-  assert.match(source, /aria-label="Email or phone number"/);
+  assert.match(source, /Use your mobile number to continue/);
+  assert.match(source, /Continue with Google/);
+  assert.match(source, /Continue with Facebook/);
+  assert.match(source, /aria-label="Mobile number"/);
   assert.match(source, /bg-gradient-to-r from-\[#28b99e\] to-\[#177564\]/);
   assert.match(source, /Or continue with/);
   assert.match(source, /Continue as Guest/);

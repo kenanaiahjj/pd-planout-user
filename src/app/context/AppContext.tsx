@@ -117,6 +117,7 @@ export interface PendingOrgApplication {
   orgName: string;
   orgType: string;
   submittedAt: string; // ISO date string
+  reviewStatus: 'under_review' | 'approved' | 'rejected';
 }
 
 export type EntryAttendanceDecision = 'together' | 'not_attending';
@@ -238,7 +239,7 @@ interface AppContextValue {
   // Registration queue
   registrationQueueEntries: RegistrationQueueEntry[];
   activeRegistrationOrderRef: string | null;
-  seedRegistrationQueue: (entries: RegistrationQueueEntry[], orderRef: string) => void;
+  seedRegistrationQueue: (entries: RegistrationQueueEntry[], orderRef: string, replaceOrderRefs?: string[]) => void;
   completeRegistrationEntry: (entryId: string, accessPath?: TeamPlayerAccessPath) => void;
   claimRegistrationEntry: (input: {
     entryId: string;
@@ -540,6 +541,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     orgName: 'Urban Fitness Team',
     orgType: 'club',
     submittedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+    reviewStatus: 'under_review',
   });
 
   const [mockState, setMockState] = useState<MockStoreState>(() => normalizeMockStateForMember(
@@ -619,11 +621,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     avatarUrl: userProfile.avatarUrl || passportMember.avatarUrl,
   };
 
-  const seedRegistrationQueue = useCallback((entries: RegistrationQueueEntry[], orderRef: string) => {
+  const seedRegistrationQueue = useCallback((entries: RegistrationQueueEntry[], orderRef: string, replaceOrderRefs: string[] = []) => {
+    const orderRefsToReplace = new Set([orderRef, ...replaceOrderRefs]);
     updateMockState((state) => ({
       ...state,
       registrationQueueEntries: [
-        ...state.registrationQueueEntries.filter((entry) => entry.orderRef !== orderRef),
+        ...state.registrationQueueEntries.filter((entry) => !orderRefsToReplace.has(entry.orderRef)),
         ...entries,
       ],
       activeRegistrationOrderRef: orderRef,

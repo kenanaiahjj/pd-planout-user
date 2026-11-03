@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Check,
   ChevronRight,
+  CircleX,
   Clock3,
   FileText,
   Info,
@@ -26,7 +27,7 @@ import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { ConfirmDialog } from './ConfirmDialog';
 import { IconButton } from './IconButton';
 import { OrganizerContactWidget, type ContactTarget } from './OrganizerContactWidget';
-import { useAppContext } from '@/app/context/AppContext';
+import { useAppContext, type PendingOrgApplication } from '@/app/context/AppContext';
 
 // ---------------------------------------------------------------------------
 // Organizations data & types
@@ -142,14 +143,12 @@ function SettingsRow({
   value,
   onClick,
   trailing,
-  tone = 'default',
 }: {
   icon: React.ReactNode;
   label: string;
   value?: string;
   onClick?: () => void;
   trailing?: React.ReactNode;
-  tone?: 'default' | 'accent';
 }) {
   const RowTag = onClick ? 'button' : 'div';
   const rowProps = onClick ? { type: 'button' as const, onClick } : {};
@@ -163,9 +162,7 @@ function SettingsRow({
     >
       <span
         aria-hidden="true"
-        className={`flex h-7 w-7 shrink-0 items-center justify-center ${
-          tone === 'accent' ? 'text-[#177564]' : 'text-slate-500'
-        }`}
+        className="flex h-7 w-7 shrink-0 items-center justify-center text-slate-500"
       >
         {icon}
       </span>
@@ -251,7 +248,7 @@ export function SettingsPage({
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchingToOrgId, setSwitchingToOrgId] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const { pendingOrgApplication, resetMockState } = useAppContext();
+  const { pendingOrgApplication, setPendingOrgApplication, resetMockState } = useAppContext();
   const [isResetOpen, setIsResetOpen] = useState(false);
 
   const displayName = userName || 'Jessica Sanchez';
@@ -262,6 +259,27 @@ export function SettingsPage({
       .join('')
       .slice(0, 2)
       .toUpperCase() || 'JS';
+  const canApplyAsOrganizer = !pendingOrgApplication || pendingOrgApplication.reviewStatus === 'rejected';
+  const applicationStatusLabel = pendingOrgApplication?.reviewStatus === 'approved'
+    ? 'Approved'
+    : pendingOrgApplication?.reviewStatus === 'rejected'
+      ? 'Not approved'
+      : 'Under review';
+
+  const updatePrototypeApplicationStatus = (value: string) => {
+    if (value === 'none') {
+      setPendingOrgApplication(null);
+      return;
+    }
+
+    const reviewStatus = value as PendingOrgApplication['reviewStatus'];
+    setPendingOrgApplication((current) => ({
+      orgName: current?.orgName || 'Urban Fitness Team',
+      orgType: current?.orgType || 'club',
+      submittedAt: current?.submittedAt || new Date().toISOString(),
+      reviewStatus,
+    }));
+  };
 
   const handleSwitchOrg = (orgId: string | null) => {
     setSwitchingToOrgId(orgId);
@@ -339,7 +357,6 @@ export function SettingsPage({
               label="My Account"
               value="Profile, preferences, and certificates"
               onClick={onGoToMyAccount}
-              tone="accent"
             />
             <SettingsRow
               icon={<ReceiptText className="h-[18px] w-[18px]" strokeWidth={1.8} />}
@@ -390,24 +407,58 @@ export function SettingsPage({
                     {pendingOrgApplication.orgName}
                   </span>
                   <span className="block truncate text-[12px] leading-4 text-[#9a6700]">
-                    Under review · Submitted{' '}
+                    {applicationStatusLabel} · Submitted{' '}
                     {new Date(pendingOrgApplication.submittedAt).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
                     })}
                   </span>
                 </span>
-                <Clock3 aria-hidden="true" className="h-4 w-4 shrink-0 text-[#b27b13]" />
+                {pendingOrgApplication.reviewStatus === 'approved'
+                  ? <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[#177564]" />
+                  : pendingOrgApplication.reviewStatus === 'rejected'
+                    ? <CircleX aria-hidden="true" className="h-4 w-4 shrink-0 text-[#b42318]" />
+                    : <Clock3 aria-hidden="true" className="h-4 w-4 shrink-0 text-[#b27b13]" />}
               </div>
             )}
 
             <SettingsRow
               icon={<Plus className="h-[18px] w-[18px]" strokeWidth={1.8} />}
-              label="Create Organization"
-              value="Apply to become an event organizer"
-              onClick={onGoToApplyOrganizer}
-              tone="accent"
+              label={pendingOrgApplication?.reviewStatus === 'rejected' ? 'Apply again' : 'Create Organization'}
+              value={pendingOrgApplication?.reviewStatus === 'under_review'
+                ? 'An application is already under review'
+                : pendingOrgApplication?.reviewStatus === 'approved'
+                  ? 'Application approved in prototype'
+                  : pendingOrgApplication?.reviewStatus === 'rejected'
+                    ? 'Submit a new organizer application'
+                    : 'Apply to become an event organizer'}
+              onClick={canApplyAsOrganizer ? onGoToApplyOrganizer : undefined}
             />
+
+            <details className="mx-3 mb-3 rounded-[12px] border border-slate-200/80 bg-slate-50/70">
+              <summary className="cursor-pointer px-3.5 py-3 text-[12px] font-semibold text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#177564]/35">
+                Prototype controls
+              </summary>
+              <div className="border-t border-slate-200/80 px-3.5 py-3">
+                <label htmlFor="prototype-organizer-application-status" className="mb-1.5 block text-[12px] font-medium text-slate-700">
+                  Organizer application state
+                </label>
+                <select
+                  id="prototype-organizer-application-status"
+                  value={pendingOrgApplication?.reviewStatus || 'none'}
+                  onChange={(event) => updatePrototypeApplicationStatus(event.target.value)}
+                  className="h-10 w-full rounded-[9px] border border-slate-200 bg-white px-3 text-[13px] text-slate-800 outline-none focus:border-[#177564]/50 focus:ring-2 focus:ring-[#177564]/15"
+                >
+                  <option value="none">No application</option>
+                  <option value="under_review">Under review</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Not approved</option>
+                </select>
+                <p className="mt-2 text-[11px] leading-4 text-slate-500">
+                  Change this sample state to preview the organizer application flow.
+                </p>
+              </div>
+            </details>
           </SettingsSection>
 
           <SettingsSection title="Support">
@@ -416,7 +467,6 @@ export function SettingsPage({
               label="Help Center"
               value="FAQs and support"
               onClick={() => setIsHelpOpen(true)}
-              tone="accent"
             />
             <SettingsRow
               icon={<ShieldCheck className="h-[18px] w-[18px]" strokeWidth={1.8} />}

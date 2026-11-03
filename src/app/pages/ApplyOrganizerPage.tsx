@@ -390,6 +390,7 @@ export function ApplyOrganizerPage({ onBack }: { onBack: () => void }) {
       orgName: orgName.trim(),
       orgType: 'Event Company',
       submittedAt: new Date().toISOString(),
+      reviewStatus: 'under_review',
     });
     setSubmitted(true);
   };

@@ -5,10 +5,12 @@ import { EventDetailsPage } from '@/app/components/EventDetailsPage';
 import { MOCK_EVENTS } from '@/app/data/events';
 import { getOrganizerBySlug } from '@/app/data/organizers';
 import { useAppContext } from '@/app/context/AppContext';
+import { getCartAdditionDescription } from '@/app/data/cart.js';
+import { toast } from 'sonner';
 
 export function EventDetailPreviewRoute() {
   const navigate = useNavigate();
-  const { setCheckoutIntent } = useAppContext();
+  const { setCheckoutIntent, addCartItems } = useAppContext();
   const event = MOCK_EVENTS.find((e) => e.id === '1')!;
 
   return (
@@ -19,7 +21,22 @@ export function EventDetailPreviewRoute() {
         const org = getOrganizerBySlug(slug);
         if (org) navigate(`/organizers/${encodeURIComponent(org.slug)}`);
       }}
-      onGoToCart={() => navigate('/cart')}
+      onGoToCart={(items) => {
+        if (!items?.length) return;
+
+        addCartItems({
+          eventId: event.id,
+          eventName: event.title,
+          date: event.date,
+          location: event.location,
+          image: event.image || '',
+          items,
+        });
+        toast.success('Added to cart', {
+          description: getCartAdditionDescription(event.title, items),
+        });
+        navigate('/cart');
+      }}
       onGoToCheckout={(eventName, category, price, image, items) => {
         setCheckoutIntent({ eventName, category, price, image, items });
         navigate('/checkout');

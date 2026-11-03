@@ -150,6 +150,12 @@ export function UserMenuDropdown({
   onCreateOrganization,
 }: UserMenuDropdownProps) {
   const { pendingOrgApplication } = useAppContext();
+  const canCreateOrganization = !pendingOrgApplication || pendingOrgApplication.reviewStatus === 'rejected';
+  const applicationStatusLabel = pendingOrgApplication?.reviewStatus === 'approved'
+    ? 'Approved'
+    : pendingOrgApplication?.reviewStatus === 'rejected'
+      ? 'Not approved'
+      : 'Under review';
   const [open, setOpen] = useState(false);
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -472,11 +478,21 @@ export function UserMenuDropdown({
                           {pendingOrgApplication.orgName}
                         </span>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] text-[#64748b]">Under Review</span>
+                          <span className="text-[10px] text-[#64748b]">{applicationStatusLabel}</span>
                         </div>
                       </div>
-                      <span className="px-2 py-0.5 bg-[#fffbeb] text-[#b45309] text-[10px] font-bold rounded-full border border-[#fde68a] shrink-0">
-                        Pending
+                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border shrink-0 ${
+                        pendingOrgApplication.reviewStatus === 'approved'
+                          ? 'bg-[#ecfdf5] text-[#177564] border-[#a7f3d0]'
+                          : pendingOrgApplication.reviewStatus === 'rejected'
+                            ? 'bg-[#fef2f2] text-[#b42318] border-[#fecaca]'
+                            : 'bg-[#fffbeb] text-[#b45309] border-[#fde68a]'
+                      }`}>
+                        {pendingOrgApplication.reviewStatus === 'approved'
+                          ? 'Approved'
+                          : pendingOrgApplication.reviewStatus === 'rejected'
+                            ? 'Not approved'
+                            : 'Pending'}
                       </span>
                     </motion.div>
                   )}
@@ -486,8 +502,13 @@ export function UserMenuDropdown({
                     initial={{ opacity: 0, x: -6 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.04 * (MOCK_ORGANIZER_ACCOUNTS.length + (pendingOrgApplication ? 2 : 1)), duration: 0.2 }}
-                    onClick={() => handleNav(onCreateOrganization)}
-                    className="group flex items-center gap-3 px-3 py-2.5 rounded-[8px] hover:bg-[#f0fdf9] active:bg-[#def2ee] transition-colors duration-150 text-left mt-0.5"
+                    disabled={!canCreateOrganization}
+                    onClick={() => canCreateOrganization && handleNav(onCreateOrganization)}
+                    className={`group flex items-center gap-3 px-3 py-2.5 rounded-[8px] transition-colors duration-150 text-left mt-0.5 ${
+                      canCreateOrganization
+                        ? 'hover:bg-[#f0fdf9] active:bg-[#def2ee]'
+                        : 'cursor-not-allowed opacity-60'
+                    }`}
                   >
                     {/* Dashed circle with plus */}
                     <div className="w-9 h-9 rounded-full border-[1.5px] border-dashed border-[#177564]/30 bg-[#f0fdf9] flex items-center justify-center shrink-0 group-hover:border-[#177564]/50 transition-colors">
@@ -498,10 +519,16 @@ export function UserMenuDropdown({
                     {/* Text */}
                     <div className="flex-1 min-w-0 flex flex-col gap-px">
                       <span className="text-[13px] font-semibold text-[#177564] leading-[19px]">
-                        Create Organization
+                        {pendingOrgApplication?.reviewStatus === 'rejected' ? 'Apply again' : 'Create Organization'}
                       </span>
                       <span className="text-[10px] text-[#94a3b8] leading-[15px]">
-                        Apply to become an event organizer
+                        {pendingOrgApplication?.reviewStatus === 'under_review'
+                          ? 'Your application is under review'
+                          : pendingOrgApplication?.reviewStatus === 'approved'
+                            ? 'Application approved in prototype'
+                            : pendingOrgApplication?.reviewStatus === 'rejected'
+                              ? 'Submit a new organizer application'
+                              : 'Apply to become an event organizer'}
                       </span>
                     </div>
                     {/* Chevron */}

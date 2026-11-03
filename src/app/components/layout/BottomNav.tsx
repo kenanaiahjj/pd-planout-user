@@ -87,7 +87,7 @@ export function BottomNav({
 
   return (
     <div
-      className={`fixed-bottom-ios fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-[420px] transition-transform duration-200 ease-out motion-reduce:transition-none md:hidden ${
+      className={`fixed-bottom-ios fixed bottom-2 left-4 right-4 z-50 mx-auto max-w-[420px] transition-transform duration-200 ease-out motion-reduce:transition-none md:hidden ${
         isShrunk
           ? 'scale-[0.9] translate-y-2 hover:scale-100 hover:translate-y-0'
           : 'scale-100 translate-y-0'
