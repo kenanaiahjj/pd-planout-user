@@ -6,6 +6,7 @@
   --planout-border: #e5e3dd;
   --planout-green: #177564;
   --planout-green-soft: #e7f2ee;
+  --planout-surface-shadow: 0 12px 40px -16px rgba(0, 0, 0, 0.03), 0 8px 30px rgba(0, 0, 0, 0.02);
 }
 
 .planout-app,
@@ -82,10 +83,26 @@
 }
 
 .planout-app:not([data-route-family="passport"]):not([data-route-family="discovery-detail"])
-  .planout-main :is(div, section, article)[class*="bg-white"][class*="border"]:not([class*="rounded-full"]) {
+  .planout-main :is(div, section, article)[class*="bg-white"][class*="border"]:not([class*="rounded-full"]):not(.planout-home-surface) {
   border-color: var(--planout-border);
   border-radius: 14px;
   box-shadow: none;
+}
+
+.planout-app .planout-main .planout-home-surface {
+  border: 1px solid var(--planout-border);
+  border-radius: 20px;
+  background-color: var(--planout-surface);
+  box-shadow: var(--planout-surface-shadow);
+}
+
+.planout-app .planout-main button.planout-home-surface {
+  transition: border-color 160ms ease-out, box-shadow 160ms ease-out, scale 160ms ease-out;
+}
+
+.planout-app .planout-main button.planout-home-surface:hover {
+  border-color: #d5d4cc;
+  box-shadow: 0 7px 20px -18px rgb(25 26 23 / 28%);
 }
 
 .planout-event-grid {

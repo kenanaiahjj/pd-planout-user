@@ -519,7 +519,7 @@ function UpcomingEventCard({
     <button
       type="button"
       onClick={onClick}
-      className="group w-full rounded-2xl border border-slate-100/80 bg-white p-4 text-left shadow-[0_2px_8px_rgba(15,23,42,0.01)] transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] hover:bg-slate-50/30 hover:border-slate-200/50 hover:shadow-[0_4px_20px_rgba(15,23,42,0.02)] hover:scale-[1.005] focus:outline-none active:scale-[0.99] sm:p-5 cursor-pointer"
+      className="planout-home-surface group w-full p-4 text-left hover:scale-[1.005] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/20 active:scale-[0.99] sm:p-5 cursor-pointer"
     >
       <div className="flex gap-4 sm:gap-5">
         <div className="h-[142px] w-[104px] shrink-0 overflow-hidden rounded-[14px] bg-slate-100 sm:h-[166px] sm:w-[146px]">
@@ -629,7 +629,7 @@ function FormsToFinishSection({
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-[20px] bg-white shadow-[0_2px_12px_rgba(15,23,42,0.07)]">
+      <div className="planout-home-surface overflow-hidden">
         {entries.slice(0, 2).map((entry, i) => {
           const ticket = findTicket(entry);
           const progress = formProgress(ticket, entry);
@@ -845,7 +845,7 @@ export function HomePage({ onEventSelect, onGoToEvents, userName }: HomePageProp
   return (
     <>
       <div className="flex flex-col gap-7 pb-32">
-        <section className="rounded-[24px] border border-neutral-100 bg-white px-5 py-5">
+        <section className="planout-home-surface px-5 py-5">
           <div className="flex items-start gap-4">
             <div className="relative h-[64px] w-[64px] shrink-0 rounded-[20px] overflow-hidden bg-neutral-100">
               <ImageWithFallback
