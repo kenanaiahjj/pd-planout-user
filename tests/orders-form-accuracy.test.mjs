@@ -130,6 +130,23 @@ test('Order Details renders every team player and a Fill up action for every pen
   assert.doesNotMatch(markup, />Add player</);
 });
 
+test('targeted team player form keeps the selected roster number', () => {
+  const teamTicket = MY_TICKETS.find((ticket) => ticket.id === 'tkt-013');
+  const markup = renderToStaticMarkup(React.createElement(MemoryRouter, null,
+    React.createElement(AppProvider, null, React.createElement(ParticipantFormPage, {
+      ticket: teamTicket,
+      initialParticipantId: 'p7',
+      playerOnly: true,
+      onBack() {},
+      onGoToTickets() {},
+    }))));
+  const routeSource = readFileSync(new URL('../src/app/routes/ParticipantFormRoute.tsx', import.meta.url), 'utf8');
+  assert.match(routeSource, /participants: formParticipantsWithAccess/);
+  assert.doesNotMatch(routeSource, /participants: \[selectedParticipant\]/);
+  assert.match(markup, />Player 7</);
+  assert.doesNotMatch(markup, />Player 1</);
+});
+
 
 test('returning from one team form never marks the whole team completed', () => {
   const route = readFileSync(new URL('../src/app/routes/ParticipantFormRoute.tsx', import.meta.url), 'utf8');

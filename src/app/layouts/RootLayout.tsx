@@ -70,6 +70,34 @@ function getActiveTab(pathname: string): NavTab {
   return 'home';
 }
 
+function getRouteFamily(pathname: string): string {
+  if (pathname === '/passport') return 'passport';
+  if (/^\/events\/[^/]+$/.test(pathname)) return 'discovery-detail';
+  if (pathname.startsWith('/organizers/')) return 'discovery-organizer';
+  if (pathname === '/' || pathname === '/events') return 'discovery';
+  if (
+    pathname.startsWith('/guest-entry/') ||
+    pathname.startsWith('/ticket-claim/') ||
+    pathname.startsWith('/order-share/') ||
+    pathname.startsWith('/passport/') ||
+    /^\/orders\/[^/]+\/entry\//.test(pathname) ||
+    /^\/orders\/[^/]+\/guest-manager$/.test(pathname)
+  ) return 'access';
+  if (
+    pathname === '/cart' ||
+    pathname === '/checkout' ||
+    pathname === '/orders' ||
+    pathname.startsWith('/orders/') ||
+    pathname === '/registration-queue'
+  ) return 'registration';
+  if (
+    pathname === '/profile' ||
+    pathname === '/notifications' ||
+    pathname.startsWith('/settings')
+  ) return 'account';
+  return 'standard';
+}
+
 /** Routes where the bottom nav should be hidden. */
 function shouldHideBottomNav(pathname: string, checkoutConfirmed: boolean): boolean {
   // Hide on detail / cart / checkout / participant form / notifications / inbox / account / organizer
@@ -118,11 +146,10 @@ export function RootLayout() {
   } = useAppContext();
 
   const pathname = location.pathname;
+  const routeFamily = getRouteFamily(pathname);
   const [isPendingFormCardDismissed, setIsPendingFormCardDismissed] = useState(false);
   const activePage = getActivePage(pathname);
   const activeTab = getActiveTab(pathname);
-  const isGuestQrPage = /^\/orders\/[^/]+\/entry\/[^/]+\/(guest-qr|temporary-guest-qr)$/.test(pathname);
-  const isPassportRoute = pathname.startsWith('/passport');
   const isGuestQrScanner = pathname === '/passport/add-entry';
   const useFullScreenOverlay = isGuestQrScanner;
   const hideBottomNav = !isAuthenticated || shouldHideBottomNav(pathname, checkoutConfirmed);
@@ -249,8 +276,10 @@ export function RootLayout() {
 
   return (
     <div
-      className="min-h-dvh font-sans selection:bg-[#def2ee] selection:text-[#177564] transition-colors duration-500"
-      style={currentEvent ? getBrandSurfaceStyle(currentEvent) : { backgroundColor: isGuestQrPage ? '#ffffff' : isPassportRoute ? '#ffffff' : '#f8fafc' }}
+      className="planout-app min-h-dvh font-sans selection:bg-[#def2ee] selection:text-[#177564] transition-colors duration-500"
+      data-route-family={routeFamily}
+      data-route={pathname}
+      style={currentEvent ? getBrandSurfaceStyle(currentEvent) : { backgroundColor: '#ffffff' }}
     >
       {/* Global scrollbar styles */}
       <style>{`
@@ -314,9 +343,10 @@ export function RootLayout() {
       )}
 
       <main
+        data-full-bleed={currentEvent || (useFullScreenOverlay && !isDesktop()) ? 'true' : undefined}
         className={
           useFullScreenOverlay && !isDesktop()
-            ? 'min-h-dvh overflow-x-hidden'
+            ? 'planout-main min-h-dvh overflow-x-hidden'
             : [
                 // On desktop, event pages go full-bleed (no max-w, no px)
                 currentEvent
@@ -325,6 +355,7 @@ export function RootLayout() {
                 hasTopBanner ? 'pt-0' : 'pt-20 sm:pt-28',
                 'overflow-x-hidden',
                 hideBottomNav ? 'pb-8 sm:pb-12' : 'pb-28 sm:pb-20',
+                'planout-main',
               ].join(' ')
         }
       >
@@ -360,8 +391,6 @@ export function RootLayout() {
           nearestDeadline={nearestPassportDeadline}
           onPress={() => navTo(ORDERS_PENDING_PATH)}
           onDismiss={() => setIsPendingFormCardDismissed(true)}
-          accentColor={currentEvent ? getEventBrand(currentEvent).accent : undefined}
-          accentDarkColor={currentEvent ? getEventBrand(currentEvent).accentDark : undefined}
         />
       )}
 
@@ -406,8 +435,19 @@ export function RootLayout() {
               });
             }}
             onGoToCheckout={(eventName, category, price, image, items) => {
+              const event = peekEvent;
               setPeekEvent(null);
-              setCheckoutIntent({ eventName, category, price, image, items });
+              setCheckoutIntent({
+                eventName,
+                category,
+                price,
+                image,
+                items: items.map((item) => ({
+                  ...item,
+                  eventDate: event?.date,
+                  eventLocation: event?.location,
+                })),
+              });
               navigate('/checkout');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}

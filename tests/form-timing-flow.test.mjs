@@ -25,7 +25,8 @@ test('event detail and peek selections attach the resolved event timing', () => 
 
 test('cart creation and checkout handoff preserve the timing field', () => {
   assert.match(cart, /formTiming: item\.formTiming/);
-  assert.match(cartPage, /formTiming: item\.formTiming/);
+  assert.match(cart, /getSelectedCartCheckoutItems[\s\S]*formTiming: item\.formTiming/);
+  assert.match(cartPage, /getSelectedCartCheckoutItems\(cart, selectedItems\)/);
 });
 
 test('checkout imports and uses the shared timing resolver', () => {

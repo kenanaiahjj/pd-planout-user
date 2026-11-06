@@ -292,7 +292,8 @@ test('Orders participant links always open one form, never the retired roster ed
   assert.match(participantFormRouteSource, /if \(\(ticket\.ticketType === 'team' \|\| ticket\.ticketType === 'multiple'\) && !completionParticipantId && !isInvite/);
   assert.match(participantFormRouteSource, /initialParticipantId=\{selectedParticipant\?\.id \|\| inviteParticipant\?\.id \|\| completionParticipantId\}/);
   assert.match(participantFormRouteSource, /playerOnly=\{playerOnly \|\| Boolean\(selectedParticipant && !isInvite\)\}/);
-  assert.match(participantFormRouteSource, /participants: \[selectedParticipant\]/);
+  assert.match(participantFormRouteSource, /participants: formParticipantsWithAccess/);
+  assert.doesNotMatch(participantFormRouteSource, /participants: \[selectedParticipant\]/);
   assert.match(participantFormSource, /const isPlayerOnly = Boolean\(\(isTeam \|\| isMultiple\) && \(playerOnly \|\| initialParticipantId\)\)/);
   assert.doesNotMatch(participantFormSource, /isTeamManager|isMultiEditor|Next Participant/);
 });

@@ -45,6 +45,7 @@ export function EventCard({
   location = 'Location TBD',
   organizer = 'Organizer Name',
   rating = 0,
+  labels,
   image,
   onClick,
 }: Partial<EventCardProps>) {
@@ -54,56 +55,61 @@ export function EventCard({
     <button
       type="button"
       onClick={onClick}
-      className={`group w-full rounded-2xl border border-slate-100/80 bg-white p-4 text-left shadow-[0_2px_8px_rgba(15,23,42,0.01)] transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] hover:bg-slate-50/30 hover:border-slate-200/50 hover:shadow-[0_4px_20px_rgba(15,23,42,0.02)] hover:scale-[1.005] focus:outline-none active:scale-[0.99] sm:p-5 ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
+      className={`planout-event-card group w-full rounded-[14px] border bg-white p-3 text-left transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/25 focus-visible:ring-offset-2 active:scale-[0.995] sm:p-3.5 ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
     >
       <div className="flex gap-4 sm:gap-5">
-        <div className="relative h-[142px] w-[104px] shrink-0 overflow-hidden rounded-[14px] bg-slate-100 sm:h-[166px] sm:w-[146px]">
+        <div className="planout-event-card__media relative h-[112px] w-[116px] shrink-0 overflow-hidden bg-[#f1f2f0] sm:h-[124px] sm:w-[152px]">
           <ImageWithFallback
             src={image || fallbackImage}
             alt={title}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
           />
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col justify-start gap-3.5">
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-2.5">
           <div className="min-w-0 relative pr-6">
-            <h3 className="line-clamp-2 text-[17.5px] sm:text-[20px] font-bold leading-[1.2] tracking-[-0.4px] text-slate-800 pr-2 transition-colors group-hover:text-slate-900">
+            {labels?.[0] && (
+              <span className="mb-1 inline-flex w-fit rounded-[5px] bg-[#f1f2f0] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[#62665f]">
+                {labels[0]}
+              </span>
+            )}
+            <h3 className="planout-event-card__title line-clamp-2 pr-2 text-[16px] font-semibold leading-[1.22] text-slate-800 transition-colors group-hover:text-slate-950 sm:text-[18px]">
               {title}
             </h3>
-            <ArrowUpRight className="absolute right-0 top-0.5 h-4.5 w-4.5 text-slate-400/80 transition-all duration-300 ease-out group-hover:text-[#177564] group-hover:translate-x-0.5 group-hover:-translate-y-0.5" strokeWidth={2.2} />
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <span className="truncate text-[12px] font-semibold text-slate-400">{organizer}</span>
+            <ArrowUpRight className="absolute right-0 top-0.5 h-4 w-4 text-slate-400 transition-colors group-hover:text-[#177564]" strokeWidth={2} />
+            <div className="mt-1 flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-[11px] font-medium text-[#6c7069]">{organizer}</span>
               <span className="text-slate-300">·</span>
-              <span className="inline-flex items-center gap-0.5 text-[12px] font-semibold text-slate-400">
-                <Star className="h-2.5 w-2.5 fill-[#f59e0b] text-[#f59e0b]" strokeWidth={1.8} />
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#6c7069]">
+                <Star className="h-2.5 w-2.5 fill-[#bd7a21] text-[#bd7a21]" strokeWidth={1.8} />
                 {rating.toFixed(1)}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2.5">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <Calendar className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.8} />
+          <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 items-start gap-2">
+              <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#858980]" strokeWidth={1.8} />
               <div className="min-w-0">
                 {hasMultipleSessions ? (
-                  <p className="whitespace-normal text-[13px] font-semibold leading-[18px] text-slate-600">
+                  <p className="whitespace-normal text-[12px] font-medium leading-[17px] text-[#42463f]">
                     {formatEventSessionListLabel(eventDates ?? [])}
                   </p>
                 ) : endDate ? (
-                  <p className="whitespace-normal text-[13px] font-semibold leading-[18px] text-slate-600">
+                  <p className="whitespace-normal text-[12px] font-medium leading-[17px] text-[#42463f]">
                     {formatEventDateRange(date, endDate)}
                   </p>
                 ) : (
-                  <p className="whitespace-normal text-[13px] font-semibold leading-[18px] text-slate-600">
+                  <p className="whitespace-normal text-[12px] font-medium leading-[17px] text-[#42463f]">
                     {formatEventDate(date)}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="flex min-w-0 items-center gap-2.5">
-              <MapPin className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.8} />
-              <span className="truncate text-[13px] font-semibold leading-[18px] text-slate-600">
+            <div className="flex min-w-0 items-start gap-2">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#858980]" strokeWidth={1.8} />
+              <span className="truncate text-[12px] font-medium leading-[17px] text-[#42463f]">
                 {location}
               </span>
             </div>

@@ -1084,7 +1084,7 @@ export function ParticipantFormPage({
         </div>
 
         {/* Right: Form card */}
-        <div className="participant-form-card bg-white rounded-[12px] border border-[#def2ee] shadow-[0px_16px_36px_0px_rgba(0,0,0,0.03)] overflow-hidden">
+        <div className="participant-form-card bg-white rounded-[12px] shadow-[0px_16px_36px_0px_rgba(0,0,0,0.03)] overflow-hidden">
           <div className="flex flex-col gap-3.5 p-4 sm:p-5">
             <div className="participant-form-identity flex items-center justify-between px-0.5 pb-0.5">
               <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-[#181d27]">

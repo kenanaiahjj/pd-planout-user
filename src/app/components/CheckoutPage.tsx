@@ -394,12 +394,9 @@ function DeferredCheckoutFormsSummary({ items }: { items: DeferredFormPreviewIte
 }
 
 const PENDING_FORMS_WARNING = {
-  gradient: 'linear-gradient(135deg, oklch(0.66 0.14 72) 0%, oklch(0.50 0.14 45) 100%)',
-  border: 'oklch(0.78 0.12 78 / 0.72)',
-  shadow: '0 24px 44px -28px oklch(0.42 0.14 42 / 0.78)',
-  ctaText: 'oklch(0.45 0.15 35)',
-  pillBackground: 'oklch(0.97 0.03 78)',
-  pillBorder: 'oklch(0.90 0.08 78)',
+  pillBackground: '#fbf2e3',
+  pillBorder: '#ead9ba',
+  ctaText: '#81591f',
 } as const;
 
 function PendingFormsHeroCard({
@@ -407,58 +404,36 @@ function PendingFormsHeroCard({
   title,
   description,
   progress,
-  showFinishFormsLabel = true,
 }: {
   eyebrow: string;
   title: string;
   description: string;
   progress?: string;
-  showFinishFormsLabel?: boolean;
 }) {
   return (
     <div
-      className="relative overflow-hidden rounded-[22px] border px-5 py-4 text-left text-white sm:px-6 sm:py-5"
-      style={{
-        background: PENDING_FORMS_WARNING.gradient,
-        border: `1px solid ${PENDING_FORMS_WARNING.border}`,
-        boxShadow: PENDING_FORMS_WARNING.shadow,
-      }}
+      className="rounded-[14px] border border-[#ecdcbf] bg-[#fffaf1] px-4 py-4 text-left sm:px-5"
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(255,255,255,0.18),transparent_34%)]" />
-      <div className="pointer-events-none absolute -left-5 -top-5 h-32 w-32 text-white opacity-[0.07]">
-        <ClipboardList className="h-full w-full" strokeWidth={1.2} />
-      </div>
-
-      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#f7ecd7] text-[#87591c]">
+          <ClipboardList className="h-[17px] w-[17px]" strokeWidth={1.9} />
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-bold uppercase leading-tight tracking-[1.4px] text-white/78">
-            {eyebrow}
-          </p>
-          <p className="mt-2 max-w-[440px] text-[24px] font-semibold leading-[1.25] tracking-[-0.5px] text-white sm:text-[26px]">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-[11px] font-semibold leading-tight text-[#81591f]">{eyebrow}</p>
+            {progress && (
+              <span className="shrink-0 rounded-[6px] bg-[#f7ecd7] px-2 py-1 text-[11px] font-semibold leading-none text-[#81591f]">
+                {progress}
+              </span>
+            )}
+          </div>
+          <p className="mt-1.5 max-w-[560px] text-[18px] font-semibold leading-[1.22] tracking-[-0.025em] text-[#272821] sm:text-[20px]">
             {title}
           </p>
-          <p className="mt-2 max-w-[440px] text-[13px] font-medium leading-[1.45] text-white/78">
+          <p className="mt-1.5 max-w-[600px] text-[13px] leading-[1.45] text-[#5e615a]">
             {description}
           </p>
         </div>
-
-        {(progress || showFinishFormsLabel) && (
-          <div className="flex shrink-0 items-center gap-2">
-            {progress && (
-              <div className="hidden rounded-full bg-white/12 px-3 py-2 text-[12px] font-semibold text-white/86 sm:block">
-                {progress}
-              </div>
-            )}
-            {showFinishFormsLabel && (
-              <div
-                className="shrink-0 rounded-full bg-white px-5 py-2.5 shadow-[0_12px_22px_-16px_rgba(15,23,42,0.42)]"
-                style={{ color: PENDING_FORMS_WARNING.ctaText }}
-              >
-                <span className="text-[14px] font-semibold leading-none">Finish Forms</span>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -687,6 +662,8 @@ export function CheckoutPage({
     id: string;
     label: string;
     eventName: string;
+    eventDate?: string;
+    eventLocation?: string;
     category: string;
     price: number;
     image?: string;
@@ -773,14 +750,16 @@ export function CheckoutPage({
             const requiresForm = Boolean(
               line.formTiming || lineEvent?.formTiming || lineEvent?.requireFormsBeforeCheckout,
             ) || /beginner|intermediate|advanced|single|double/i.test(category);
-	            return {
-	              id: `PBL-${9901 + lineIndex}-${qtyIndex}`,
-	              label: category.includes('Team') ? 'Team Entry' : 'Singles Entry',
-		              eventName: line.eventName || lineFallback.eventName || checkoutIntent.eventName,
-	              category,
-	              price: line.price || lineFallback.price || Math.round(checkoutIntent.price / intentLines.length),
-	              image: line.image || lineFallback.image || checkoutIntent.image,
-	              requiresForm,
+            return {
+              id: `PBL-${9901 + lineIndex}-${qtyIndex}`,
+              label: category.includes('Team') ? 'Team Entry' : 'Singles Entry',
+              eventName: line.eventName || lineFallback.eventName || checkoutIntent.eventName,
+              eventDate: line.eventDate,
+              eventLocation: line.eventLocation,
+              category,
+              price: line.price || lineFallback.price || Math.round(checkoutIntent.price / intentLines.length),
+              image: line.image || lineFallback.image || checkoutIntent.image,
+              requiresForm,
               formComplete: lineIndex === 0 && qtyIndex === 0 ? isFormFilledQuery : false,
               formTiming,
             } satisfies OrderItem;
@@ -2197,7 +2176,6 @@ export function CheckoutPage({
                           eyebrow="1 form needs your attention"
                           title="Finish the required forms to complete your registration."
                           description="Your spot is reserved. Choose who will complete this entry, then add details or send a claim link."
-                          showFinishFormsLabel={false}
                         />
 
                         <div className="flex flex-col gap-4">
@@ -2371,7 +2349,7 @@ export function CheckoutPage({
                                     seedRegistrationQueue(confirmationEntries, confirmRef, ['CHECKOUT-PENDING']);
                                     navigate(getConfirmationFormPath(entry));
                                   }}
-                                className="group flex w-full min-w-0 items-center gap-3 rounded-[16px] border border-[#e4edf0] bg-white p-3 text-left shadow-[0_12px_26px_-24px_rgba(15,23,42,0.38)] transition-all hover:border-[#cfe4df] hover:bg-[#fbfdfc] active:scale-[0.99]"
+                                className="group flex w-full min-w-0 items-center gap-3 rounded-[12px] border border-[#e5e6e2] bg-white p-3 text-left shadow-none transition-colors hover:border-[#ced8d2] hover:bg-[#fafcfb] active:scale-[0.995]"
                                 >
                                   <span className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-[12px] bg-[#eef2f6]">
                                     <ImageWithFallback

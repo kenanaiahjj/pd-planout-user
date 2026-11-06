@@ -224,7 +224,9 @@ export function ParticipantFormRoute() {
     ? {
         ...ticket,
         quantity: 1,
-        participants: [selectedParticipant],
+        // Keep the full roster so the page can identify the selected player's
+        // original slot while still rendering only that participant's form.
+        participants: formParticipantsWithAccess,
       }
     : { ...ticket, participants: formParticipantsWithAccess };
 

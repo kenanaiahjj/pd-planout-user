@@ -201,86 +201,74 @@ export function ProfilePage({ onEventSelect }: ProfilePageProps) {
   return (
     <div className="flex flex-col pb-6 -mx-4 sm:-mx-8 -mt-6 sm:-mt-12">
       {/* ---- Cover Image ---- */}
-      <div className="relative h-[200px] w-full bg-slate-900 overflow-hidden">
+      <div className="relative h-[190px] w-full overflow-hidden bg-slate-900 sm:h-[220px]">
         <ImageWithFallback
           src={imgCover}
           alt="Profile cover"
-          className="w-full h-full object-cover opacity-80"
+          className="h-full w-full object-cover"
         />
       </div>
 
       {/* ---- Profile Card ---- */}
-      <div className="relative mx-4 sm:mx-8 -mt-[70px] z-10">
-        {/* Shell */}
-        <div className="p-1 bg-slate-100/40 rounded-[22px] border border-slate-200/30 shadow-[var(--shadow-premium)]">
-          {/* Core */}
-          <div className="bg-white rounded-[18px] px-5 pt-4 pb-6 border border-slate-200/50">
-            {/* Avatar */}
-            <div className="flex justify-center -mt-[90px] mb-4">
-              <div className="w-[130px] h-[130px] rounded-full overflow-hidden border-[4px] border-white shadow-md bg-gray-100">
+      <div className="relative z-10 mx-4 -mt-9 rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--shadow-premium)] sm:mx-8 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex min-w-0 items-end gap-4">
+            <div className="h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full border-4 border-white bg-white shadow-md sm:h-[96px] sm:w-[96px]">
                 <ImageWithFallback
                   src={userProfile.avatarUrl || imgAvatar}
                   alt={displayName}
                   className="w-full h-full object-cover"
                 />
-              </div>
             </div>
-
-            {/* Name */}
-            <h1 className="text-slate-800 text-[23px] font-bold leading-[30px] tracking-[-0.5px] text-center">
-              {displayName}
-            </h1>
-
-            {/* Title + Location */}
-            <div className="flex flex-col items-center gap-0.5 mt-1.5">
-              <span className="text-[#177564] text-[13.5px] font-bold leading-none tracking-tight text-center">
-                {PROFILE.title}
-              </span>
-              <span className="text-slate-400 text-[13px] font-medium mt-1 leading-none">
-                {PROFILE.location}
-              </span>
-            </div>
-
-            {/* Bio */}
-            <p className="text-slate-600 text-[13.5px] leading-relaxed text-center mt-4 max-w-[340px] mx-auto font-medium">
-              {PROFILE.bio}
-            </p>
-
-            {/* Stats */}
-            <div className="flex items-center justify-center gap-10 mt-6 pt-5 border-t border-slate-100">
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-slate-800 text-[17px] font-bold tracking-tight">
-                  {PROFILE.stats.events}
+            <div className="min-w-0 pb-1">
+              <h1 className="text-left text-slate-800 text-[23px] font-bold leading-[30px] tracking-[-0.5px]">
+                {displayName}
+              </h1>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] font-medium leading-5">
+                <span className="font-semibold text-[#177564]">
+                  {PROFILE.title}
                 </span>
-                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-[1px]">
-                  Events
-                </span>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-slate-800 text-[17px] font-bold tracking-tight">
-                  {PROFILE.stats.followers}
-                </span>
-                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-[1px]">
-                  Followers
-                </span>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-slate-800 text-[17px] font-bold tracking-tight">
-                  {PROFILE.stats.following}
-                </span>
-                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-[1px]">
-                  Following
+                <span className="text-slate-400" aria-hidden="true">·</span>
+                <span className="text-slate-500">
+                  {PROFILE.location}
                 </span>
               </div>
             </div>
+          </div>
 
-            {/* Social Icons */}
-            <div className="flex items-center justify-center gap-2 mt-5">
-              <SocialButton label="Facebook"><Facebook className="w-4 h-4" /></SocialButton>
-              <SocialButton label="Instagram"><Instagram className="w-4 h-4" /></SocialButton>
-              <SocialButton label="Twitter"><Twitter className="w-4 h-4" /></SocialButton>
-              <SocialButton label="YouTube"><Youtube className="w-4 h-4" /></SocialButton>
-            </div>
+          {/* Social links */}
+          <div className="flex items-center gap-2 sm:pb-1">
+            <SocialButton label="Facebook"><Facebook className="w-4 h-4" /></SocialButton>
+            <SocialButton label="Instagram"><Instagram className="w-4 h-4" /></SocialButton>
+            <SocialButton label="Twitter"><Twitter className="w-4 h-4" /></SocialButton>
+            <SocialButton label="YouTube"><Youtube className="w-4 h-4" /></SocialButton>
+          </div>
+        </div>
+
+        {/* Bio */}
+        <p className="mt-4 max-w-[68ch] text-left text-[13.5px] font-medium leading-relaxed text-slate-600">
+          {PROFILE.bio}
+        </p>
+
+        {/* Stats */}
+        <div className="mt-5 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-slate-100 pt-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-slate-800 text-base font-semibold tracking-tight">
+              {PROFILE.stats.events}
+            </span>
+            <span className="text-slate-500 text-[12px] font-medium">Events</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-slate-800 text-base font-semibold tracking-tight">
+              {PROFILE.stats.followers}
+            </span>
+            <span className="text-slate-500 text-[12px] font-medium">Followers</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-slate-800 text-base font-semibold tracking-tight">
+              {PROFILE.stats.following}
+            </span>
+            <span className="text-slate-500 text-[12px] font-medium">Following</span>
           </div>
         </div>
       </div>

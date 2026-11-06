@@ -71,6 +71,8 @@ export interface CheckoutIntentItem {
   category: string;
   price: number;
   eventName?: string;
+  eventDate?: string;
+  eventLocation?: string;
   image?: string;
   formTiming?: FormTiming;
 }

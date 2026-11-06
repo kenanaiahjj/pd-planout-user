@@ -30,14 +30,37 @@ export function createCartEventFromAddition({
 }
 
 export function mergeCartEvents(cart, addition) {
-  const existingEvent = cart.find((event) => event.id === addition.id);
-  if (!existingEvent) return [...cart, addition];
+  const hasConflictingId = cart.some(
+    (event) => event.id === addition.id && event.eventName !== addition.eventName,
+  );
+  let eventId = addition.id;
+
+  if (hasConflictingId) {
+    const eventSlug = addition.eventName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'event';
+    const baseId = `${addition.id}-${eventSlug}`;
+    eventId = baseId;
+    let suffix = 2;
+
+    while (cart.some((event) => event.id === eventId && event.eventName !== addition.eventName)) {
+      eventId = `${baseId}-${suffix++}`;
+    }
+  }
+
+  const eventToMerge = eventId === addition.id ? addition : { ...addition, id: eventId };
+  const existingEvent = cart.find(
+    (event) => event.id === eventToMerge.id && event.eventName === eventToMerge.eventName,
+  );
+  if (!existingEvent) return [...cart, eventToMerge];
 
   return cart.map((event) => {
-    if (event.id !== addition.id) return event;
+    if (event.id !== eventToMerge.id || event.eventName !== eventToMerge.eventName) return event;
 
     const existingItems = new Map(event.items.map((item) => [item.id, item]));
-    for (const item of addition.items) {
+    for (const item of eventToMerge.items) {
       const existingItem = existingItems.get(item.id);
       existingItems.set(
         item.id,
@@ -49,6 +72,26 @@ export function mergeCartEvents(cart, addition) {
 
     return { ...event, items: [...existingItems.values()] };
   });
+}
+
+export function getSelectedCartCheckoutItems(cart, selectedItemIds) {
+  const selectedIds = new Set(selectedItemIds);
+
+  return cart.flatMap((event) =>
+    event.items
+      .filter((item) => selectedIds.has(item.id))
+      .map((item) => ({
+        ticketId: item.id,
+        qty: item.quantity,
+        category: item.name,
+        price: item.price,
+        eventName: event.eventName,
+        eventDate: event.date,
+        eventLocation: event.location,
+        image: item.image,
+        ...(item.formTiming ? { formTiming: item.formTiming } : {}),
+      })),
+  );
 }
 
 export function getCartAdditionDescription(eventName, items) {

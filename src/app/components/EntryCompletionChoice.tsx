@@ -42,9 +42,9 @@ export function EntryCompletionChoice({
   className = '',
 }: EntryCompletionChoiceProps) {
   return (
-    <fieldset className={`participant-form-ownership flex flex-col gap-2 ${className}`}>
+    <fieldset className={`participant-form-ownership flex flex-col gap-3 ${className}`}>
       <legend className="text-[14px] font-semibold text-[#181d27]">Who will complete this entry?</legend>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {OPTIONS.map((option) => {
           const selected = value === option.value;
           const disabled = option.value === 'self' && selfTakenByAnotherEntry && !selected;
@@ -53,7 +53,7 @@ export function EntryCompletionChoice({
             <label
               key={option.value}
               data-selected={selected ? '' : undefined}
-              className={`participant-form-owner-choice flex min-h-[70px] items-start gap-3 rounded-[12px] border px-3.5 py-3 transition-all ${
+              className={`participant-form-owner-choice flex min-h-[76px] items-start gap-3.5 rounded-[12px] border px-4 py-4 transition-all ${
                 selected
                   ? 'border-[#177564] bg-[#f0fdf9] text-[#177564]'
                   : 'border-[#e2e8f0] bg-white text-[#64748b]'
@@ -74,7 +74,7 @@ export function EntryCompletionChoice({
                 <span className={`block text-[13px] font-semibold ${selected ? 'text-[#177564]' : 'text-[#181d27]'}`}>
                   {option.label}
                 </span>
-                <span className="mt-0.5 block text-[11px] font-medium leading-relaxed text-[#64748b]">
+                <span className="mt-1 block text-[11px] font-medium leading-relaxed text-[#64748b]">
                   {disabled
                     ? 'This Passport is already used for another player in this order'
                     : option.description}

@@ -18,8 +18,8 @@ export const SecondaryButton = React.forwardRef<HTMLButtonElement, SecondaryButt
 }, ref) {
   const toneClass =
     tone === 'neutral'
-      ? 'border-[#e2e8f0] text-[#64748b] shadow-none hover:border-[#cbd5e1] hover:bg-[#f8fafc] hover:text-[#475569] disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300'
-      : 'border-[#d9e8e5] text-[#177564] shadow-[0_4px_10px_-8px_rgba(15,23,42,0.42)] hover:bg-[#f5fbf9] hover:text-[#125c4f] disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300 disabled:shadow-none';
+      ? 'border-[#e5e6e2] text-[#62665f] shadow-none hover:border-[#d5d7d2] hover:bg-[#f7f8f6] hover:text-[#30332e] disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400'
+      : 'border-[#cbded8] text-[#177564] shadow-none hover:border-[#a8c9bf] hover:bg-[#f5faf8] hover:text-[#125c4f] disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400';
 
   return (
     <button
@@ -27,7 +27,7 @@ export const SecondaryButton = React.forwardRef<HTMLButtonElement, SecondaryButt
       disabled={disabled}
       className={`
         inline-flex items-center justify-center gap-2
-        ${compact ? 'min-h-10 rounded-[10px] px-3 py-2 shadow-none' : 'min-h-11 rounded-[12px] px-5 py-2.5'}
+        ${compact ? 'min-h-10 rounded-[9px] px-3 py-2 shadow-none' : 'min-h-11 rounded-[10px] px-5 py-2.5'}
         ${fullWidth ? 'w-full' : ''}
         border bg-white
         text-[13px] font-semibold

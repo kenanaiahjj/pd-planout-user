@@ -597,25 +597,9 @@ export function GetTicketsModal({ isOpen, onClose, onAddToCart, onCheckout, bran
 
   const checkAvailability = useCallback(async (type: 'cart' | 'checkout') => {
     setIsProcessing(type);
-    return new Promise<boolean>((resolve) => {
-      setTimeout(() => {
-        // 10% chance of failure for regular flow
-        const shouldFail = Math.random() < 0.1; 
-        if (shouldFail) {
-          import('sonner').then(({ toast }) => {
-            toast.error('Item No Longer Available', {
-              description: 'We\'re sorry, but this ticket type just sold out and is no longer available.',
-              duration: 4000,
-            });
-          });
-          setIsProcessing(null);
-          resolve(false);
-        } else {
-          setIsProcessing(null);
-          resolve(true);
-        }
-      }, 1000);
-    });
+    await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+    setIsProcessing(null);
+    return true;
   }, []);
 
   // -- Handlers --

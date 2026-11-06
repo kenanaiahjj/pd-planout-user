@@ -1,0 +1,170 @@
+:root {
+  --planout-ink: #191a17;
+  --planout-muted: #6c7069;
+  --planout-surface: #ffffff;
+  --planout-canvas: #ffffff;
+  --planout-border: #e5e3dd;
+  --planout-green: #177564;
+  --planout-green-soft: #e7f2ee;
+}
+
+.planout-app,
+.planout-login-page {
+  color: var(--planout-ink);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.planout-app[data-route^="/orders/"] > header {
+  background-color: #fff;
+  padding-bottom: 12px;
+}
+
+.planout-app ::selection,
+.planout-login-page ::selection {
+  color: var(--planout-ink);
+  background: #cfe9e1;
+}
+
+.planout-main:not([data-full-bleed="true"]) {
+  width: 100%;
+  max-width: 1240px;
+  padding-right: clamp(16px, 3vw, 38px);
+  padding-left: clamp(16px, 3vw, 38px);
+}
+
+.planout-main:not([data-full-bleed="true"]) h1 {
+  max-width: 22ch;
+  font-size: clamp(1.75rem, 3vw, 2.35rem);
+  font-weight: 650;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.planout-main:not([data-full-bleed="true"]) h2 {
+  font-size: clamp(1.08rem, 1.5vw, 1.3rem);
+  font-weight: 620;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+
+.planout-main .order-glass-card h2 {
+  color: var(--planout-surface);
+}
+
+.planout-main .order-cover h1 {
+  color: var(--planout-surface);
+}
+
+.planout-main:not([data-full-bleed="true"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.planout-main:not([data-full-bleed="true"]) textarea,
+.planout-main:not([data-full-bleed="true"]) select,
+.planout-login-page input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.planout-login-page textarea,
+.planout-login-page select {
+  border-color: var(--planout-border);
+  border-radius: 10px;
+  background-color: var(--planout-surface);
+  box-shadow: none;
+}
+
+.planout-main:not([data-full-bleed="true"]) input:focus-visible,
+.planout-main:not([data-full-bleed="true"]) textarea:focus-visible,
+.planout-main:not([data-full-bleed="true"]) select:focus-visible,
+.planout-login-page input:focus-visible,
+.planout-login-page textarea:focus-visible,
+.planout-login-page select:focus-visible {
+  border-color: var(--planout-green);
+  outline: 3px solid rgb(23 117 100 / 14%);
+  outline-offset: 1px;
+}
+
+.planout-app:not([data-route-family="passport"]):not([data-route-family="discovery-detail"])
+  .planout-main :is(div, section, article)[class*="bg-white"][class*="border"]:not([class*="rounded-full"]) {
+  border-color: var(--planout-border);
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.planout-event-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.planout-event-card {
+  border-color: var(--planout-border);
+  border-radius: 14px;
+  background: var(--planout-surface);
+  box-shadow: none;
+}
+
+.planout-event-card:hover {
+  border-color: #d5d4cc;
+  background: #fff;
+  box-shadow: 0 7px 20px -18px rgb(25 26 23 / 28%);
+  transform: translateY(-1px);
+}
+
+.planout-event-card__media {
+  border-radius: 10px;
+}
+
+.planout-event-card__title {
+  color: var(--planout-ink);
+  font-weight: 620;
+  letter-spacing: -0.025em;
+}
+
+.planout-events-search {
+  border-color: var(--planout-border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.planout-login-page {
+  min-height: 100dvh;
+  background: var(--planout-canvas);
+}
+
+.planout-login-page__content {
+  max-width: 390px;
+}
+
+.planout-login-page h1 {
+  color: var(--planout-ink);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+}
+
+.planout-login-page .login-phone-field {
+  border-color: var(--planout-border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.planout-login-page .login-phone-field:focus-within {
+  border-color: var(--planout-green);
+  box-shadow: 0 0 0 3px rgb(23 117 100 / 12%);
+}
+
+@media (max-width: 767px) {
+  .planout-main:not([data-full-bleed="true"]) {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .planout-main:not([data-full-bleed="true"]) h1 {
+    font-size: clamp(1.7rem, 8vw, 2rem);
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planout-event-card {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms !important;
+  }
+}

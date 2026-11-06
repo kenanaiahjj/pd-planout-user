@@ -6,14 +6,14 @@ interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> 
   tone?: 'neutral' | 'brand' | 'primary' | 'inverse';
 }
 
-export function IconButton({
+export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton({
   children,
   className = '',
   size = 'md',
   tone = 'neutral',
   type = 'button',
   ...rest
-}: IconButtonProps) {
+}: IconButtonProps, ref) {
   const sizeClass = size === 'sm' ? 'h-7 w-7' : 'h-8 w-8';
   const toneClass =
     tone === 'brand'
@@ -26,6 +26,7 @@ export function IconButton({
 
   return (
     <button
+      ref={ref}
       type={type}
       className={`
         inline-flex shrink-0 items-center justify-center rounded-full
@@ -41,4 +42,4 @@ export function IconButton({
       {children}
     </button>
   );
-}
+});

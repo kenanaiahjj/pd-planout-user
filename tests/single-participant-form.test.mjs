@@ -25,9 +25,11 @@ test('participant forms are self-contained and do not expose the retired roster 
   assert.match(participantFormSource, /Open QR/);
 });
 
-test('targeted team and multiple routes pass only the selected participant into the form', () => {
+test('targeted team and multiple routes render one selected player while preserving roster position', () => {
   assert.match(participantFormRouteSource, /const selectedParticipant/);
-  assert.match(participantFormRouteSource, /participants:\s*\[selectedParticipant\]/);
+  assert.match(participantFormRouteSource, /participants:\s*formParticipantsWithAccess/);
+  assert.doesNotMatch(participantFormRouteSource, /participants:\s*\[selectedParticipant\]/);
+  assert.match(participantFormSource, /const initialParticipants = selectedParticipant \? \[selectedParticipant\] : \[\]/);
   assert.doesNotMatch(participantFormRouteSource, /newPlayer=\{newPlayer\}/);
   assert.doesNotMatch(participantFormRouteSource, /onPlayerRosterChange=/);
 });

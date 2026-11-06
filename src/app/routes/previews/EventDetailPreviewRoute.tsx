@@ -38,7 +38,17 @@ export function EventDetailPreviewRoute() {
         navigate('/cart');
       }}
       onGoToCheckout={(eventName, category, price, image, items) => {
-        setCheckoutIntent({ eventName, category, price, image, items });
+        setCheckoutIntent({
+          eventName,
+          category,
+          price,
+          image,
+          items: items.map((item) => ({
+            ...item,
+            eventDate: event.date,
+            eventLocation: event.location,
+          })),
+        });
         navigate('/checkout');
       }}
     />

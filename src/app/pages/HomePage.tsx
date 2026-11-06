@@ -432,14 +432,13 @@ function GuestHome({ onGoToEvents, onEventSelect }: HomePageProps) {
         <SectionHeader title="How it works" />
         <div className="grid gap-4 sm:grid-cols-3">
           {[
-            { step: 1, icon: Search, title: 'Find an event', body: 'Pick the sport, date, and organiser that fit.' },
-            { step: 2, icon: TicketCheck, title: 'Register', body: 'Pay and complete the required organiser forms.' },
-            { step: 3, icon: ShieldCheck, title: 'Show one QR', body: 'Staff scan your PlanOut Passport at the gate.' },
-          ].map(({ step, icon: StepIcon, title, body }, index) => {
+            { icon: Search, title: 'Find an event', body: 'Pick the sport, date, and organiser that fit.' },
+            { icon: TicketCheck, title: 'Register', body: 'Pay and complete the required organiser forms.' },
+            { icon: ShieldCheck, title: 'Show one QR', body: 'Staff scan your PlanOut Passport at the gate.' },
+          ].map(({ icon: StepIcon, title, body }, index) => {
             return (
               <div key={title} className="relative rounded-[22px] border border-black/[0.04] bg-white p-5.5 shadow-premium">
-                <div data-step={step} className="flex h-10 w-10 items-center justify-center gap-1 rounded-[12px] bg-emerald-50 text-[#177564]">
-                  <span className="text-[10px] font-bold" aria-hidden="true">{step}</span>
+                <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-emerald-50 text-[#177564]">
                   <StepIcon className="h-4.5 w-4.5" strokeWidth={1.8} />
                 </div>
                 {index < 2 && (

@@ -1,12 +1,9 @@
 /**
  * @file PrimaryButton.tsx
- * @description Reusable primary CTA button matching the Figma gradient spec.
+ * @description Reusable PlanOut primary action button.
  *
- * Visual style:
- *  - Linear gradient: #3cd4b9 → #177564 (left to right)
- *  - Subtle radial shine overlay (20% white vignette via inline SVG)
- *  - Inset white border + soft shadow for depth
- *  - Active press scale + hover brightness
+ * Primary actions use a flat PlanOut green surface. Event-owned gradients stay
+ * available when a caller supplies a brand gradient.
  */
 
 import React from 'react';
@@ -49,7 +46,7 @@ interface PrimaryButtonProps
   fullWidth?: boolean;
   /** Compact size variant for inline actions (smaller padding). */
   compact?: boolean;
-  /** Use a flat native action surface instead of the default gradient shine. */
+  /** Use an event gradient for a branded action; default actions are solid. */
   appearance?: 'gradient' | 'solid';
   /** Optional organizer/event brand gradient for event-owned surfaces. */
   brandGradient?: {
@@ -70,22 +67,19 @@ export const PrimaryButton = React.forwardRef<HTMLButtonElement, PrimaryButtonPr
   className = '',
   fullWidth = false,
   compact = false,
-  appearance = 'gradient',
+  appearance,
   brandGradient,
-  showShine = true,
+  showShine = false,
   pressScale = true,
   disabled,
   style,
   ...rest
 }, ref) {
+  const resolvedAppearance = appearance ?? (brandGradient ? 'gradient' : 'solid');
   const resolvedStyle = disabled
-    ? style
-    : appearance === 'solid'
-      ? {
-          backgroundColor: '#177564',
-          boxShadow: '0 8px 18px -14px rgba(23,117,100,0.6)',
-          ...style,
-        }
+    ? { backgroundColor: '#e8e9e4', backgroundImage: 'none', boxShadow: 'none', color: '#69716a', ...style }
+    : resolvedAppearance === 'solid'
+      ? { backgroundColor: '#177564', backgroundImage: 'none', boxShadow: 'none', ...style }
       : { ...createBackgroundStyle(brandGradient, showShine), ...style };
 
   return (
@@ -96,12 +90,12 @@ export const PrimaryButton = React.forwardRef<HTMLButtonElement, PrimaryButtonPr
         relative inline-flex items-center justify-center gap-2
         ${compact ? 'px-4 py-2' : 'px-[18px] py-[10px]'}
         ${fullWidth ? 'w-full' : ''}
-        rounded-xl text-[15px] font-semibold text-white text-center
+        rounded-[10px] text-[15px] font-semibold text-white text-center
         transition-[filter,transform] duration-150 ease-out
         ${pressScale ? 'active:scale-[0.98] motion-reduce:active:scale-100' : ''}
         motion-reduce:transition-none
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/35 focus-visible:ring-offset-2
-        ${disabled ? 'opacity-50 cursor-not-allowed saturate-50' : 'cursor-pointer hover:brightness-110'}
+        ${disabled ? 'text-[#69716a] opacity-100 cursor-not-allowed' : 'cursor-pointer hover:brightness-105'}
         ${className}
       `.trim()}
       style={resolvedStyle}
@@ -112,19 +106,6 @@ export const PrimaryButton = React.forwardRef<HTMLButtonElement, PrimaryButtonPr
         {children}
       </span>
 
-      {/* White inset border + shadow overlay */}
-      <span
-        aria-hidden
-        className="absolute inset-0 rounded-[inherit] border border-white/20 pointer-events-none"
-      />
-
-      {/* Disabled fallback bg (gradient won't show when style is omitted) */}
-      {disabled && (
-        <span
-          aria-hidden
-          className="absolute inset-0 rounded-[inherit] bg-[#cbd5e1] -z-[1]"
-        />
-      )}
     </button>
   );
 });
@@ -135,7 +116,7 @@ interface PrimaryButtonLinkProps
   fullWidth?: boolean;
   /** Compact size variant for inline actions. */
   compact?: boolean;
-  /** Use a flat native action surface instead of the default gradient shine. */
+  /** Use an event gradient for a branded action; default actions are solid. */
   appearance?: 'gradient' | 'solid';
   /** Optional organizer/event brand gradient for event-owned surfaces. */
   brandGradient?: {
@@ -152,17 +133,19 @@ export const PrimaryButtonLink = React.forwardRef<HTMLAnchorElement, PrimaryButt
   className = '',
   fullWidth = false,
   compact = false,
-  appearance = 'gradient',
+  appearance,
   brandGradient,
-  showShine = true,
+  showShine = false,
   pressScale = true,
   style,
   ...rest
 }, ref) {
-  const resolvedStyle = appearance === 'solid'
+  const resolvedAppearance = appearance ?? (brandGradient ? 'gradient' : 'solid');
+  const resolvedStyle = resolvedAppearance === 'solid'
     ? {
         backgroundColor: '#177564',
-        boxShadow: '0 8px 18px -14px rgba(23,117,100,0.6)',
+        backgroundImage: 'none',
+        boxShadow: 'none',
         ...style,
       }
     : { ...createBackgroundStyle(brandGradient, showShine), ...style };
@@ -171,12 +154,12 @@ export const PrimaryButtonLink = React.forwardRef<HTMLAnchorElement, PrimaryButt
     'relative inline-flex items-center justify-center gap-2',
     compact ? 'px-4 py-2' : 'px-[18px] py-[10px]',
     fullWidth ? 'w-full' : '',
-    'rounded-xl text-[15px] font-semibold text-white text-center',
+    'rounded-[10px] text-[15px] font-semibold text-white text-center',
     'transition-[filter,transform] duration-150 ease-out',
     pressScale ? 'active:scale-[0.98] motion-reduce:active:scale-100' : '',
     'motion-reduce:transition-none',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/35 focus-visible:ring-offset-2',
-    'cursor-pointer hover:brightness-110',
+    'cursor-pointer hover:brightness-105',
     className,
   ].filter(Boolean).join(' ');
 
@@ -190,10 +173,6 @@ export const PrimaryButtonLink = React.forwardRef<HTMLAnchorElement, PrimaryButt
       <span className="relative z-[1] flex items-center justify-center gap-2 leading-[24px] whitespace-nowrap">
         {children}
       </span>
-      <span
-        aria-hidden
-        className="absolute inset-0 rounded-[inherit] border border-white/20 pointer-events-none"
-      />
     </a>
   );
 });

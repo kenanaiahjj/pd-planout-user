@@ -1,7 +1,5 @@
 @import './fonts.css';
 @import './tailwind.css';
-@import './theme.css';
-
 /* Hide all scrollbars on mobile */
 @media (max-width: 767px) {
   * {

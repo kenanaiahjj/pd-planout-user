@@ -55,6 +55,7 @@ interface LocationDropdownProps {
   onChange?: (loc: LocationItem | null) => void;
   radiusValue?: number;
   onRadiusChange?: (r: number) => void;
+  compact?: boolean;
 }
 
 export function LocationDropdown({
@@ -62,6 +63,7 @@ export function LocationDropdown({
   onChange,
   radiusValue,
   onRadiusChange,
+  compact = false,
 }: LocationDropdownProps = {}) {
   // Internal state (used when uncontrolled)
   const [internalLocation, setInternalLocation] = useState<LocationItem | null>(null);
@@ -124,41 +126,58 @@ export function LocationDropdown({
   return (
     <Popover.Root open={isOpen} onOpenChange={setIsOpen}>
       <Popover.Trigger asChild>
-        <div className="relative w-full group">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
-          <input 
-            type="search"
-            inputMode="search"
-            enterKeyHint="search"
-            autoComplete="off"
-            aria-label="Search city"
-            className={cn(
-              "w-full bg-white border border-slate-200/80 rounded-xl py-2.5 text-[13px] font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#177564] focus:ring-1 focus:ring-[#177564]/20 transition-all cursor-text shadow-[0_1px_2px_rgba(0,0,0,0.015)]",
-              "pl-10", // Left padding for search icon
-              isMatch ? "pr-20" : "pr-10" // Right padding: larger if showing radius text
-            )}
-            placeholder="Search city..."
-            value={isMatch && selectedLocation ? selectedLocation.city : search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              if (!isOpen) setIsOpen(true);
-            }}
-            onFocus={() => setIsOpen(true)}
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsOpen(true);
-            }}
-          />
-          
-          {/* Subtle Radius Indicator - Only visible when matched */}
-          {isMatch && (
-            <span className="absolute right-12 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#64748b] pointer-events-none select-none">
-              {radius} km
+        {compact ? (
+          <button
+            type="button"
+            aria-label={selectedLocation ? `Change city, currently ${selectedLocation.city}` : 'Choose a city'}
+            onClick={() => setSearch('')}
+            className="group flex h-[42px] w-full items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-3 text-left text-[12px] font-semibold text-[#42463f] transition-colors hover:border-[#c9d9d4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/20"
+          >
+            <MapPin className="h-4 w-4 shrink-0 text-[#858980]" />
+            <span className="min-w-0 flex-1 truncate">
+              {selectedLocation?.city || 'Any city'}
             </span>
-          )}
-
-          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94a3b8] transition-transform duration-200 group-data-[state=open]:rotate-180 pointer-events-none" />
-        </div>
+            {selectedLocation && (
+              <span className="shrink-0 text-[10px] font-medium text-[#858980]">
+                {radius[0]} km
+              </span>
+            )}
+            <ChevronDown className="h-4 w-4 shrink-0 text-[#858980] transition-transform duration-200 group-data-[state=open]:rotate-180" />
+          </button>
+        ) : (
+          <div className="relative w-full group">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
+            <input
+              type="search"
+              inputMode="search"
+              enterKeyHint="search"
+              autoComplete="off"
+              aria-label="Search city"
+              className={cn(
+                "w-full bg-white border border-slate-200/80 rounded-xl py-2.5 text-[13px] font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#177564] focus:ring-1 focus:ring-[#177564]/20 transition-all cursor-text shadow-[0_1px_2px_rgba(0,0,0,0.015)]",
+                "pl-10",
+                isMatch ? "pr-20" : "pr-10"
+              )}
+              placeholder="Search city..."
+              value={isMatch && selectedLocation ? selectedLocation.city : search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                if (!isOpen) setIsOpen(true);
+              }}
+              onFocus={() => setIsOpen(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(true);
+              }}
+            />
+            {isMatch && (
+              <span className="absolute right-12 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#64748b] pointer-events-none select-none">
+                {radius} km
+              </span>
+            )}
+            <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94a3b8] transition-transform duration-200 group-data-[state=open]:rotate-180 pointer-events-none" />
+          </div>
+        )}
       </Popover.Trigger>
       
       <Popover.Portal>
@@ -167,6 +186,22 @@ export function LocationDropdown({
           sideOffset={5}
           align="start"
         >
+          {compact && (
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                autoComplete="off"
+                aria-label="Search city"
+                placeholder="Search city..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="w-full rounded-xl border border-slate-200/80 bg-white py-2.5 pl-9 pr-3 text-[13px] font-medium text-slate-800 outline-none placeholder:text-slate-400 focus:border-[#177564] focus:ring-1 focus:ring-[#177564]/20"
+              />
+            </div>
+          )}
           {/* Near Me Option */}
           <button 
             onClick={handleNearMe}

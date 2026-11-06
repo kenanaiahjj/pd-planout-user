@@ -343,7 +343,7 @@ export function EventsPage({ onEventSelect }: EventsPageProps) {
   };
 
   return (
-    <div className="flex max-w-full flex-col gap-4 pb-28 sm:gap-5 sm:pb-8">
+    <div className="planout-events-page flex max-w-full flex-col gap-4 pb-28 sm:gap-5 sm:pb-8">
       <div className="flex items-center justify-between gap-4 pt-1">
         <h1 className="text-[28px] font-semibold leading-none tracking-[-0.8px] text-[#111827] sm:text-[34px]">
           Events
@@ -369,7 +369,7 @@ export function EventsPage({ onEventSelect }: EventsPageProps) {
         </aside>
 
         <div className="min-w-0 flex-1 flex flex-col gap-4 sm:gap-5">
-          <section className="rounded-[20px] border border-slate-100/80 bg-white p-4 sm:p-5 shadow-[0_8px_30px_rgba(0,0,0,0.015)]">
+          <section className="planout-events-search rounded-[14px] border border-slate-100/80 bg-white p-4 sm:p-5 shadow-none">
             <div className="flex items-center gap-2.5">
               <div className="relative flex-1 group">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 pointer-events-none" />
@@ -378,8 +378,8 @@ export function EventsPage({ onEventSelect }: EventsPageProps) {
                       inputMode="search"
                       enterKeyHint="search"
                       autoComplete="off"
-                      aria-label="Search events, sports, or organizers"
-                      placeholder="Search events or sports..."
+                  aria-label="Search events, sports, cities, or organizers"
+                  placeholder="Search events, sports, or cities..."
                   className="w-full bg-white border border-slate-200/80 rounded-xl py-2.5 pl-10 pr-10 text-[13px] font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#177564] focus:ring-1 focus:ring-[#177564]/20 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.015)]"
                   style={{ color: '#181d27' }}
                   value={searchQuery}
@@ -404,6 +404,16 @@ export function EventsPage({ onEventSelect }: EventsPageProps) {
                 </div>
               </div>
 
+              <div className="hidden w-[208px] shrink-0 lg:block">
+                <LocationDropdown
+                  value={selectedLocation}
+                  onChange={setSelectedLocation}
+                  radiusValue={locationRadius}
+                  onRadiusChange={setLocationRadius}
+                  compact
+                />
+              </div>
+
               {/* Mobile Filter Drawer Button (Visible on mobile only next to search) */}
               <div className="lg:hidden shrink-0">
                 <MobileFilters
@@ -425,14 +435,6 @@ export function EventsPage({ onEventSelect }: EventsPageProps) {
               </div>
             </div>
 
-            <div className="mt-3 hidden w-full sm:block">
-              <LocationDropdown
-                value={selectedLocation}
-                onChange={setSelectedLocation}
-                radiusValue={locationRadius}
-                onRadiusChange={setLocationRadius}
-              />
-            </div>
           </section>
 
           {totalAppliedCount > 0 && (
@@ -483,14 +485,14 @@ export function EventsPage({ onEventSelect }: EventsPageProps) {
 
           <div>
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="planout-event-grid grid grid-cols-1 md:grid-cols-2 gap-4">
                 <EventCardSkeleton />
                 <EventCardSkeleton />
                 <EventCardSkeleton />
               </div>
             ) : visibleEvents.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                <div className="planout-event-grid grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                   {visibleEvents.map((event) => (
                     <EventCard
                       key={event.id}

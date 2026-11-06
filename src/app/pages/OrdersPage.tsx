@@ -580,13 +580,18 @@ function getOrderGraphicImages(order: OrderRecord) {
   return Array.from(new Set(imageCandidates.filter((image): image is string => Boolean(image))));
 }
 
-function getOrderCardBrand(order: OrderRecord) {
-  const brand = order.eventEntries[0]?.ticket.brand || PLANOUT_EVENT_BRAND;
-  return getEventBrand({ brand });
-}
-
 function getOrderAmbientImage(order: OrderRecord) {
   return getOrderGraphicImages(order)[0] || '';
+}
+
+function getOrderCardStyle(order: OrderRecord) {
+  const brand = getEventBrand({ brand: order.eventEntries[0]?.ticket.brand || PLANOUT_EVENT_BRAND });
+
+  return {
+    '--order-card-scrim-leading': alpha(brand.pageBackgroundTo, 0.82),
+    '--order-card-scrim-middle': alpha(brand.pageBackground, 0.48),
+    background: `linear-gradient(135deg, ${brand.pageBackground} 0%, ${brand.pageBackgroundTo} 100%)`,
+  } as React.CSSProperties;
 }
 
 function getOrderEventIdentity(ticket: MyTicket) {
@@ -661,28 +666,6 @@ function getOrderCardEventDetails(order: OrderRecord) {
   };
 }
 
-function getOrderCardStyle(order: OrderRecord) {
-  const brand = getOrderCardBrand(order);
-
-  return {
-    '--order-card-fg': brand.pageForeground,
-    '--order-card-muted': brand.pageMuted,
-    '--order-card-subtle': brand.pageSubtle,
-    '--order-card-border': brand.pageBorder,
-    '--order-card-surface': brand.surface,
-    '--order-card-accent': brand.accent,
-    '--order-card-meta': alpha(brand.pageForeground, 0.82),
-    '--order-card-scrim-leading': alpha(brand.pageBackgroundTo, 0.90),
-    '--order-card-scrim-middle': alpha(brand.pageBackground, 0.56),
-    '--order-card-scrim-trailing': alpha(brand.pageBackgroundTo, 0.24),
-    '--order-card-solid': brand.pageBackgroundTo,
-    '--order-card-shadow': brand.accentShadow,
-    background: `linear-gradient(135deg, ${brand.pageBackground} 0%, ${brand.pageBackgroundTo} 100%)`,
-    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.48), inset 0 -1px 0 rgba(0,0,0,0.16), 0 14px 26px -20px ${brand.accentShadow}`,
-    color: brand.pageForeground,
-  } as React.CSSProperties;
-}
-
 function OrderCard({ order, onOpen }: { order: OrderRecord; onOpen: () => void }) {
   const ambientImage = getOrderAmbientImage(order);
   const state = getOrderState(order);
@@ -694,19 +677,15 @@ function OrderCard({ order, onOpen }: { order: OrderRecord; onOpen: () => void }
       type="button"
       onClick={onOpen}
       style={getOrderCardStyle(order)}
-      className="order-glass-card group relative isolate w-full overflow-hidden rounded-[18px] text-left transition-[filter,transform,box-shadow] duration-200 ease-out hover:-translate-y-px hover:brightness-[1.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#eef4f4] active:translate-y-0 active:scale-[0.99] motion-reduce:hover:translate-y-0"
+      className="order-glass-card group relative isolate flex min-h-[168px] w-full flex-col overflow-hidden rounded-2xl border border-white/20 text-left text-white shadow-[0_12px_28px_-20px_rgba(15,23,42,0.55)] transition-[transform,box-shadow,filter] duration-200 ease-out hover:-translate-y-px hover:brightness-[1.04] hover:shadow-[0_16px_32px_-20px_rgba(15,23,42,0.62)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-white active:translate-y-0 active:scale-[0.99] motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:min-h-[184px]"
     >
       {ambientImage && (
-        <span
-          data-testid="order-card-image"
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.78]"
-        >
+        <span data-testid="order-card-image" aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-75">
           <ImageWithFallback
             src={ambientImage}
             alt=""
             draggable={false}
-            className="order-card-image-media h-full w-full scale-[1.03] object-cover contrast-[1.04] saturate-[1.12] transition-transform duration-200 ease-out group-hover:scale-[1.045]"
+            className="order-card-image-media h-full w-full scale-[1.02] object-cover contrast-[1.04] saturate-[1.08] transition-transform duration-200 ease-out group-hover:scale-[1.045] motion-reduce:transition-none"
           />
         </span>
       )}
@@ -716,70 +695,42 @@ function OrderCard({ order, onOpen }: { order: OrderRecord; onOpen: () => void }
         className="pointer-events-none absolute inset-0"
         style={{
           background: [
-            'linear-gradient(to top, rgba(3,8,12,0.68) 0%, rgba(3,8,12,0.10) 62%, rgba(255,255,255,0.05) 100%)',
-            'linear-gradient(96deg, var(--order-card-scrim-leading) 0%, var(--order-card-scrim-middle) 48%, var(--order-card-scrim-trailing) 100%)',
+            'linear-gradient(to top, rgba(3,8,12,0.82) 0%, rgba(3,8,12,0.42) 54%, rgba(3,8,12,0.16) 100%)',
+            'linear-gradient(96deg, var(--order-card-scrim-leading) 0%, var(--order-card-scrim-middle) 52%, transparent 100%)',
           ].join(', '),
         }}
       />
-      <span
-        data-testid="order-glass-material"
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-white/[0.018] backdrop-saturate-[112%]"
-      />
-      <span
-        data-testid="order-glass-highlight"
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-80 transition-opacity duration-200 ease-out group-hover:opacity-100 motion-reduce:transition-none"
-        style={{ background: 'linear-gradient(128deg, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0.09) 16%, transparent 40%)' }}
-      />
-
-      <div className="relative z-10 flex min-h-[164px] flex-col px-4 py-3.5 sm:min-h-[176px] sm:px-5 sm:py-4">
-        <div className="flex min-h-0 flex-1 items-start justify-between gap-4">
+      <div className="relative z-10 flex min-h-[168px] flex-1 flex-col justify-between p-4 sm:min-h-[184px] sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          {state ? (
+            <span data-testid="order-card-status" className="inline-flex">
+              <OrderStatusLabel label={state.label} tone={state.tone} />
+            </span>
+          ) : <span />}
+          {additionalCount > 0 && (
+            <span data-testid="order-additional-events" className="shrink-0 rounded-full bg-black/35 px-2 py-1 text-[10.5px] font-semibold text-white/90 backdrop-blur-sm">
+              +{additionalCount} more
+            </span>
+          )}
+        </div>
+        <div className="flex min-w-0 items-end justify-between gap-3">
           <div className="min-w-0 flex-1">
-            {state ? (
-              <div data-testid="order-card-status" className="mb-2 self-start">
-                <OrderStatusLabel label={state.label} tone={state.tone} />
-              </div>
-            ) : null}
             <h2
               aria-label={order.name}
-              className="line-clamp-2 max-w-[92%] text-[18px] font-bold leading-[1.08] tracking-[-0.45px] text-[var(--order-card-fg)] [text-shadow:0_1px_2px_rgba(0,0,0,0.18)] sm:text-[20px] sm:leading-[1.1]"
+              className="line-clamp-2 max-w-[95%] text-[17px] font-semibold leading-[1.15] tracking-[-0.25px] text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.38)] sm:text-[19px]"
             >
               <span aria-hidden="true">{primary}</span>
-              {additionalCount > 0 && (
-                <span
-                  data-testid="order-additional-events"
-                  aria-hidden="true"
-                  className="ml-1.5 inline-flex whitespace-nowrap rounded-full border border-white/20 bg-black/30 px-2 py-1 align-middle text-[10.5px] font-semibold leading-none tracking-[-0.1px] text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-[8px] backdrop-saturate-[120%] sm:text-[11px]"
-                >
-                  {`+${additionalCount} more`}
-                </span>
-              )}
             </h2>
-            <p
-              data-testid="order-event-ticket-type"
-              className="order-card-muted mt-1.5 min-w-0 truncate text-[12.5px] font-semibold leading-none text-[var(--order-card-muted)] sm:text-[13px]"
-            >
+            <p data-testid="order-event-ticket-type" className="mt-1 truncate text-[12.5px] font-medium leading-5 text-white/90 sm:text-[13px]">
               {eventDetails?.ticketType || getItemSummary(order)}
             </p>
-            {eventDetails ? (
-              <div data-testid="order-event-details" className="mt-2 grid min-w-0 gap-1 text-[11px] font-semibold leading-[1.15] text-[var(--order-card-meta)] sm:text-[11.5px]">
-                <div data-testid="order-event-date" className="flex min-w-0 items-center gap-1.5">
-                  <CalendarDays className="size-3.5 shrink-0 text-[var(--order-card-subtle)]" strokeWidth={2.1} aria-hidden="true" />
-                  <span className="truncate">{eventDetails.date}</span>
-                </div>
-              </div>
-            ) : (
-              <p className="order-card-muted mt-2 truncate text-[11px] font-semibold leading-[1.15] text-[var(--order-card-meta)] sm:text-[11.5px]">
-                {order.date}
-              </p>
-            )}
+            <p data-testid="order-event-date" className="mt-0.5 truncate text-xs leading-5 text-white/80">
+              {eventDetails?.date || order.date}
+            </p>
           </div>
-          <div className="flex shrink-0 items-end self-stretch">
-            <span className="mt-auto tabular-nums text-[15px] font-bold leading-none tracking-[-0.2px] text-[var(--order-card-fg)] [text-shadow:0_1px_2px_rgba(0,0,0,0.18)] sm:text-[16px]">
-              {formatMoney(getOrderTotal(order))}
-            </span>
-          </div>
+          <span className="shrink-0 tabular-nums text-[14px] font-semibold text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.38)] sm:text-base">
+            {formatMoney(getOrderTotal(order))}
+          </span>
         </div>
       </div>
     </button>
@@ -849,7 +800,7 @@ export function OrdersPage() {
 
       <FilterTabs active={activeFilter} onChange={handleFilterChange} orders={visibleOrders} />
 
-      <section data-testid="orders-order-list" className="grid grid-cols-1 lg:grid-cols-2 gap-4" aria-label="Orders">
+      <section data-testid="orders-order-list" className="grid grid-cols-1 gap-3.5 sm:gap-4 lg:grid-cols-2" aria-label="Orders">
         {filteredOrders.map((order) => (
           <OrderCard
             key={order.id}
@@ -859,7 +810,7 @@ export function OrdersPage() {
         ))}
 
         {filteredOrders.length === 0 && (
-          <div className="lg:col-span-2 rounded-[16px] border border-neutral-100 bg-white p-8 text-center">
+            <div className="rounded-[16px] border border-[var(--planout-border)] bg-white p-8 text-center lg:col-span-2">
             <EmptyStateGraphic kind="no-orders" className="h-32 w-32" />
             <p className="mt-2 text-[15px] font-semibold text-[#181d27]">No orders here</p>
             <p className="mt-1 text-[13px] text-[#64748b]">Try a different order filter.</p>
@@ -1043,7 +994,7 @@ export function OrderDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6 lg:gap-8 items-start">
         {/* Left Column: Registration items, merchandise, refunds */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 lg:mt-[58px]">
           {order.eventEntries.length > 0 && (
             <section
               className="flex flex-col gap-3.5"
@@ -1110,8 +1061,8 @@ export function OrderDetailPage() {
           )}
         </div>
 
-        {/* Right Column: Sticky Payment summary & Action buttons */}
-        <div className="lg:sticky lg:top-[96px] flex flex-col gap-4">
+        {/* Right Column: Payment summary & Action buttons */}
+        <div className="flex flex-col gap-4">
           <PaymentSummary order={order} />
 
           <div className="grid grid-cols-2 gap-2 pt-1">

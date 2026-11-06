@@ -323,7 +323,7 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
         Sign in to PlanOut
       </h1>
       <p className="mt-2 max-w-[300px] text-center text-[14px] leading-5 text-[#5f7188]">
-        Use your mobile number to continue.
+        Enter your mobile number to get a 6-digit sign-in code.
       </p>
 
       <div className="mt-7 w-full">
@@ -339,7 +339,7 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
         </div>
 
         <div className="group relative mb-3">
-          <div className="relative flex min-h-[52px] items-center gap-3 rounded-[12px] border border-[#d8e3df] bg-white px-4 transition-colors duration-150 hover:border-[#b8cbc4] focus-within:border-[#177564] focus-within:ring-2 focus-within:ring-[#177564]/15">
+          <div className="login-phone-field relative flex min-h-[52px] items-center gap-3 rounded-[10px] border border-[#d8e3df] bg-white px-4 transition-colors duration-150 hover:border-[#b8cbc4] focus-within:border-[#177564]">
             <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[#8798a8] transition-colors duration-150 group-focus-within:text-[#177564]">
               <PhoneIcon />
             </span>
@@ -364,11 +364,8 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
           onClick={handleContinue}
           disabled={isSubmitting || !canContinueWithPhone}
           fullWidth
-          appearance="gradient"
-          brandGradient={{ from: '#28b99e', to: '#177564' }}
-          showShine={false}
           pressScale={false}
-          className="min-h-[52px] !rounded-[12px] bg-gradient-to-r from-[#28b99e] to-[#177564] px-4 py-2.5 text-[14px] font-semibold tracking-[-0.01em] disabled:opacity-100 disabled:saturate-100 disabled:text-[#65756f]"
+          className="min-h-[52px] !rounded-[10px] px-4 py-2.5 text-[14px] font-semibold tracking-[-0.01em]"
         >
           {isSubmitting ? (
             <span className="inline-flex items-center gap-2">
@@ -482,8 +479,8 @@ export function LoginPage({ onLoginComplete, onContinueAsGuest }: LoginPageProps
   // Main layout
   // -----------------------------------------------------------------------
       return (
-        <main className="min-h-[100dvh] overflow-y-auto bg-[#f7faf9] px-5 py-7 font-sans sm:px-8 sm:py-10">
-          <div className="mx-auto flex min-h-[calc(100dvh-3.5rem)] w-full max-w-[360px] items-center justify-center">
+        <main className="planout-login-page min-h-[100dvh] overflow-y-auto px-5 py-7 font-sans sm:px-8 sm:py-10">
+          <div className="planout-login-page__content mx-auto flex min-h-[calc(100dvh-3.5rem)] w-full items-center justify-center">
             <div className="w-full py-5 sm:py-6">
               {step === 'phone' ? renderPhoneStep() : renderOtpStep()}
             </div>

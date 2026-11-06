@@ -6,6 +6,7 @@ import {
   Copy,
   Mail,
   MapPin,
+  MoreHorizontal,
   Share2,
   Send,
   Tag,
@@ -218,26 +219,32 @@ export function RegistrationStatePanel({
   actions,
   cornerAction,
   divider = true,
+  actionsBelow = false,
 }: {
   tone: RegistrationStateTone;
   children: React.ReactNode;
   actions?: React.ReactNode;
   cornerAction?: React.ReactNode;
   divider?: boolean;
+  actionsBelow?: boolean;
 }) {
   return (
     <div
       data-tone={tone}
-      className={`relative flex flex-col gap-2.5 py-3 sm:flex-row sm:items-center sm:justify-between ${divider ? 'border-b border-[#edf2f0]' : ''}`}
+      className={`relative flex flex-col gap-2 py-2 ${actionsBelow ? '' : 'sm:flex-row sm:items-start sm:justify-between'} ${divider ? 'border-b border-[#edf2f0]' : ''}`}
     >
-      <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+      <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
         <div className="min-w-0 flex-1">{children}</div>
-        {cornerAction && <div className="shrink-0 sm:hidden">{cornerAction}</div>}
+        {cornerAction && !actionsBelow && <div className="shrink-0 sm:hidden">{cornerAction}</div>}
       </div>
       {(actions || cornerAction) && (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {actions && <RegistrationActionRow>{actions}</RegistrationActionRow>}
-          {cornerAction && <div className="hidden shrink-0 sm:block">{cornerAction}</div>}
+        <div className={`flex flex-wrap items-start gap-2 ${actionsBelow ? 'w-full justify-end' : 'justify-start sm:justify-end'}`}>
+          {actions && (
+            <div className={actionsBelow ? 'ml-auto' : undefined}>
+              <RegistrationActionRow>{actions}</RegistrationActionRow>
+            </div>
+          )}
+          {cornerAction && <div className={actionsBelow ? 'shrink-0' : 'hidden shrink-0 sm:block'}>{cornerAction}</div>}
         </div>
       )}
     </div>
@@ -245,7 +252,94 @@ export function RegistrationStatePanel({
 }
 
 export function RegistrationActionRow({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-wrap items-center justify-end gap-2">{children}</div>;
+  return <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">{children}</div>;
+}
+
+interface TeamPlayerMenuAction {
+  label: string;
+  onSelect: () => void;
+  destructive?: boolean;
+}
+
+function TeamPlayerActionMenu({
+  playerName,
+  actions,
+}: {
+  playerName: string;
+  actions: TeamPlayerMenuAction[];
+}) {
+  if (actions.length === 0) return null;
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <SecondaryButton
+          type="button"
+          compact
+          aria-label={`More actions for ${playerName}`}
+          className="min-h-11 whitespace-nowrap text-[11px]"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+          <span>More options</span>
+        </SecondaryButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        side="top"
+        align="end"
+        sideOffset={8}
+        aria-label={`Actions for ${playerName}`}
+        className="min-w-[184px] rounded-[12px] border-[#e5e3dd] bg-white p-1.5 shadow-[0_12px_28px_-16px_rgba(15,23,42,0.35)]"
+      >
+        {actions.map((action) => (
+          <DropdownMenuItem
+            key={action.label}
+            onSelect={action.onSelect}
+            className={`min-h-11 cursor-pointer rounded-[9px] px-2.5 py-2 text-[12px] font-medium ${
+              action.destructive
+                ? 'text-[#b42318] focus:bg-[#fff4f2] focus:text-[#b42318]'
+                : 'text-[#344054] focus:bg-[#f4f7f6] focus:text-[#163d37]'
+            }`}
+          >
+            {action.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function TeamRosterActionRow({
+  tone,
+  detail,
+  actions,
+  overflowAction,
+  children,
+}: {
+  tone: RegistrationStateTone;
+  detail?: string;
+  actions: React.ReactNode;
+  overflowAction?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      data-tone={tone}
+      className="flex flex-col gap-2 border-b border-[#edf2f0] py-3"
+    >
+      <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1">{children}</div>
+        {detail && (
+          <p className="mt-1 break-words text-[11px] font-medium leading-4 text-[#667085]" title={detail}>
+            {detail}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {actions}
+        {overflowAction}
+      </div>
+    </div>
+  );
 }
 
 export function ClaimLinkActions({
@@ -703,7 +797,7 @@ export function ParticipantFormLinkActions({
             <PrimaryButton
               type="button"
               compact
-              className="text-[11px] whitespace-nowrap"
+              className="min-h-11 text-[11px] whitespace-nowrap"
               title="Choose how to share this form"
               aria-label="Share form"
             >
@@ -714,7 +808,7 @@ export function ParticipantFormLinkActions({
             <SecondaryButton
               type="button"
               compact
-              className={compact ? 'text-[11px] whitespace-nowrap' : 'text-[12px] whitespace-nowrap'}
+              className={compact ? 'min-h-11 text-[11px] whitespace-nowrap' : 'text-[12px] whitespace-nowrap'}
               title="Choose how to share this form"
               aria-label="Share form"
             >
@@ -794,8 +888,8 @@ export function ParticipantFormShareControls({
               onClick={() => setBulkEmailReviewOpen(true)}
               compact
               fullWidth
-              appearance="gradient"
-              className="min-h-11 rounded-[12px] px-3 text-[12px] shadow-[0_8px_18px_-14px_rgba(23,117,100,0.6)]"
+              appearance="solid"
+              className="min-h-11 rounded-[10px] px-3 text-[12px]"
             >
               <Send className="h-4 w-4 shrink-0" />
               Send all
@@ -1372,24 +1466,17 @@ export function TeamRegistrationSectionContent({
 
   return (
     <>
-      <section className="px-4 pt-3.5 sm:px-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-[#e4f4ef] text-[#177564]">
-            <Users className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-semibold tracking-[-0.2px] text-[#163d37]">Team Roster</p>
-            <div className="mt-0.5 flex flex-wrap items-baseline gap-2">
-              <p className="text-[15px] font-semibold tracking-[-0.3px] text-[#315f57]">{summary.setUpCount} of {summary.totalCount} ready</p>
-              {!canAddPlayer && <span className="text-[11px] font-semibold text-[#7b8b9a]">Maximum players reached</span>}
-            </div>
+      <section className="px-4 py-3 sm:px-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h4 className="text-[14px] font-semibold tracking-[-0.2px] text-[#181d27]">Team roster</h4>
+            <p className="mt-1 text-[12px] font-medium leading-relaxed text-[#626b67]">
+              Fill out forms here, or send a link so each person can finish on their Passport.
+            </p>
           </div>
         </div>
-        <p className="mt-3 text-[12px] font-medium leading-relaxed text-[#315f57]">
-          Fill for Guest QR, or send a link to their Passport.
-        </p>
         <div
-          className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[#dcebe7]"
+          className="mt-2.5 h-1 overflow-hidden rounded-full bg-[#e8efed]"
           role="progressbar"
           aria-label={`${summary.setUpCount} of ${summary.totalCount} player entries set up`}
           aria-valuemin={0}
@@ -1414,7 +1501,7 @@ export function TeamRegistrationSectionContent({
         />
       </section>
 
-      <div className="mt-3 border-t border-[#e2eee9] px-4 sm:px-5">
+      <div className="border-t border-[#e2eee9] px-4 sm:px-5">
         {teamEntries.map((playerEntry, index) => {
           const hasGuestQr = playerEntry.accessPath === 'guest_qr' && playerEntry.status === 'attached';
           const hasPassport = playerEntry.accessPath === 'passport' && playerEntry.status === 'attached';
@@ -1442,140 +1529,201 @@ export function TeamRegistrationSectionContent({
           const canRemove = canRemovePlayer(playerEntry);
 
           if (hasPendingInvite) {
+            const inviteActions: TeamPlayerMenuAction[] = [
+              {
+                label: 'Fill form yourself',
+                onSelect: () => {
+                  unsendPlayerInvite(playerEntry);
+                  openPlayerForm(playerEntry);
+                },
+              },
+              {
+                label: 'Revoke invite',
+                destructive: true,
+                onSelect: () => {
+                  unsendPlayerInvite(playerEntry);
+                  toast.success('Claim link revoked');
+                },
+              },
+              ...(canRemove ? [{
+                label: 'Remove player entry',
+                destructive: true,
+                onSelect: () => setRemoveParticipantId(playerEntry.participantId || null),
+              }] : []),
+            ];
+
             return (
-              <ClaimLinkStatePanel
+              <TeamRosterActionRow
                 key={playerEntry.id}
-                entry={playerEntry}
-                order={order}
-                compact
-                title={playerName}
-                compactDetail={(
-                  <p className="mt-1 truncate text-[11px] font-medium text-[#516173]">
-                    {playerEntry.attendeeEmail || 'Recipient'} · Claim link sent
-                  </p>
-                )}
-                fillAction={(
+                tone="pending"
+                detail={playerEntry.attendeeEmail || 'Recipient'}
+                overflowAction={<TeamPlayerActionMenu playerName={playerName} actions={inviteActions} />}
+                actions={(
                   <SecondaryButton
                     type="button"
                     compact
-                    onClick={() => {
-                      unsendPlayerInvite(playerEntry);
-                      openPlayerForm(playerEntry);
-                    }}
-                    className="text-[11px]"
+                    onClick={() => copyText(
+                      buildParticipantFormLink(playerEntry, order.id, appOrigin()),
+                      'Claim link copied',
+                    )}
+                    className="min-h-11 text-[11px]"
                   >
-                    Fill up
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy link
                   </SecondaryButton>
                 )}
-                onRescind={() => {
-                  unsendPlayerInvite(playerEntry);
-                  toast.success('Claim link revoked');
-                }}
-              />
+              >
+                <p className="truncate text-[13px] font-semibold text-[#181d27]">{playerName}</p>
+                <span title="Claim link sent" className="rounded-full bg-[#e4f4ef] px-1.5 py-0.5 text-[10px] font-semibold text-[#177564]">
+                  Link sent
+                </span>
+              </TeamRosterActionRow>
+            );
+          }
+
+          const playerActions: TeamPlayerMenuAction[] = [];
+          if (isFormNeeded && !isBuyerPlayer) {
+            playerActions.push({ label: 'Fill form yourself', onSelect: () => openPlayerForm(playerEntry) });
+          }
+          if (canRemove) {
+            playerActions.push({
+              label: 'Remove player entry',
+              destructive: true,
+              onSelect: () => setRemoveParticipantId(playerEntry.participantId || null),
+            });
+          }
+
+          const playerActionContent = (
+            ((!isPreCheckout && (hasGuestQr || (hasPassport && isBuyerPlayer))) || playerEntry.status !== 'attached') ? (
+              <>
+                {hasGuestQr ? (
+                  !isPreCheckout ? (
+                    <PrimaryButton
+                      type="button"
+                      onClick={() => openPlayerGuestQr(playerEntry)}
+                      compact
+                      className="min-h-11 text-[11px]"
+                    >
+                      View QR
+                    </PrimaryButton>
+                  ) : (
+                    <SecondaryButton
+                      type="button"
+                      compact
+                      onClick={() => openPlayerForm(playerEntry)}
+                      className="min-h-11 text-[11px]"
+                    >
+                      View form
+                    </SecondaryButton>
+                  )
+                ) : hasPassport && isBuyerPlayer ? (
+                  !isPreCheckout ? (
+                    <PrimaryButton
+                      type="button"
+                      onClick={openPlayerPassportQr}
+                      compact
+                      className="min-h-11 text-[11px]"
+                    >
+                      View QR
+                    </PrimaryButton>
+                  ) : (
+                    <SecondaryButton
+                      type="button"
+                      compact
+                      onClick={() => openPlayerForm(playerEntry)}
+                      className="min-h-11 text-[11px]"
+                    >
+                      View form
+                    </SecondaryButton>
+                  )
+                ) : playerEntry.status !== 'attached' ? (
+                  isBuyerPlayer ? (
+                    <>
+                      <PrimaryButton
+                        type="button"
+                        compact
+                        onClick={() => openPlayerForm(playerEntry)}
+                        className="min-h-11 text-[11px]"
+                      >
+                        Fill form
+                      </PrimaryButton>
+                      <ParticipantFormLinkActions
+                        entry={playerEntry}
+                        order={order}
+                        compact
+                        onShare={(recipient) => sharePlayerInvite(playerEntry, recipient)}
+                      />
+                    </>
+                  ) : (
+                    <ParticipantFormLinkActions
+                      entry={playerEntry}
+                      order={order}
+                      compact
+                      primary
+                      onShare={(recipient) => sharePlayerInvite(playerEntry, recipient)}
+                    />
+                  )
+                ) : null}
+              </>
+            ) : null
+          );
+
+          const playerIdentity = (
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="truncate text-[13px] font-semibold text-[#181d27]">{playerName}</p>
+              {isFormNeeded ? (
+                <span className="rounded-full bg-[#fff7d6] px-2 py-0.5 text-[10px] font-semibold text-[#8a5b08] ring-1 ring-[#efd68b]">
+                  Form needed
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#516173]">
+                  {hasPassport || hasGuestQr || playerEntry.status === 'attached' ? (
+                    <Check className="h-3 w-3 shrink-0 text-[#177564]" />
+                  ) : null}
+                  {playerDetail}
+                </span>
+              )}
+              {playerEntry.status === 'attached' && (
+                <button
+                  type="button"
+                  onClick={() => openPlayerForm(playerEntry)}
+                  className="ml-auto inline-flex min-h-11 items-center rounded-md px-2 text-[11px] font-semibold text-[#177564] hover:bg-[#f0f8f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/25"
+                >
+                  View form
+                </button>
+              )}
+            </div>
+          );
+
+          if (isFormNeeded) {
+            return (
+              <TeamRosterActionRow
+                key={playerEntry.id}
+                tone="warning"
+                overflowAction={playerActions.length > 0 ? (
+                  <TeamPlayerActionMenu playerName={playerName} actions={playerActions} />
+                ) : null}
+                actions={playerActionContent}
+              >
+                <p className="truncate text-[13px] font-semibold text-[#181d27]">{playerName}</p>
+                <span title="Form needed" className="rounded-full bg-[#fff7d6] px-1 py-0.5 text-[10px] font-semibold text-[#8a5b08] ring-1 ring-[#efd68b]">
+                  Needs form
+                </span>
+              </TeamRosterActionRow>
             );
           }
 
           return (
             <RegistrationStatePanel
               key={playerEntry.id}
-              tone={isFormNeeded ? 'warning' : 'ready'}
-              cornerAction={canRemove ? (
-                <IconButton
-                  type="button"
-                  size="sm"
-                  aria-label={`Remove ${playerName}`}
-                  title="Remove player entry"
-                  onClick={() => setRemoveParticipantId(playerEntry.participantId || null)}
-                  className="text-[#94a3b8] hover:border-[#f0c4c0] hover:bg-[#fff7f5] hover:text-[#b42318]"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </IconButton>
+              tone="ready"
+              actionsBelow={!isPreCheckout && hasGuestQr}
+              cornerAction={playerActions.length > 0 ? (
+                <TeamPlayerActionMenu playerName={playerName} actions={playerActions} />
               ) : null}
-              actions={(
-                <>
-                  {hasGuestQr ? (
-                    <>
-                      <SecondaryButton
-                        type="button"
-                        compact
-                        onClick={() => openPlayerForm(playerEntry)}
-                        className="text-[11px]"
-                      >
-                        View form
-                      </SecondaryButton>
-                      {!isPreCheckout && (
-                        <PrimaryButton
-                          type="button"
-                          onClick={() => openPlayerGuestQr(playerEntry)}
-                          compact
-                          className="text-[11px]"
-                        >
-                          View QR
-                        </PrimaryButton>
-                      )}
-                    </>
-                  ) : hasPassport && isBuyerPlayer ? (
-                    <>
-                      <SecondaryButton
-                        type="button"
-                        compact
-                        onClick={() => openPlayerForm(playerEntry)}
-                        className="text-[11px]"
-                      >
-                        View form
-                      </SecondaryButton>
-                      {!isPreCheckout && (
-                        <PrimaryButton
-                          type="button"
-                          onClick={openPlayerPassportQr}
-                          compact
-                          className="text-[11px]"
-                        >
-                          View QR
-                        </PrimaryButton>
-                      )}
-                    </>
-                  ) : playerEntry.status !== 'attached' ? (
-                    <>
-                      <SecondaryButton
-                        type="button"
-                        compact
-                        onClick={() => openPlayerForm(playerEntry)}
-                        className="text-[11px]"
-                      >
-                        Fill up
-                      </SecondaryButton>
-                      <ParticipantFormLinkActions
-                        entry={playerEntry}
-                        order={order}
-                        compact
-                        primary={!isBuyerPlayer}
-                        onShare={(recipient) => sharePlayerInvite(playerEntry, recipient)}
-                      />
-                    </>
-                  ) : (
-                    <SecondaryButton
-                      type="button"
-                      compact
-                      onClick={() => openPlayerForm(playerEntry)}
-                      className="text-[11px]"
-                    >
-                      View form
-                    </SecondaryButton>
-                  )}
-                </>
-              )}
+              actions={playerActionContent}
             >
-              <p className="truncate text-[12.5px] font-semibold text-[#181d27]">{playerName}</p>
-              <div className="mt-1 flex min-w-0 items-center gap-1.5">
-                {hasPassport || hasGuestQr || playerEntry.status === 'attached' ? (
-                  <Check className="h-3 w-3 shrink-0 text-[#177564]" />
-                ) : null}
-                <p className={isFormNeeded
-                  ? 'inline-flex w-fit max-w-full truncate rounded-full bg-[#fff7d6] px-2 py-0.5 text-[11px] font-semibold text-[#8a5b08] ring-1 ring-[#efd68b]'
-                  : 'truncate text-[11px] font-medium text-[#516173]'}
-                >{playerDetail}</p>
-              </div>
+              {playerIdentity}
             </RegistrationStatePanel>
           );
         })}
@@ -1935,9 +2083,11 @@ export function TicketTypeRegistrationSection({
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#64748b] ring-1 ring-slate-200/80 shadow-2xs">
-            {isTeam ? 'Team Entry' : `${entryCount} ${entryCount === 1 ? 'entry' : 'entries'}`}
-          </span>
+          {!isTeam && (
+            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#64748b] ring-1 ring-slate-200/80 shadow-2xs">
+              {`${entryCount} ${entryCount === 1 ? 'entry' : 'entries'}`}
+            </span>
+          )}
         </div>
       </div>
 
@@ -1998,15 +2148,15 @@ export function EventRegistrationGroupCard({
   const contactEntry = eventGroup.ticketTypeGroups[0]?.entries[0];
 
   return (
-    <article className="rounded-[20px] border border-[#d5e3df] bg-white shadow-[0_12px_32px_-24px_rgba(15,23,42,0.35)] overflow-hidden">
+    <article className="overflow-hidden rounded-[16px] border border-[#e5e3dd] bg-white">
       {/* ── Event Level Header ── */}
-      <header className="px-4 py-3.5 sm:px-5 sm:py-4 bg-gradient-to-r from-[#fbfdfc] to-white border-b border-[#e9f0ee] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <header className="flex flex-col gap-3 border-b border-[#ecebe6] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div className="flex items-center gap-3 min-w-0">
           {eventGroup.image && (
             <ImageWithFallback
               src={eventGroup.image}
               alt=""
-              className="size-11 sm:size-12 shrink-0 rounded-[12px] object-cover ring-1 ring-black/5 shadow-xs"
+              className="size-10 shrink-0 rounded-[10px] object-cover ring-1 ring-black/5 sm:size-11"
             />
           )}
           <div className="min-w-0">
@@ -2092,7 +2242,7 @@ export function GroupedRegistrationList({
   );
 
   return (
-    <div className="flex flex-col gap-4" data-testid="grouped-registration-list">
+      <div className="flex flex-col gap-3" data-testid="grouped-registration-list">
       {eventGroups.map((eventGroup) => (
         <EventRegistrationGroupCard
           key={eventGroup.eventId}

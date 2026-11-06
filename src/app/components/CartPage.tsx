@@ -34,6 +34,7 @@ import {
   type CartItem,
   type CheckoutIntentItem,
 } from '@/app/context/AppContext';
+import { getSelectedCartCheckoutItems } from '@/app/data/cart.js';
 import { useNavigate } from 'react-router';
 import { toast } from "sonner";
 
@@ -355,19 +356,7 @@ export function CartPage({ onClose, onCheckout, isDrawer }: CartPageProps) {
   const selectedCartItems = cart.flatMap((e) =>
     e.items.filter((i) => selectedItems.has(i.id))
   );
-  const selectedCheckoutItems: CheckoutIntentItem[] = cart.flatMap((event) =>
-    event.items
-      .filter((item) => selectedItems.has(item.id))
-      .map((item) => ({
-        ticketId: item.id,
-        qty: item.quantity,
-        category: item.name,
-        price: item.price,
-        eventName: event.eventName,
-        image: item.image,
-        formTiming: item.formTiming,
-      }))
-  );
+  const selectedCheckoutItems: CheckoutIntentItem[] = getSelectedCartCheckoutItems(cart, selectedItems);
   const subtotal = selectedCartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
