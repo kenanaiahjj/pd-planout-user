@@ -1,12 +1,16 @@
 import React from 'react';
 import { useLocation } from 'react-router';
-import { ArrowUpRight, ClipboardList, X } from 'lucide-react';
+import { ClipboardList, X } from 'lucide-react';
 
 interface FloatCardProps {
   pendingCount: number;
   nearestDeadline?: Date;
   onPress: () => void;
   onDismiss?: () => void;
+  /** Event brand accent color. If provided, card uses event gradient. */
+  accentColor?: string;
+  /** Event brand accent dark color for gradient end. */
+  accentDarkColor?: string;
 }
 
 function getDaysLeft(deadline?: Date): number | null {
@@ -20,10 +24,10 @@ function getDaysLeft(deadline?: Date): number | null {
 }
 
 export function shouldHideFloatCardOnRoute(pathname: string): boolean {
-  if (pathname === '/orders') return true;
   // Event discovery and detail pages need the full viewport for browsing and purchase actions.
   if (pathname === '/events' || pathname.startsWith('/events/')) return true;
   if (pathname === '/notifications') return true;
+  if (pathname === '/orders') return true;
   if (pathname === '/passport' || pathname.startsWith('/passport/')) return true;
   if (pathname === '/registration-queue') return true;
   if (pathname === '/participant-form' || pathname.startsWith('/participant-form/')) return true;
@@ -34,7 +38,7 @@ export function shouldHideFloatCardOnRoute(pathname: string): boolean {
   return false;
 }
 
-export function FloatCard({ pendingCount, nearestDeadline, onPress, onDismiss }: FloatCardProps) {
+export function FloatCard({ pendingCount, nearestDeadline, onPress, onDismiss, accentColor, accentDarkColor }: FloatCardProps) {
   const location = useLocation();
   const { pathname } = location;
 
@@ -42,22 +46,41 @@ export function FloatCard({ pendingCount, nearestDeadline, onPress, onDismiss }:
 
   const daysLeft = getDaysLeft(nearestDeadline);
   const showDeadline = daysLeft != null && daysLeft <= 7;
-  const ctaLabel = 'Finish forms';
+  const ctaLabel = 'Finish Forms';
   const positionClasses = 'fixed left-4 right-4 z-30 mx-auto max-w-[380px] bottom-[calc(104px+env(safe-area-inset-bottom))] md:left-auto md:right-8 md:mx-0 md:w-[360px] md:bottom-8';
   const deadlineLabel = showDeadline ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left` : '';
+
+  // Use event brand gradient if on an event page, otherwise use warning colors for pending forms.
+  const hasEventBrand = Boolean(accentColor && accentDarkColor);
+  const gradientBg = hasEventBrand
+    ? `linear-gradient(135deg, ${accentColor} 0%, ${accentDarkColor} 100%)`
+    : 'linear-gradient(135deg, oklch(0.66 0.14 72) 0%, oklch(0.50 0.14 45) 100%)';
+  const borderColor = hasEventBrand ? `${accentColor}55` : 'oklch(0.78 0.12 78 / 0.72)';
+  const boxShadow = hasEventBrand
+    ? `0 24px 44px -28px ${accentDarkColor}cc`
+    : '0 24px 44px -28px oklch(0.42 0.14 42 / 0.78)';
+  const ctaTextColor = hasEventBrand ? (accentDarkColor ?? '#0f172a') : 'oklch(0.45 0.15 35)';
 
   return (
     <div
       role="status"
       aria-label="Forms need your attention"
-      className={`${positionClasses} relative rounded-[14px] border border-[#eadfca] bg-white px-3.5 py-3 text-left shadow-[0_12px_32px_-24px_rgba(29,31,26,0.42)] sm:px-4`}
+      className={`${positionClasses} overflow-hidden rounded-[18px] px-4 py-3 text-left text-white`}
+      style={{ background: gradientBg, border: `1px solid ${borderColor}`, boxShadow }}
     >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(255,255,255,0.18),transparent_34%)]" />
+
+      {/* Giant Background Icon */}
+      <div className="pointer-events-none absolute -left-4 -top-4 h-24 w-24 text-white opacity-[0.07]">
+        <ClipboardList className="h-full w-full" strokeWidth={1.2} />
+      </div>
+
       {onDismiss && (
         <button
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss forms reminder"
-          className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg text-[#777b73] transition-colors hover:bg-[#f1f2ef] hover:text-[#30332e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#177564]/30"
+          className="absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
         >
           <X className="h-3.5 w-3.5" strokeWidth={2.2} />
         </button>
@@ -66,25 +89,24 @@ export function FloatCard({ pendingCount, nearestDeadline, onPress, onDismiss }:
       <button
         type="button"
         onClick={onPress}
-        className="flex w-full items-center gap-3 pr-7 text-left transition-colors hover:bg-[#fcfcfa] active:scale-[0.995] cursor-pointer"
+        className="relative flex w-full items-center justify-between gap-3 pr-7 text-left transition-transform active:scale-[0.985] cursor-pointer"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#fbf2e3] text-[#8b5c1b]">
-          <ClipboardList className="h-[17px] w-[17px]" strokeWidth={1.9} />
-        </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold leading-tight text-[#81591f]">
+          <p className="text-[10px] font-bold uppercase leading-tight tracking-[1.25px] text-white/90">
             {pendingCount} form{pendingCount === 1 ? '' : 's'} need your attention
-            {deadlineLabel && <span className="text-[#81591f]"> · {deadlineLabel}</span>}
+            {deadlineLabel && <span className="text-white"> · {deadlineLabel}</span>}
           </p>
-          <p className="mt-1 text-[11px] leading-[1.35] text-[#62665f]">
+          <p className="mt-1 text-[12px] font-medium leading-[1.35] text-white/90">
             Finish the required forms to complete your registration.
           </p>
         </div>
 
-        <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] font-semibold text-[#177564]">
-          {ctaLabel}
-          <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.9} />
-        </span>
+        <div
+          className="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-white px-4 shadow-[0_12px_22px_-16px_rgba(15,23,42,0.42)]"
+          style={{ color: ctaTextColor }}
+        >
+          <span className="text-[12px] font-semibold leading-none">{ctaLabel}</span>
+        </div>
       </button>
     </div>
   );
